@@ -1,0 +1,21 @@
+https://www.licor.com/env/support/EddyPro/topics/command-line.html
+
+ddyPro-RP, version 5.1.1, build 2014-06-06, 12:34.
+
+USAGE: eddypro_rp [OPTION [ARG]] [PROJ_FILE]
+
+OPTIONS:
+
+[-s | --system [win | linux | mac]] Operating system; if not provided assumes "win"
+
+[-m | --mode [embedded | desktop]] Running mode; if not provided assumes "desktop"
+
+[-c | --caller [gui | console]] Caller; if not provided assumes "console"
+
+[-e | --environment [DIRECTORY]] Working directory, to be provided in embedded mode; if not provided assumes \.
+
+[-h | --help] Display this help and exit
+
+[-v | --version] Output version information and exit
+
+PROJ_FILE Path of project (*.eddypro) file; if not provided, assumes ..\ini\processing.eddypro
