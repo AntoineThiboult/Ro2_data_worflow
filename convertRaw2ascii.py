@@ -12,11 +12,8 @@ import shutil
 from datetime import datetime as dt
 import fileinput
 
-rawFileDir      =os.path.join("C:\\","Users","anthi182","Desktop","Data_for_automatization","Raw_data")
-asciiFileDir    =os.path.join("C:\\","Users","anthi182","Desktop","Data_for_automatization","Ascii_data")
-eddyproOutDir   =os.path.join("C:\\","Users","anthi182","Desktop","Data_for_automatization","Eddypro_data")
 
-def convert_CSbinary_to_csv(rawFileDir,asciiFileDir):
+def convert_CSbinary_to_csv(rawFileDir,asciiOutDir):
 
     #Find folders that match the pattern Ro2_YYYYMMDD
     listFieldCampains = [f for f in os.listdir(rawFileDir) if re.match(r'^Ro2_[0-9]{8}$', f)]
@@ -33,23 +30,22 @@ def convert_CSbinary_to_csv(rawFileDir,asciiFileDir):
                 print(rawFile)  
                 
                 inFile=os.path.join(rawFileDir,iFieldCampain,iStation,rawFile)
-                outFile=os.path.join(asciiFileDir,stationName,rawFile)
+                outFile=os.path.join(asciiOutDir,stationName,rawFile)
                 
                 # File type name handling           
-                if bool(re.search(".ts_data_",rawFile)) | bool(re.search("_Time_Series_",rawFile)):
+                if bool(re.search("ts_data_",rawFile)) | bool(re.search("_Time_Series_",rawFile)):
                     extension="_eddy.csv" 
-                elif bool(re.search(".alerte",rawFile)):
+                elif bool(re.search("alerte",rawFile)):
                     extension="_alert.csv"         
-                elif bool(re.search(".met30min",rawFile)) | bool(re.search("_Flux_CSIFormat_",rawFile)) | bool(re.search(".flux.",rawFile)):
+                elif bool(re.search("met30min",rawFile)) | bool(re.search("_Flux_CSIFormat_",rawFile)) | bool(re.search("flux",rawFile)):
                     extension="_slow.csv" 
-                elif bool(re.search(".radiation",rawFile)) | bool(re.search("_Flux_Notes_",rawFile)):
+                elif bool(re.search("radiation",rawFile)) | bool(re.search("_Flux_Notes_",rawFile)):
                     extension="_slow2.csv"             
                 else:                           # .cr1 / .cr3 / sys_log files / Config_Setting_Notes / Flux_AmeriFluxFormat_12
                     shutil.copy(inFile,outFile)
                     continue
                 
                 # Conversion from the Campbell binary file to csv format
-                # TODO Modify the name to YYYYMMDD_hhmm to avoid overwritting
                 process=os.path.join(".\Bin","raw2ascii","csidft_convert.exe")
                 subprocess.call([process, inFile, outFile, 'ToA5'])
                 
@@ -59,16 +55,15 @@ def convert_CSbinary_to_csv(rawFileDir,asciiFileDir):
                     fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S")    # TIMESTAMP format for _alert.csv, _radiation.csv, and _met30min.csv
                 except:
                     fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S.%f") # TIMESTAMP format for _eddy.csv file
-                newFileName=dt.strftime(fileStartTime,'%Y%m%d')+extension
-                shutil.move(outFile,os.path.join(asciiFileDir,stationName,newFileName))
+                newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
+                shutil.move(outFile,os.path.join(asciiOutDir,stationName,newFileName))
 
-def batch_process_eddypro(rawFileDir,asciiFileDir):
+def batch_process_eddypro(rawFileDir,asciiOutDir,eddyproOutDir):
     
     process=os.path.join(".\Bin","EddyPro","eddypro_rp.exe")
     eddyproConfig=os.path.join(".\EddyProConfig","RO2_Berge.eddypro")
     eddyproMetaData=os.path.join(".\EddyProConfig","RO2_Berge.metadata")
-    
-    
+        
     # Read in the Eddy Pro config file and replace target strings
     with fileinput.FileInput(eddyproConfig, inplace=True, backup='.bak') as file:
         for line in file:
