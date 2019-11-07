@@ -9,11 +9,10 @@ import re
 import pandas as pd
 import subprocess
 import shutil
-from datetime import datetime as dt
 import fileinput
+from datetime import datetime as dt #TODO , timedelta as td
 
-
-def convert_CSbinary_to_csv(rawFileDir,asciiOutDir):
+def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
 
     #Find folders that match the pattern Ro2_YYYYMMDD
     listFieldCampains = [f for f in os.listdir(rawFileDir) if re.match(r'^Ro2_[0-9]{8}$', f)]
@@ -21,15 +20,15 @@ def convert_CSbinary_to_csv(rawFileDir,asciiOutDir):
     for iFieldCampain in listFieldCampains:
         
         #Find folders that match the pattern Station_YYYYMMDD
-        listStations  = [f for f in os.listdir(os.path.join(rawFileDir,iFieldCampain)) if re.match(r'^(Berge|Reservoir|Foret_ouest|Foret_est|Foret_sol)_[0-9]{8}$', f)]
+        sationNameRegex=r'^' + stationName + r'_[0-9]{8}$'
+        listDataCollection  = [f for f in os.listdir(os.path.join(rawFileDir,iFieldCampain)) if re.match(sationNameRegex, f)]
         
-        for iStation in listStations:
-            print(iStation)
-            stationName=iStation[0:-9]
-            for rawFile in os.listdir(os.path.join(rawFileDir,iFieldCampain,iStation)):              
-                print(rawFile)  
+        for iDataCollection in listDataCollection:
+            print(iDataCollection)
+            for rawFile in os.listdir(os.path.join(rawFileDir,iFieldCampain,iDataCollection)):              
+                print('\t'+rawFile)  
                 
-                inFile=os.path.join(rawFileDir,iFieldCampain,iStation,rawFile)
+                inFile=os.path.join(rawFileDir,iFieldCampain,iDataCollection,rawFile)
                 outFile=os.path.join(asciiOutDir,stationName,rawFile)
                 
                 # File type name handling           
@@ -42,10 +41,11 @@ def convert_CSbinary_to_csv(rawFileDir,asciiOutDir):
                 elif bool(re.search("radiation",rawFile)) | bool(re.search("_Flux_Notes_",rawFile)):
                     extension="_slow2.csv"             
                 else:                           # .cr1 / .cr3 / sys_log files / Config_Setting_Notes / Flux_AmeriFluxFormat_12
-                    shutil.copy(inFile,outFile)
+                    shutil.copy(inFile,outFile) # TODO solve issue: file with same name will overwrite
                     continue
                 
                 # Conversion from the Campbell binary file to csv format
+                # TODO check compatibility with unix and Wine
                 process=os.path.join(".\Bin","raw2ascii","csidft_convert.exe")
                 subprocess.call([process, inFile, outFile, 'ToA5'])
                 
@@ -58,13 +58,15 @@ def convert_CSbinary_to_csv(rawFileDir,asciiOutDir):
                 newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
                 shutil.move(outFile,os.path.join(asciiOutDir,stationName,newFileName))
 
-def batch_process_eddypro(rawFileDir,asciiOutDir,eddyproOutDir):
+def batch_process_eddypro(iStation,asciiOutDir,eddyproConfig,eddyproMetaData,eddyproOutDir):
+              
+    eddyproOutDir   = eddyproOutDir + iStation
+    eddyproConfig   = eddyproConfig + "Ro2_" + iStation + ".eddypro"
+    eddyproMetaData = eddyproMetaData +"Ro2_"+ iStation + ".metadata"
+    asciiOutDir     = asciiOutDir + iStation
     
-    process=os.path.join(".\Bin","EddyPro","eddypro_rp.exe")
-    eddyproConfig=os.path.join(".\EddyProConfig","RO2_Berge.eddypro")
-    eddyproMetaData=os.path.join(".\EddyProConfig","RO2_Berge.metadata")
-        
     # Read in the Eddy Pro config file and replace target strings
+    # TODO check if the path must be absolute
     with fileinput.FileInput(eddyproConfig, inplace=True, backup='.bak') as file:
         for line in file:
             if re.match(r'file_name',line):
@@ -76,8 +78,26 @@ def batch_process_eddypro(rawFileDir,asciiOutDir,eddyproOutDir):
             elif re.match(r'out_path',line):
                 line = re.sub(r'^out_path=.*$',"out_path="+eddyproOutDir, line.rstrip())
                 print(line,end='\n')
+            elif re.match(r'data_path',line):
+                line = re.sub(r'^data_path=.*$',"data_path="+asciiOutDir, line.rstrip())
+                print(line,end='\n')
+            elif re.match(r'pr_start_date',line):
+                line = re.sub(r'^pr_start_date=.*$',"pr_start_date="+"2019-03-27", line.rstrip())
+                print(line,end='\n')
+            elif re.match(r'pr_start_time',line):
+                line = re.sub(r'^pr_start_time=.*$',"pr_start_time="+"13:00", line.rstrip())
+                print(line,end='\n')
+            elif re.match(r'pr_end_date',line):
+                line = re.sub(r'^pr_end_date=.*$',"pr_end_date="+"2019-03-30", line.rstrip())
+                print(line,end='\n')
+            elif re.match(r'pr_end_time',line):
+                line = re.sub(r'^pr_end_time=.*$',"pr_end_time="+"00:00", line.rstrip())
+                print(line,end='\n')
             else:
                 print(line,end='')
-      
-    subprocess.call([process, eddyproConfig])
-    # TODO modify the eddypro config file to match the new file input format
+            # TODO add line to modify dates + round up to next 30 minutes : dt.now() + (dt.min - dt.now()) % td(minutes=30)            
+            # TODO pr_subset=0 for "select a different period"    
+            
+    # TODO check compatibility with unix and Wine
+    process=os.path.join(".\Bin","EddyPro","eddypro_rp.exe")    
+    subprocess.call([process, eddyproConfig])    
