@@ -140,3 +140,36 @@ def merge_eddy_and_slow(iStation,asciiOutDir,eddyproOutDir,mergedCsvOutDir):
     merged_df=pd.concat([eddy_df, slow_df], axis=1)
     merged_df.to_csv(os.path.join(mergedCsvOutDir,iStation,"Merged_data.csv"))
     # TODO understant non uniqueness of foret_ouest timestamps
+
+
+def flux_gap_filling(var_to_fill,eddyproOutDir):
+    # Coded from Reichtein et al. 2005
+    #
+    # Flowchart:
+    #
+    #   NEE present ?                                                 --> Yes     --> Does nothing
+    #    |
+    #    V
+    #   Rg, T, VPD, NEE available within |dt|<= 7 days                --> Yes     --> Filling quality A (step 1)
+    #    |
+    #    V
+    #   Rg, T, VPD, NEE available within |dt|<= 14 days               --> Yes     --> Filling quality A (step 2)
+    #    |
+    #    V
+    #   Rg, NEE available within |dt|<= 7 days                        --> Yes     --> Filling quality A (step 3)
+    #    |
+    #    V
+    #   NEE available within |dt|<= 1h                                --> Yes     --> Filling quality A (step 4)
+    #    |
+    #    V
+    #   NEE available within |dt|= 1 day & same hour of day           --> Yes     --> Filling quality B (step 5)
+    #    |
+    #    V
+    #   Rg, T, VPD, NEE available within |dt|<= 21, 28,..., 140 days  --> Yes     --> Filling quality B if |dt|<=28, else C (step 6)
+    #    |
+    #    V
+    #   Rg, NEE available within |dt|<= 14, 21, 28,..., 140 days      --> Yes     --> Filling quality B if |dt|<=28, else C (step 7)
+    #    |
+    #    V
+    #   NEE available within |dt|<= 7, 21, 28,...days                 --> Yes     --> Filling quality C (step 8)
+    print()
