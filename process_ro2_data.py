@@ -13,6 +13,8 @@ import fileinput
 from datetime import datetime as dt #TODO , timedelta as td
 from glob import glob
 
+# TODO manage error and warning codes to final CSV
+
 def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
 
     #Find folders that match the pattern Ro2_YYYYMMDD
@@ -83,13 +85,13 @@ def batch_process_eddypro(iStation,asciiOutDir,eddyproConfig,eddyproMetaData,edd
                 line = re.sub(r'^data_path=.*$',"data_path="+asciiOutDir, line.rstrip())
                 print(line,end='\n')
             elif re.match(r'pr_start_date',line):
-                line = re.sub(r'^pr_start_date=.*$',"pr_start_date="+"2019-03-27", line.rstrip())
+                line = re.sub(r'^pr_start_date=.*$',"pr_start_date="+"2018-06-01", line.rstrip())
                 print(line,end='\n')
             elif re.match(r'pr_start_time',line):
-                line = re.sub(r'^pr_start_time=.*$',"pr_start_time="+"13:00", line.rstrip())
+                line = re.sub(r'^pr_start_time=.*$',"pr_start_time="+"00:00", line.rstrip())
                 print(line,end='\n')
             elif re.match(r'pr_end_date',line):
-                line = re.sub(r'^pr_end_date=.*$',"pr_end_date="+"2019-03-30", line.rstrip())
+                line = re.sub(r'^pr_end_date=.*$',"pr_end_date="+"2019-11-01", line.rstrip())
                 print(line,end='\n')
             elif re.match(r'pr_end_time',line):
                 line = re.sub(r'^pr_end_time=.*$',"pr_end_time="+"00:00", line.rstrip())
@@ -106,15 +108,18 @@ def batch_process_eddypro(iStation,asciiOutDir,eddyproConfig,eddyproMetaData,edd
 
 def merge_eddy_and_slow(iStation,asciiOutDir,eddyproOutDir,mergedCsvOutDir):
 
-    # TODO keep untits to csv
+    # TODO keep units to csv
 
     # Module to merge same type of slow data together
     def merge_slow_data(slowList):
         slow_df=pd.read_csv(os.path.join(asciiOutDir,iStation,slowList[0]), sep=',',skiprows=[0,2,3], nrows=0, low_memory=False) # Initialize columns name
         for iSlow in slowList:
             tmp_df=pd.read_csv(os.path.join(asciiOutDir,iStation,iSlow), sep=',',skiprows=[0,2,3], low_memory=False)
-            slow_df=slow_df.append(tmp_df)
+            if not tmp_df.TIMESTAMP.shape==tmp_df.TIMESTAMP.unique().shape: # TODO check for more elegant solution that discard less data
+                tmp_df=tmp_df.drop_duplicates(subset='TIMESTAMP', keep='last')
+            slow_df=slow_df.append(tmp_df, sort=False)
         slow_df.index=pd.to_datetime(slow_df.TIMESTAMP, yearfirst=True)
+
         return slow_df
 
     # List all slow csv files and merge them together
@@ -129,17 +134,17 @@ def merge_eddy_and_slow(iStation,asciiOutDir,eddyproOutDir,mergedCsvOutDir):
     slowList2=[s for s in slowFileToLoad if re.match('.*slow2\.csv', s)]
     if slowList2:
         slow_df2=merge_slow_data(slowList2)
-        slow_df=pd.concat([slow_df, slow_df2], axis=1)
+        slow_df=pd.concat([slow_df, slow_df2], axis=1, sort=False)
 
     # Eddy file to load
     eddyFileToLoad = glob(eddyproOutDir+'/'+iStation+'/'+'\*.csv') # TODO chose between glob and os.listdir
-    eddy_df=pd.read_csv(eddyFileToLoad[0], sep=',', index_col=None)
+    eddy_df=pd.read_csv(eddyFileToLoad[0], sep=',', index_col=None,low_memory=False)
     eddy_df.index=pd.to_datetime(eddy_df.date.map(str) +" "+ eddy_df.time.map(str), yearfirst=True)
 
     # Merge and save
     merged_df=pd.concat([eddy_df, slow_df], axis=1)
+    merged_df.TIMESTAMP=merged_df.index # overwrite missing timestamp
     merged_df.to_csv(os.path.join(mergedCsvOutDir,iStation,"Merged_data.csv"))
-    # TODO understant non uniqueness of foret_ouest timestamps
 
 
 def flux_gap_filling(var_to_fill,eddyproOutDir):
