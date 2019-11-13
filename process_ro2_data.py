@@ -12,10 +12,13 @@ import shutil
 import fileinput
 from datetime import datetime as dt #TODO , timedelta as td
 from glob import glob
+#import numpy as np
 
-# TODO manage error and warning codes to final CSV
+# TODO manage error and warning codes to final CSV with log file
 
 def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
+    # Open error log file
+    logf = open("convert_CSbinary_to_csv.log", "w")
 
     #Find folders that match the pattern Ro2_YYYYMMDD
     listFieldCampains = [f for f in os.listdir(rawFileDir) if re.match(r'^Ro2_[0-9]{8}$', f)]
@@ -34,32 +37,39 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
                 inFile=os.path.join(rawFileDir,iFieldCampain,iDataCollection,rawFile)
                 outFile=os.path.join(asciiOutDir,stationName,rawFile)
 
-                # File type name handling
-                if bool(re.search("ts_data_",rawFile)) | bool(re.search("_Time_Series_",rawFile)):
-                    extension="_eddy.csv"
-                elif bool(re.search("alerte",rawFile)):
-                    extension="_alert.csv"
-                elif bool(re.search("met30min",rawFile)) | bool(re.search("_Flux_CSIFormat_",rawFile)) | bool(re.search("flux",rawFile)):
-                    extension="_slow.csv"
-                elif bool(re.search("radiation",rawFile)) | bool(re.search("_Flux_Notes_",rawFile)):
-                    extension="_slow2.csv"
-                else:                           # .cr1 / .cr3 / sys_log files / Config_Setting_Notes / Flux_AmeriFluxFormat_12
-                    shutil.copy(inFile,outFile) # TODO solve issue: file with same name will overwrite
-                    continue
-
-                # Conversion from the Campbell binary file to csv format
-                # TODO check compatibility with unix and Wine
-                process=os.path.join(".\Bin","raw2ascii","csidft_convert.exe")
-                subprocess.call([process, inFile, outFile, 'ToA5'])
-
-                # Rename file according to date
-                fileContent=pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3], nrows=1)
                 try:
-                    fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S")    # TIMESTAMP format for _alert.csv, _radiation.csv, and _met30min.csv
-                except:
-                    fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S.%f") # TIMESTAMP format for _eddy.csv file
-                newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
-                shutil.move(outFile,os.path.join(asciiOutDir,stationName,newFileName))
+                    # File type name handling
+                    if bool(re.search("ts_data_",rawFile)) | bool(re.search("_Time_Series_",rawFile)):
+                        extension="_eddy.csv"
+                    elif bool(re.search("alerte",rawFile)):
+                        extension="_alert.csv"
+                    elif bool(re.search("met30min",rawFile)) | bool(re.search("_Flux_CSIFormat_",rawFile)) | bool(re.search("flux",rawFile)):
+                        extension="_slow.csv"
+                    elif bool(re.search("radiation",rawFile)) | bool(re.search("_Flux_Notes_",rawFile)):
+                        extension="_slow2.csv"
+                    else:                           # .cr1 / .cr3 / sys_log files / Config_Setting_Notes / Flux_AmeriFluxFormat_12
+                        shutil.copy(inFile,outFile) # TODO solve issue: file with same name will overwrite
+                        continue
+
+                    # Conversion from the Campbell binary file to csv format
+                    process=os.path.join(".\Bin","raw2ascii","csidft_convert.exe")
+                    subprocess.call([process, inFile, outFile, 'ToA5']) # TODO check compatibility with unix and Wine
+
+                    # Rename file according to date
+                    fileContent=pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3], nrows=1)
+                    try:
+                        fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S")    # TIMESTAMP format for _alert.csv, _radiation.csv, and _met30min.csv
+                    except:
+                        fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S.%f") # TIMESTAMP format for _eddy.csv file
+
+                    newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
+                    shutil.move(outFile,os.path.join(asciiOutDir,stationName,newFileName))
+                except Exception as e:
+                    print(str(e))
+                    logf.write("Failed to convert {0} from bin to csv: {1} \n".format(inFile, str(e)))
+
+    # Close error log file
+    logf.close()
 
 def batch_process_eddypro(iStation,asciiOutDir,eddyproConfig,eddyproMetaData,eddyproOutDir):
 
@@ -137,6 +147,7 @@ def merge_eddy_and_slow(iStation,asciiOutDir,eddyproOutDir,mergedCsvOutDir):
         slow_df=pd.concat([slow_df, slow_df2], axis=1, sort=False)
 
     # Eddy file to load
+    # TODO check Eddy pro file naming conventions. Essential vs full_output
     eddyFileToLoad = glob(eddyproOutDir+'/'+iStation+'/'+'\*.csv') # TODO chose between glob and os.listdir
     eddy_df=pd.read_csv(eddyFileToLoad[0], sep=',', index_col=None,low_memory=False)
     eddy_df.index=pd.to_datetime(eddy_df.date.map(str) +" "+ eddy_df.time.map(str), yearfirst=True)
@@ -144,10 +155,11 @@ def merge_eddy_and_slow(iStation,asciiOutDir,eddyproOutDir,mergedCsvOutDir):
     # Merge and save
     merged_df=pd.concat([eddy_df, slow_df], axis=1)
     merged_df.TIMESTAMP=merged_df.index # overwrite missing timestamp
+    merged_df.index.name="date_index"
     merged_df.to_csv(os.path.join(mergedCsvOutDir,iStation,"Merged_data.csv"))
 
 
-def flux_gap_filling(var_to_fill,eddyproOutDir):
+def flux_gap_filling(iStation,var_to_fill,mergedCsvOutDir):
     # Coded from Reichtein et al. 2005
     #
     # Flowchart:
@@ -155,26 +167,84 @@ def flux_gap_filling(var_to_fill,eddyproOutDir):
     #   NEE present ?                                                 --> Yes     --> Does nothing
     #    |
     #    V
-    #   Rg, T, VPD, NEE available within |dt|<= 7 days                --> Yes     --> Filling quality A (step 1)
+    #   Rg, T, VPD, NEE available within |dt|<= 7 days                --> Yes     --> Filling quality A (case 1)
     #    |
     #    V
-    #   Rg, T, VPD, NEE available within |dt|<= 14 days               --> Yes     --> Filling quality A (step 2)
+    #   Rg, T, VPD, NEE available within |dt|<= 14 days               --> Yes     --> Filling quality A (case 2)
     #    |
     #    V
-    #   Rg, NEE available within |dt|<= 7 days                        --> Yes     --> Filling quality A (step 3)
+    #   Rg, NEE available within |dt|<= 7 days                        --> Yes     --> Filling quality A (case 3)
     #    |
     #    V
-    #   NEE available within |dt|<= 1h                                --> Yes     --> Filling quality A (step 4)
+    #   NEE available within |dt|<= 1h                                --> Yes     --> Filling quality A (case 4)
     #    |
     #    V
-    #   NEE available within |dt|= 1 day & same hour of day           --> Yes     --> Filling quality B (step 5)
+    #   NEE available within |dt|= 1 day & same hour of day           --> Yes     --> Filling quality B (case 5)
     #    |
     #    V
-    #   Rg, T, VPD, NEE available within |dt|<= 21, 28,..., 140 days  --> Yes     --> Filling quality B if |dt|<=28, else C (step 6)
+    #   Rg, T, VPD, NEE available within |dt|<= 21, 28,..., 140 days  --> Yes     --> Filling quality B if |dt|<=28, else C (case 6)
     #    |
     #    V
-    #   Rg, NEE available within |dt|<= 14, 21, 28,..., 140 days      --> Yes     --> Filling quality B if |dt|<=28, else C (step 7)
+    #   Rg, NEE available within |dt|<= 14, 21, 28,..., 140 days      --> Yes     --> Filling quality B if |dt|<=28, else C (case 7)
     #    |
     #    V
-    #   NEE available within |dt|<= 7, 21, 28,...days                 --> Yes     --> Filling quality C (step 8)
-    print()
+    #   NEE available within |dt|<= 7, 21, 28,...days                 --> Yes     --> Filling quality C (case 8)
+
+
+    def find_meteo_proxy_index(df, t, search_window, met_vars):
+        current_met = df.loc[t,met_vars.columns]
+        if any(current_met.isna()):
+            index_meteo_proxy = []
+            fail_code = "NaN in current met"
+        else:
+            search_dt = list( range( t-search_window*48, t+search_window*48 ))
+            window_met=df.loc[search_dt,met_vars.columns]
+
+            id_proxy = pd.DataFrame()
+            for iVar in met_vars.columns:
+                id_proxy = pd.concat([id_proxy, abs(window_met[iVar] - current_met[iVar]) < met_vars[iVar][0]], axis=1)
+            id_proxy_true = id_proxy.all(axis=1)
+            id_proxy_true[t]=False # Preven self selection
+            index_meteo_proxy = id_proxy_true.index[id_proxy_true == True]
+            if len(index_meteo_proxy)==0:
+                fail_code = "Proxy met not found"
+            else:
+                fail_code = None
+        return index_meteo_proxy, fail_code
+
+
+    # Import file
+    df = pd.read_csv(os.path.join(mergedCsvOutDir,iStation, "Merged_data.csv" ), low_memory=False)
+
+    # Identify missing flux
+    id_missing_flux=df.isna()[var_to_fill]
+
+    for t in id_missing_flux.index:
+        if id_missing_flux[t]:
+
+            # Case 1
+            search_window = 7
+            met_vars = pd.DataFrame({"Rs_incoming_Avg" : 50, "HMP45C_Sensor_temp_Avg" : 2.5,"vpd" : 500}, index=[0] )
+            index_meteo_proxy, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars)
+
+            if fail_code:
+                search_window = 14
+                met_vars = pd.DataFrame({"Rs_incoming_Avg" : 50, "HMP45C_Sensor_temp_Avg" : 2.5,"vpd" : 500}, index=[0] )
+                index_meteo_proxy, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars)
+
+            # Case 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
