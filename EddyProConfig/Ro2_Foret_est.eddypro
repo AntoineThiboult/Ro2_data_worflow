@@ -1,7 +1,7 @@
 ;EDDYPRO_PROCESSING
 [Project]
 creation_date=2015-11-23T10:05:36
-last_change_date=2019-11-11T20:38:50
+last_change_date=2019-11-13T19:01:34
 file_name=C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/EddyProConfig/Ro2_Foret_est.eddypro
 run_mode=0
 run_fcc=0
@@ -63,7 +63,7 @@ out_mean_cosp=0
 out_biomet=0
 bin_sp_avail=0
 full_sp_avail=0
-files_found=0
+files_found=63
 out_mean_spec=0
 hf_correct_ghg_ba=1
 hf_correct_ghg_zoh=1
@@ -397,4 +397,6 @@ biom_lwin=-1
 biom_ppfd=-1
 
 [RawProcess_WindDirectionFilter]
-wdf_apply=0
+wdf_apply=1
+wdf_sect_1_start=0.0
+wdf_sect_1_end=180.0
