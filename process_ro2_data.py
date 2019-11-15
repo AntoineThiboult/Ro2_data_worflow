@@ -7,12 +7,13 @@ Created on Thu Oct 31 15:12:45 2019
 import os
 import re
 import pandas as pd
+import numpy as np
 import subprocess
 import shutil
 import fileinput
 from datetime import datetime as dt #TODO , timedelta as td
 from glob import glob
-#import numpy as np
+
 
 # TODO manage error and warning codes to final CSV with log file
 
@@ -148,8 +149,8 @@ def merge_eddy_and_slow(iStation,asciiOutDir,eddyproOutDir,mergedCsvOutDir):
 
     # Eddy file to load
     # TODO check Eddy pro file naming conventions. Essential vs full_output
-    eddyFileToLoad = glob(eddyproOutDir+'/'+iStation+'/'+'\*.csv') # TODO chose between glob and os.listdir
-    eddy_df=pd.read_csv(eddyFileToLoad[0], sep=',', index_col=None,low_memory=False)
+    eddyFileToLoad = glob(eddyproOutDir+'/'+iStation+'/'+'\*full_output*.csv') # TODO chose between glob and os.listdir
+    eddy_df=pd.read_csv(eddyFileToLoad[0],skiprows=[0,2], sep=',', index_col=None,low_memory=False)
     eddy_df.index=pd.to_datetime(eddy_df.date.map(str) +" "+ eddy_df.time.map(str), yearfirst=True)
 
     # Merge and save
@@ -191,48 +192,98 @@ def flux_gap_filling(iStation,var_to_fill,mergedCsvOutDir):
     #   NEE available within |dt|<= 7, 21, 28,...days                 --> Yes     --> Filling quality C (case 8)
 
 
-    def find_meteo_proxy_index(df, t, search_window, met_vars):
+    def find_meteo_proxy_index(df, t, search_window, met_vars, var_to_fill):
         current_met = df.loc[t,met_vars.columns]
         if any(current_met.isna()):
-            index_meteo_proxy = []
-            fail_code = "NaN in current met"
+            index_proxy_met = None
+            fail_code = "NaN in current slow met vars"
         else:
-            search_dt = list( range( t-search_window*48, t+search_window*48 ))
-            window_met=df.loc[search_dt,met_vars.columns]
-
-            id_proxy = pd.DataFrame()
+            t_start = np.max([0, t-int(search_window*48)])
+            t_end = np.min([df.shape[0], t+int(search_window*48)+1])
+            time_window = list( range(t_start ,t_end) )
+            time_window_met = df.loc[time_window,met_vars.columns]
+            index_proxy_met_bool = pd.DataFrame()
+            # Check if proxy met matches gap filling conditions
             for iVar in met_vars.columns:
-                id_proxy = pd.concat([id_proxy, abs(window_met[iVar] - current_met[iVar]) < met_vars[iVar][0]], axis=1)
-            id_proxy_true = id_proxy.all(axis=1)
-            id_proxy_true[t]=False # Preven self selection
-            index_meteo_proxy = id_proxy_true.index[id_proxy_true == True]
-            if len(index_meteo_proxy)==0:
+                index_proxy_met_bool = pd.concat([index_proxy_met_bool, abs(time_window_met[iVar] - current_met[iVar]) < met_vars[iVar][0]], axis=1)
+            # Check that var_to_fill is not NaN
+            index_proxy_met_bool = pd.concat([index_proxy_met_bool, ~df.isna()[var_to_fill][time_window]], axis=1)
+            index_proxy_met_bool = index_proxy_met_bool.all(axis=1)
+            # Convert bool to index
+            index_proxy_met = index_proxy_met_bool.index[index_proxy_met_bool == True]
+            if index_proxy_met.size == 0:
                 fail_code = "Proxy met not found"
             else:
                 fail_code = None
-        return index_meteo_proxy, fail_code
+        return index_proxy_met, fail_code
 
 
     # Import file
     df = pd.read_csv(os.path.join(mergedCsvOutDir,iStation, "Merged_data.csv" ), low_memory=False)
 
+    # Add new columns to data frame that contains var_to_fill gapfilled
+    gap_fil_col_name = var_to_fill + "_gap_filled"
+    df[gap_fil_col_name] = df[var_to_fill]
+    gap_fil_quality_col_name = gap_fil_col_name + "_quality"
+    df[gap_fil_quality_col_name] = None
+
     # Identify missing flux
     id_missing_flux=df.isna()[var_to_fill]
 
+
     for t in id_missing_flux.index:
         if id_missing_flux[t]:
-
+            print(t)
             # Case 1
             search_window = 7
             met_vars = pd.DataFrame({"Rs_incoming_Avg" : 50, "HMP45C_Sensor_temp_Avg" : 2.5,"vpd" : 500}, index=[0] )
-            index_meteo_proxy, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars)
-
-            if fail_code:
-                search_window = 14
-                met_vars = pd.DataFrame({"Rs_incoming_Avg" : 50, "HMP45C_Sensor_temp_Avg" : 2.5,"vpd" : 500}, index=[0] )
-                index_meteo_proxy, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars)
+            index_proxy_met, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars, var_to_fill)
+            if not fail_code:
+                df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+                df.loc[t,gap_fil_quality_col_name] = "A1"
+                print("Case 1 succeeded\n")
+                continue
+            else:
+                print("Case 1 failed\n")
 
             # Case 2
+            search_window = 14
+            met_vars = pd.DataFrame({"Rs_incoming_Avg" : 50, "HMP45C_Sensor_temp_Avg" : 2.5,"vpd" : 500}, index=[0] )
+            index_proxy_met, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars, var_to_fill)
+            if not fail_code:
+                df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+                df.loc[t,gap_fil_quality_col_name] = "A2"
+                print("Case 2 succeeded\n")
+                continue
+            else:
+                print("Case 2 failed\n")
+
+            # Case 3
+            search_window = 7
+            met_vars = pd.DataFrame({"Rs_incoming_Avg" : 50}, index=[0] )
+            index_proxy_met, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars, var_to_fill)
+            if not fail_code:
+                df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+                df.loc[t,gap_fil_quality_col_name] = "A3"
+                print("Case 3 succeeded\n")
+                continue
+            else:
+                print("Case 3 failed\n")
+
+            # Case 4
+            search_window = 1/24
+            met_vars = pd.DataFrame()
+            index_proxy_met, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars, var_to_fill)
+            if not fail_code:
+                df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+                df.loc[t,gap_fil_quality_col_name] = "A4"
+                print("Case 4 succeeded\n")
+                continue
+            else:
+                print("Case 4 failed\n")
+
+
+
 
 
 

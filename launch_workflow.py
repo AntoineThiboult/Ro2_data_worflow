@@ -8,8 +8,8 @@ asciiOutDir     =os.path.join("C:\\","Users","anthi182","Desktop","Data_for_auto
 
 #% Bin to ascii
 #Parallel(n_jobs=5)(delayed(prd.convert_CSbinary_to_csv)(iStation,rawFileDir,asciiOutDir) for iStation in listStations)
-for iStation in listStations:
-    prd.convert_CSbinary_to_csv(iStation,rawFileDir,asciiOutDir)
+#for iStation in listStations:
+#    prd.convert_CSbinary_to_csv(iStation,rawFileDir,asciiOutDir)
 
 
 #% Ascii to eddypro
@@ -27,8 +27,9 @@ for iStation in listStations:
 #asciiOutDir     = os.path.join("Data_for_tests","Ascii_data")
 #eddyproOutDir   = os.path.join("Data_for_tests","Eddypro_data")
 #mergedCsvOutDir = os.path.join("Data_for_tests","Merged_csv")
-#for iStation in listStations:
-#    prd.merge_eddy_and_slow(iStation,asciiOutDir,eddyproOutDir,mergedCsvOutDir)
+##for iStation in listStations:
+#iStation="Berge"
+#prd.merge_eddy_and_slow(iStation,asciiOutDir,eddyproOutDir,mergedCsvOutDir)
 
 #% Perform gap filling
 listStations    = ["Berge","Reservoir","Foret_ouest","Foret_est"]
