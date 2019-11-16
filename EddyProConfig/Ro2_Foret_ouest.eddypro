@@ -1,7 +1,7 @@
 ;EDDYPRO_PROCESSING
 [Project]
 creation_date=2015-11-23T10:05:36
-last_change_date=2019-11-13T19:03:17
+last_change_date=2019-11-15T21:53:22
 file_name=C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/EddyProConfig/Ro2_Foret_ouest.eddypro
 run_mode=0
 run_fcc=0
@@ -63,7 +63,7 @@ out_mean_cosp=0
 out_biomet=0
 bin_sp_avail=0
 full_sp_avail=0
-files_found=185
+files_found=0
 out_mean_spec=0
 hf_correct_ghg_ba=1
 hf_correct_ghg_zoh=1
@@ -130,7 +130,7 @@ sa_gas4_g1_start=1
 sa_gas4_g1_stop=12
 
 [RawProcess_General]
-data_path=E:/Tmp_Ro2_data_processing/Data_for_automatization/Ascii_data/Foret_ouest
+data_path=
 recurse=0
 use_geo_north=0
 mag_dec=0
@@ -327,7 +327,7 @@ ds_sf_h2o=2.20
 ds_sf_ch4=30.00
 ds_sf_n2o=30.00
 ds_sf_var=2.00
-despike_vm=0
+despike_vm=1
 tl_hf_lim=20.0
 tl_sf_lim=10.0
 tl_def_co2=0.0

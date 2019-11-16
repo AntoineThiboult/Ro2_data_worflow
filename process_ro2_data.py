@@ -11,13 +11,17 @@ import numpy as np
 import subprocess
 import shutil
 import fileinput
-from datetime import datetime as dt #TODO , timedelta as td
+from datetime import datetime as dt
 from glob import glob
 
 
 # TODO manage error and warning codes to final CSV with log file
 
 def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
+
+    # TODO check compatibility with unix and Wine
+    # TODO solve issue with shutil.copy that overwrite previous file. Add iDataCollection to name
+
     # Open error log file
     logf = open("convert_CSbinary_to_csv.log", "w")
 
@@ -44,17 +48,19 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
                         extension="_eddy.csv"
                     elif bool(re.search("alerte",rawFile)):
                         extension="_alert.csv"
-                    elif bool(re.search("met30min",rawFile)) | bool(re.search("_Flux_CSIFormat_",rawFile)) | bool(re.search("flux",rawFile)):
+                    elif bool(re.search("_Flux_CSIFormat_",rawFile)) | bool(re.search("flux",rawFile)):
                         extension="_slow.csv"
                     elif bool(re.search("radiation",rawFile)) | bool(re.search("_Flux_Notes_",rawFile)):
                         extension="_slow2.csv"
+                    elif bool(re.search("met30min",rawFile)):
+                        extension="_slow3.csv"
                     else:                           # .cr1 / .cr3 / sys_log files / Config_Setting_Notes / Flux_AmeriFluxFormat_12
-                        shutil.copy(inFile,outFile) # TODO solve issue: file with same name will overwrite
+                        shutil.copy(inFile,outFile)
                         continue
 
                     # Conversion from the Campbell binary file to csv format
                     process=os.path.join(".\Bin","raw2ascii","csidft_convert.exe")
-                    subprocess.call([process, inFile, outFile, 'ToA5']) # TODO check compatibility with unix and Wine
+                    subprocess.call([process, inFile, outFile, 'ToA5'])
 
                     # Rename file according to date
                     fileContent=pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3], nrows=1)
@@ -74,13 +80,15 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
 
 def batch_process_eddypro(iStation,asciiOutDir,eddyproConfig,eddyproMetaData,eddyproOutDir):
 
+    # TODO check compatibility with unix and Wine
+    # TODO check if the path must be absolute
+
     eddyproOutDir   = eddyproOutDir + iStation
     eddyproConfig   = eddyproConfig + "Ro2_" + iStation + ".eddypro"
     eddyproMetaData = eddyproMetaData +"Ro2_"+ iStation + ".metadata"
     asciiOutDir     = asciiOutDir + iStation
 
     # Read in the Eddy Pro config file and replace target strings
-    # TODO check if the path must be absolute
     with fileinput.FileInput(eddyproConfig, inplace=True, backup='.bak') as file:
         for line in file:
             if re.match(r'file_name',line):
@@ -109,28 +117,26 @@ def batch_process_eddypro(iStation,asciiOutDir,eddyproConfig,eddyproMetaData,edd
                 print(line,end='\n')
             else:
                 print(line,end='')
-            # TODO add line to modify dates + round up to next 30 minutes : dt.now() + (dt.min - dt.now()) % td(minutes=30)
-            # TODO pr_subset=0 for "select a different period"
 
-    # TODO check compatibility with unix and Wine
     process=os.path.join(".\Bin","EddyPro","eddypro_rp.exe")
     subprocess.call([process, eddyproConfig])
 
 
 def merge_eddy_and_slow(iStation,asciiOutDir,eddyproOutDir,mergedCsvOutDir):
 
-    # TODO keep units to csv
+    # TODO find a way to preserve units associated with columns
 
     # Module to merge same type of slow data together
     def merge_slow_data(slowList):
-        slow_df=pd.read_csv(os.path.join(asciiOutDir,iStation,slowList[0]), sep=',',skiprows=[0,2,3], nrows=0, low_memory=False) # Initialize columns name
+        # Initialize columns name
+        slow_df=pd.read_csv(os.path.join(asciiOutDir,iStation,slowList[0]), sep=',',skiprows=[0,2,3], nrows=0, low_memory=False)
+        # Append the files
         for iSlow in slowList:
             tmp_df=pd.read_csv(os.path.join(asciiOutDir,iStation,iSlow), sep=',',skiprows=[0,2,3], low_memory=False)
             if not tmp_df.TIMESTAMP.shape==tmp_df.TIMESTAMP.unique().shape: # TODO check for more elegant solution that discard less data
                 tmp_df=tmp_df.drop_duplicates(subset='TIMESTAMP', keep='last')
             slow_df=slow_df.append(tmp_df, sort=False)
         slow_df.index=pd.to_datetime(slow_df.TIMESTAMP, yearfirst=True)
-
         return slow_df
 
     # List all slow csv files and merge them together
@@ -157,10 +163,10 @@ def merge_eddy_and_slow(iStation,asciiOutDir,eddyproOutDir,mergedCsvOutDir):
     merged_df=pd.concat([eddy_df, slow_df], axis=1)
     merged_df.TIMESTAMP=merged_df.index # overwrite missing timestamp
     merged_df.index.name="date_index"
-    merged_df.to_csv(os.path.join(mergedCsvOutDir,iStation,"Merged_data.csv"))
+    merged_df.to_csv(os.path.join(mergedCsvOutDir,iStation+"_merged_data.csv"))
 
 
-def flux_gap_filling(iStation,var_to_fill,mergedCsvOutDir):
+def flux_gap_filling(iStation,var_to_fill,met_vars,mergedCsvOutDir):
     # Coded from Reichtein et al. 2005
     #
     # Flowchart:
@@ -191,7 +197,7 @@ def flux_gap_filling(iStation,var_to_fill,mergedCsvOutDir):
     #    V
     #   NEE available within |dt|<= 7, 21, 28,...days                 --> Yes     --> Filling quality C (case 8)
 
-
+    # Submodule to find similar meteorological condition within a given window search
     def find_meteo_proxy_index(df, t, search_window, met_vars, var_to_fill):
         current_met = df.loc[t,met_vars.columns]
         if any(current_met.isna()):
@@ -217,6 +223,20 @@ def flux_gap_filling(iStation,var_to_fill,mergedCsvOutDir):
                 fail_code = None
         return index_proxy_met, fail_code
 
+    # Submodule to find a NEE within one day at the same hour of day
+    def find_nee_proxy_index(df, t, var_to_fill):
+        t_start = np.max([0, t-48])
+        t_end = np.min([df.shape[0], t+48])
+        time_window = list([t_start ,t_end])
+        time_window_met = df.loc[time_window,var_to_fill]
+        index_proxy_met_bool = ~time_window_met.isna()
+        index_proxy_met = index_proxy_met_bool.index[index_proxy_met_bool == True]
+        if index_proxy_met.size == 0:
+            fail_code = "Proxy met not found"
+        else:
+            fail_code = None
+        return index_proxy_met, fail_code
+
 
     # Import file
     df = pd.read_csv(os.path.join(mergedCsvOutDir,iStation, "Merged_data.csv" ), low_memory=False)
@@ -230,45 +250,38 @@ def flux_gap_filling(iStation,var_to_fill,mergedCsvOutDir):
     # Identify missing flux
     id_missing_flux=df.isna()[var_to_fill]
 
-
+    # Loop over time steps
     for t in id_missing_flux.index:
         if id_missing_flux[t]:
+
             print(t)
             # Case 1
             search_window = 7
-            met_vars = pd.DataFrame({"Rs_incoming_Avg" : 50, "HMP45C_Sensor_temp_Avg" : 2.5,"vpd" : 500}, index=[0] )
             index_proxy_met, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars, var_to_fill)
             if not fail_code:
                 df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
                 df.loc[t,gap_fil_quality_col_name] = "A1"
                 print("Case 1 succeeded\n")
                 continue
-            else:
-                print("Case 1 failed\n")
 
             # Case 2
             search_window = 14
-            met_vars = pd.DataFrame({"Rs_incoming_Avg" : 50, "HMP45C_Sensor_temp_Avg" : 2.5,"vpd" : 500}, index=[0] )
             index_proxy_met, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars, var_to_fill)
             if not fail_code:
                 df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
                 df.loc[t,gap_fil_quality_col_name] = "A2"
                 print("Case 2 succeeded\n")
                 continue
-            else:
-                print("Case 2 failed\n")
 
             # Case 3
             search_window = 7
-            met_vars = pd.DataFrame({"Rs_incoming_Avg" : 50}, index=[0] )
-            index_proxy_met, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars, var_to_fill)
+            sub_met_vars = met_vars.iloc[:,0:1]
+            index_proxy_met, fail_code = find_meteo_proxy_index(df, t, search_window, sub_met_vars, var_to_fill)
             if not fail_code:
                 df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
                 df.loc[t,gap_fil_quality_col_name] = "A3"
                 print("Case 3 succeeded\n")
                 continue
-            else:
-                print("Case 3 failed\n")
 
             # Case 4
             search_window = 1/24
@@ -279,23 +292,48 @@ def flux_gap_filling(iStation,var_to_fill,mergedCsvOutDir):
                 df.loc[t,gap_fil_quality_col_name] = "A4"
                 print("Case 4 succeeded\n")
                 continue
-            else:
-                print("Case 4 failed\n")
 
+            # Case 5
+            index_proxy_met, fail_code = find_nee_proxy_index(df, t, var_to_fill)
+            if not fail_code:
+                df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+                df.loc[t,gap_fil_quality_col_name] = "B1"
+                print("Case 5 succeeded\n")
+                continue
 
+            # Case 6
+            search_window = 14
+            while bool(fail_code) & (search_window <= 140):
+                search_window += 7
+                index_proxy_met, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars, var_to_fill)
+                if not fail_code:
+                    df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+                    df.loc[t,gap_fil_quality_col_name] = "C1"
+                    print("Case 6 succeeded for search window = {0} days\n".format(search_window))
+                    continue
 
+            # Case 7
+            search_window = 7
+            sub_met_vars = met_vars.iloc[:,0:1]
+            while bool(fail_code) & (search_window <= 140):
+                search_window += 7
+                index_proxy_met, fail_code = find_meteo_proxy_index(df, t, search_window, sub_met_vars, var_to_fill)
+                if not fail_code:
+                    df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+                    df.loc[t,gap_fil_quality_col_name] = "C2"
+                    print("Case 6 succeeded for search window = {0} days\n".format(search_window))
+                    continue
 
+            # Case 8
+            search_window = 0
+            met_vars = pd.DataFrame()
+            while bool(fail_code) & (search_window <= 140):
+                search_window += 7
+                index_proxy_met, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars, var_to_fill)
+                if not fail_code:
+                    df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+                    df.loc[t,gap_fil_quality_col_name] = "C2"
+                    print("Case 6 succeeded for search window = {0} days\n".format(search_window))
+                    continue
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+    df.to_csv(os.path.join(mergedCsvOutDir,iStation+"_gapfilled_data.csv"))

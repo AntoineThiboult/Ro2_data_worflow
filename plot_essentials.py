@@ -8,6 +8,8 @@ Created on Mon Nov 11 09:54:13 2019
 import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
+#%matplotlib inline
+#'module://ipykernel.pylab.backend_inline'
 
 berge=pd.read_csv("Data_for_tests\Merged_csv\Berge\Merged_data.csv")
 berge.index=pd.to_datetime(berge.TIMESTAMP, yearfirst=True)
@@ -20,8 +22,8 @@ foret_ouest.index=pd.to_datetime(foret_ouest.TIMESTAMP, yearfirst=True)
 
 
 refDate=pd.concat([berge.TIMESTAMP,reservoir.TIMESTAMP,foret_est.TIMESTAMP,foret_ouest.TIMESTAMP],axis=1)
-
 refDate=matplotlib.dates.date2num(refDate.index)
+
 LE=pd.concat([berge.LE, reservoir.LE, foret_est.LE, foret_ouest.LE], axis=1)
 
 fig = plt.figure()
@@ -29,8 +31,10 @@ ax = fig.add_subplot(111)
 
 ax.plot(refDate,LE)
 ax.set_ylim(-100,500)
+ax.set_xlim([736842,737000])
+plt.show()
 
-fig.savefig("example.pdf")
+#fig.savefig("example.pdf")
 #foret_est=pd.read_csv("Data_for_tests\Merged_csv\Foret_est\Merged_data.csv")
 #axb=foret_est.LE.plot.line(ylim=(-100,500))
 #
