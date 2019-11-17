@@ -1,7 +1,7 @@
 ;EDDYPRO_PROCESSING
 [Project]
 creation_date=2015-11-23T10:05:36
-last_change_date=2019-11-15T21:32:01
+last_change_date=2019-11-17T12:50:24
 file_name=C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/EddyProConfig/Ro2_Reservoir.eddypro
 run_mode=0
 run_fcc=0
@@ -20,8 +20,8 @@ binary_eol=-1
 binary_nbytes=-1
 binary_little_end=-1
 master_sonic=csat3_1
-col_co2=0
-col_h2o=0
+col_co2=8
+col_h2o=10
 col_ch4=0
 col_n2o=0
 col_int_t_1=0
@@ -172,7 +172,7 @@ u_offset=0
 v_offset=0
 w_offset=0
 gill_wm_wboost=0
-cross_wind=0
+cross_wind=1
 flow_distortion=0
 rot_meth=1
 detrend_meth=1
