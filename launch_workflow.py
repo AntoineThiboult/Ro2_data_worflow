@@ -26,9 +26,9 @@ listStations    = ["Berge","Reservoir","Foret_ouest","Foret_est"]
 asciiOutDir     = os.path.join("C:\\","Users","anthi182","Desktop","Micromet_data","Ascii_data")
 eddyproOutDir   = os.path.join("C:\\","Users","anthi182","Desktop","Micromet_data","Eddypro_data")
 mergedCsvOutDir = os.path.join("C:\\","Users","anthi182","Desktop","Micromet_data","Merged_csv")
-for iStation in listStations:
-#iStation="Berge"
-    prd.merge_eddy_and_slow(iStation,asciiOutDir,eddyproOutDir,mergedCsvOutDir)
+#for iStation in listStations:
+##iStation="Berge"
+#    prd.merge_eddy_and_slow(iStation,asciiOutDir,eddyproOutDir,mergedCsvOutDir)
 
 #% Perform gap filling
 var_to_fill = "LE"
