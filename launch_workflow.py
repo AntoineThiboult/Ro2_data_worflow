@@ -18,10 +18,9 @@ listStations    = ["Berge","Reservoir","Foret_ouest","Foret_est"]
 #asciiOutDir     = "C:/Users/anthi182/Desktop/Micromet_data/Ascii_data/"
 #eddyproOutDir   = "C:/Users/anthi182/Desktop/Micromet_data/Eddypro_data/"
 #eddyproConfig   = "C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/EddyProConfig/"
-#eddyproMetaData = "C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/EddyProConfig/"
 ##Parallel(n_jobs=5)(delayed(prd.batch_process_eddypro)(iStation,asciiOutDir,eddyproConfig,eddyproMetaData,eddyproOutDir) for iStation in listStations)
 #for iStation in listStations:
-#    prd.batch_process_eddypro(iStation,asciiOutDir,eddyproConfig,eddyproMetaData,eddyproOutDir)
+#    prd.batch_process_eddypro(iStation,asciiOutDir,eddyproConfig,eddyproOutDir)
 
 #% Merge eddy data and slow data
 asciiOutDir     = os.path.join("C:\\","Users","anthi182","Desktop","Micromet_data","Ascii_data")

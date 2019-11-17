@@ -78,14 +78,14 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     # Close error log file
     logf.close()
 
-def batch_process_eddypro(iStation,asciiOutDir,eddyproConfig,eddyproMetaData,eddyproOutDir):
+def batch_process_eddypro(iStation,asciiOutDir,eddyproConfig,eddyproOutDir):
 
     # TODO check compatibility with unix and Wine
     # TODO check if the path must be absolute
 
     eddyproOutDir   = eddyproOutDir + iStation
     eddyproConfig   = eddyproConfig + "Ro2_" + iStation + ".eddypro"
-    eddyproMetaData = eddyproMetaData +"Ro2_"+ iStation + ".metadata"
+    eddyproMetaData = eddyproConfig + "Ro2_" + iStation + ".metadata"
     asciiOutDir     = asciiOutDir + iStation
 
     # Read in the Eddy Pro config file and replace target strings
@@ -239,7 +239,7 @@ def flux_gap_filling(iStation,var_to_fill,met_vars,mergedCsvOutDir):
 
 
     # Import file
-    df = pd.read_csv(os.path.join(mergedCsvOutDir,iStation, "Merged_data.csv" ), low_memory=False)
+    df = pd.read_csv(os.path.join(mergedCsvOutDir,iStation+"_merged_data.csv" ), low_memory=False)
 
     # Add new columns to data frame that contains var_to_fill gapfilled
     gap_fil_col_name = var_to_fill + "_gap_filled"
@@ -308,7 +308,10 @@ def flux_gap_filling(iStation,var_to_fill,met_vars,mergedCsvOutDir):
                 index_proxy_met, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars, var_to_fill)
                 if not fail_code:
                     df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
-                    df.loc[t,gap_fil_quality_col_name] = "C1"
+                    if search_window <= 28:
+                        df.loc[t,gap_fil_quality_col_name] = "B2"
+                    else:
+                        df.loc[t,gap_fil_quality_col_name] = "C1"
                     print("Case 6 succeeded for search window = {0} days\n".format(search_window))
                     continue
 
@@ -320,7 +323,10 @@ def flux_gap_filling(iStation,var_to_fill,met_vars,mergedCsvOutDir):
                 index_proxy_met, fail_code = find_meteo_proxy_index(df, t, search_window, sub_met_vars, var_to_fill)
                 if not fail_code:
                     df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
-                    df.loc[t,gap_fil_quality_col_name] = "C2"
+                    if search_window <= 14:
+                        df.loc[t,gap_fil_quality_col_name] = "B3"
+                    else:
+                        df.loc[t,gap_fil_quality_col_name] = "C2"
                     print("Case 6 succeeded for search window = {0} days\n".format(search_window))
                     continue
 
@@ -332,7 +338,7 @@ def flux_gap_filling(iStation,var_to_fill,met_vars,mergedCsvOutDir):
                 index_proxy_met, fail_code = find_meteo_proxy_index(df, t, search_window, met_vars, var_to_fill)
                 if not fail_code:
                     df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
-                    df.loc[t,gap_fil_quality_col_name] = "C2"
+                    df.loc[t,gap_fil_quality_col_name] = "C3"
                     print("Case 6 succeeded for search window = {0} days\n".format(search_window))
                     continue
 
