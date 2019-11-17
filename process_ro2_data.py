@@ -78,14 +78,14 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     # Close error log file
     logf.close()
 
-def batch_process_eddypro(iStation,asciiOutDir,eddyproConfig,eddyproOutDir):
+def batch_process_eddypro(iStation,asciiOutDir,eddyproConfigDir,eddyproOutDir):
 
     # TODO check compatibility with unix and Wine
     # TODO check if the path must be absolute
 
     eddyproOutDir   = eddyproOutDir + iStation
-    eddyproConfig   = eddyproConfig + "Ro2_" + iStation + ".eddypro"
-    eddyproMetaData = eddyproConfig + "Ro2_" + iStation + ".metadata"
+    eddyproConfig   = eddyproConfigDir + "Ro2_" + iStation + ".eddypro"
+    eddyproMetaData = eddyproConfigDir + "Ro2_" + iStation + ".metadata"
     asciiOutDir     = asciiOutDir + iStation
 
     # Read in the Eddy Pro config file and replace target strings
@@ -248,7 +248,13 @@ def flux_gap_filling(iStation,var_to_fill,met_vars,mergedCsvOutDir):
     df[gap_fil_quality_col_name] = None
 
     # Identify missing flux
-    id_missing_flux=df.isna()[var_to_fill]
+    id_rain = df.loc[:,'precip_Tot'] > 0
+    id_spikes_pos = df.loc[:,var_to_fill] > 250 # TODO remove once despiking will be better handled with eddypro
+    id_spikes_neg = df.loc[:,var_to_fill] < - 50 # TODO remove once despiking will be better handled with eddypro
+    id_missing_nee = df.isna()[var_to_fill]
+    id_missing_flux = pd.concat([id_rain, id_spikes_pos, id_spikes_neg, id_missing_nee], axis=1)
+    id_missing_flux = id_missing_flux.any(axis=1)
+
 
     # Loop over time steps
     for t in id_missing_flux.index:

@@ -26,6 +26,8 @@ refDate=matplotlib.dates.date2num(refDate.index)
 
 LE=pd.concat([berge.LE, reservoir.LE, foret_est.LE, foret_ouest.LE], axis=1)
 
+LE =LE[10000:12000]
+refDate = refDate[10000:12000]
 fig = plt.figure()
 ax = fig.add_subplot(111)
 
