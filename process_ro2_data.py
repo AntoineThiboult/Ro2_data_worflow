@@ -248,7 +248,8 @@ def flux_gap_filling(iStation,var_to_fill,met_vars,mergedCsvOutDir):
     df[gap_fil_quality_col_name] = None
 
     # Identify missing flux
-    id_rain = df.loc[:,'precip_Tot'] > 0
+    if not iStation=='Reservoir': # TODO find a better alternative
+        id_rain = df.loc[:,'precip_Tot'] > 0
     id_spikes_pos = df.loc[:,var_to_fill] > 250 # TODO remove once despiking will be better handled with eddypro
     id_spikes_neg = df.loc[:,var_to_fill] < - 50 # TODO remove once despiking will be better handled with eddypro
     id_missing_nee = df.isna()[var_to_fill]
