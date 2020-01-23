@@ -122,6 +122,51 @@ def batch_process_eddypro(iStation,asciiOutDir,eddyproConfigDir,eddyproOutDir):
     subprocess.call([process, eddyproConfig])
 
 
+
+def merge_thermistors(rawFileDir,mergedCsvOutDir):
+    df = pd.DataFrame( index=pd.date_range(start='2018/01/01', end='2020/01/01', freq='30min') )
+
+    #Find folders that match the pattern Ro2_YYYYMMDD
+    listFieldCampains = [f for f in os.listdir(rawFileDir) if re.match(r'^Ro2_[0-9]{8}$', f)]
+
+    for iFieldCampain in listFieldCampains:
+
+        #Find folders that match the pattern TidBit_YYYYMMDD
+        sationNameRegex = r'^' + 'TidBit' + r'_[0-9]{8}$'
+        listDataCollection  = [f for f in os.listdir(os.path.join(rawFileDir,iFieldCampain)) if re.match(sationNameRegex, f)]
+
+        for iDataCollection in listDataCollection:
+
+            #Find all thermistor files in folder
+            thermNameRegex = r'^' + 'Therm' + r'[1-2].*xlsx$'
+            listThermSensors = [f for f in os.listdir(os.path.join(rawFileDir,iFieldCampain,iDataCollection,'Excel_exported')) if re.match(thermNameRegex, f)]
+
+            for iSensor in listThermSensors:
+
+                sensorNiceName = re.sub('\.','m',iSensor,1)[0:-5]
+                df_tmp = pd.read_excel(os.path.join(rawFileDir,iFieldCampain,iDataCollection,'Excel_exported',iSensor), skiprows=[0])
+
+                # Remove log columns
+                listCol = [c for c in df_tmp.columns if re.match('.*(Date|Temp|Pres).*', c)]
+                df_tmp = df_tmp[listCol]
+                df_tmp.index = pd.to_datetime(df_tmp.iloc[:,0])
+                df_tmp = df_tmp.loc[~df_tmp.index.duplicated(keep='first')]
+
+                # Fill df with records
+                if df_tmp.shape[1] == 2: # Temperature only sensor
+                    idDates_RecInRef = df_tmp.index.isin(df.index)
+                    idDates_RefInRec = df.index.isin(df_tmp.index)
+                    df.loc[idDates_RefInRec,'T_'+sensorNiceName] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[1]]
+
+                elif df_tmp.shape[1] == 3: # Temperature and pressure sensor
+                    idDates_RecInRef = df_tmp.index.isin(df.index)
+                    idDates_RefInRec = df.index.isin(df_tmp.index)
+                    df.loc[idDates_RefInRec,'T_'+sensorNiceName] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[2]]
+                    df.loc[idDates_RefInRec,'P_'+sensorNiceName] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[1]]
+
+    df.to_csv(os.path.join(mergedCsvOutDir,'TidBit.csv'))
+
+
 def merge_eddy_and_slow(iStation,asciiOutDir,eddyproOutDir,mergedCsvOutDir):
 
     # TODO find a way to preserve units associated with columns
