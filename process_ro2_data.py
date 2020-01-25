@@ -17,6 +17,26 @@ from glob import glob
 
 # TODO manage error and warning codes to final CSV with log file
 
+
+def rename_trim_vars(stationName,inputDir):
+
+    # Import Excel documentation file
+    xlsFile = pd.ExcelFile('./Resources/EmpreinteVariableDescription.xlsx')
+    column_dic = pd.read_excel(xlsFile,stationName)
+
+    # Trim data
+    lines_to_include = column_dic.iloc[:,0].str.contains('NA - Only stored as binary|Database variable name', regex=True)
+    column_dic = column_dic[lines_to_include == False]
+    column_dic = column_dic.iloc[:,[0,1]]
+    column_dic.columns = ['db_name','cs_name']
+
+    csvFile = pd.read_csv(os.path.join(inputDir,stationName))
+    csvFile = csvFile[column_dic.cs_name]
+    csvFile.columns = column_dic.db_name
+
+    return csvFile
+
+
 def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
 
     # TODO check compatibility with unix and Wine
