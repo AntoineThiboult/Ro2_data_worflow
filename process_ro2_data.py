@@ -98,6 +98,7 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     # Close error log file
     logf.close()
 
+
 def batch_process_eddypro(iStation,asciiOutDir,eddyproConfigDir,eddyproOutDir):
 
     # TODO check compatibility with unix and Wine
