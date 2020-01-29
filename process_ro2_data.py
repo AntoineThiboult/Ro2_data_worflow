@@ -18,23 +18,39 @@ from glob import glob
 # TODO manage error and warning codes to final CSV with log file
 
 
-def rename_trim_vars(stationName,inputDir):
+def rename_trim_vars(stationName,df):
 
     # Import Excel documentation file
     xlsFile = pd.ExcelFile('./Resources/EmpreinteVariableDescription.xlsx')
     column_dic = pd.read_excel(xlsFile,stationName)
 
-    # Trim data
+    # Make translation dictionary from CS vars to DB vars
     lines_to_include = column_dic.iloc[:,0].str.contains('NA - Only stored as binary|Database variable name', regex=True)
     column_dic = column_dic[lines_to_include == False]
     column_dic = column_dic.iloc[:,[0,1]]
     column_dic.columns = ['db_name','cs_name']
 
-    csvFile = pd.read_csv(os.path.join(inputDir,stationName))
-    csvFile = csvFile[column_dic.cs_name]
-    csvFile.columns = column_dic.db_name
+    # Trim dataframe and rename columns
+    idColumnsIntersect = column_dic.cs_name.isin(df.columns)
+    df = df[column_dic.cs_name[idColumnsIntersect]]
+    df.columns = column_dic.db_name[idColumnsIntersect]
 
-    return csvFile
+    return df
+
+
+def load_eddypro_file(stationName,inputDir):
+
+    # List eddy pro output files and select most recent one
+    eddyFullOutputList = glob(inputDir+'/'+stationName+'/'+'\*full_output*.csv') # TODO chose between glob and os.listdir
+    eddyProFileToLoad = max(eddyFullOutputList, key=os.path.getctime) # Select latest file
+
+    # Import as dataframe
+    df = pd.read_csv(eddyProFileToLoad,skiprows=[0,2])
+
+    # Create time based index
+    df.index=pd.to_datetime(df.date.map(str) +" "+ df.time.map(str), yearfirst=True)
+
+    return df
 
 
 def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
@@ -99,15 +115,16 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     logf.close()
 
 
-def batch_process_eddypro(iStation,asciiOutDir,eddyproConfigDir,eddyproOutDir):
+def batch_process_eddypro(stationName,asciiOutDir,eddyproConfigDir,eddyproOutDir):
 
     # TODO check compatibility with unix and Wine
     # TODO check if the path must be absolute
+    # TODO manage error code with subprocess.call and add exception
 
-    eddyproOutDir   = eddyproOutDir + iStation
-    eddyproConfig   = eddyproConfigDir + "Ro2_" + iStation + ".eddypro"
-    eddyproMetaData = eddyproConfigDir + "Ro2_" + iStation + ".metadata"
-    asciiOutDir     = asciiOutDir + iStation
+    eddyproOutDir   = eddyproOutDir + stationName
+    eddyproConfig   = eddyproConfigDir + "Ro2_" + stationName + ".eddypro"
+    eddyproMetaData = eddyproConfigDir + "Ro2_" + stationName + ".metadata"
+    asciiOutDir     = asciiOutDir + stationName
 
     # Read in the Eddy Pro config file and replace target strings
     with fileinput.FileInput(eddyproConfig, inplace=True, backup='.bak') as file:
@@ -141,7 +158,6 @@ def batch_process_eddypro(iStation,asciiOutDir,eddyproConfigDir,eddyproOutDir):
 
     process=os.path.join(".\Bin","EddyPro","eddypro_rp.exe")
     subprocess.call([process, eddyproConfig])
-
 
 
 def merge_thermistors(rawFileDir,mergedCsvOutDir):
@@ -188,51 +204,55 @@ def merge_thermistors(rawFileDir,mergedCsvOutDir):
     df.to_csv(os.path.join(mergedCsvOutDir,'TidBit.csv'))
 
 
-def merge_eddy_and_slow(iStation,asciiOutDir,eddyproOutDir,mergedCsvOutDir):
-
-    # TODO find a way to preserve units associated with columns
+def merge_slow_csv(stationName,asciiOutDir):
 
     # Module to merge same type of slow data together
     def merge_slow_data(slowList):
         # Initialize columns name
-        slow_df=pd.read_csv(os.path.join(asciiOutDir,iStation,slowList[0]), sep=',',skiprows=[0,2,3], nrows=0, low_memory=False)
+        slow_df = pd.read_csv(os.path.join(asciiOutDir,stationName,slowList[0]), sep=',',skiprows=[0,2,3], nrows=0, low_memory=False)
         # Append the files
         for iSlow in slowList:
-            tmp_df=pd.read_csv(os.path.join(asciiOutDir,iStation,iSlow), sep=',',skiprows=[0,2,3], low_memory=False)
-            if not tmp_df.TIMESTAMP.shape==tmp_df.TIMESTAMP.unique().shape: # TODO check for more elegant solution that discard less data
-                tmp_df=tmp_df.drop_duplicates(subset='TIMESTAMP', keep='last')
-            slow_df=slow_df.append(tmp_df, sort=False)
-        slow_df.index=pd.to_datetime(slow_df.TIMESTAMP, yearfirst=True)
+            tmp_df = pd.read_csv(os.path.join(asciiOutDir,stationName,iSlow), sep=',',skiprows=[0,2,3], low_memory=False)
+            if not tmp_df.TIMESTAMP.shape == tmp_df.TIMESTAMP.unique().shape: # TODO check for more elegant solution that discard less data
+                tmp_df = tmp_df.drop_duplicates(subset='TIMESTAMP', keep='last')
+            slow_df = slow_df.append(tmp_df, sort=False)
+        slow_df.index = pd.to_datetime(slow_df.TIMESTAMP, yearfirst=True)
         return slow_df
 
     # List all slow csv files and merge them together
-    slowFileToLoad = os.listdir(os.path.join(asciiOutDir,iStation))
-    slowFileToLoad.sort()
+    fileInDir = os.listdir(os.path.join(asciiOutDir,stationName))
+    fileInDir.sort()
 
     # Slow data
-    slowList=[s for s in slowFileToLoad if re.match('.*slow\.csv', s)]
-    slow_df=merge_slow_data(slowList)
+    slowList = [s for s in fileInDir if re.match('.*slow\.csv', s)]
+    slow_df = merge_slow_data(slowList)
 
     # Slow data 2
-    slowList2=[s for s in slowFileToLoad if re.match('.*slow2\.csv', s)]
+    slowList2 = [s for s in fileInDir if re.match('.*slow2\.csv', s)]
     if slowList2:
-        slow_df2=merge_slow_data(slowList2)
-        slow_df=pd.concat([slow_df, slow_df2], axis=1, sort=False)
+        slow_df2 = merge_slow_data(slowList2)
+        slow_df2 = slow_df2.loc[:,~slow_df2.columns.isin(slow_df.columns)] # Remove data from slow_df2 if already included in slow_df
+        slow_df = pd.concat([slow_df, slow_df2], axis=1, sort=False)
+
+    return slow_df
+
+
+def merge_slow_csv_and_eddypro(stationName,slow_df, eddy_df, mergedCsvOutDir):
 
     # Eddy file to load
     # TODO check Eddy pro file naming conventions. Essential vs full_output
-    eddyFileToLoad = glob(eddyproOutDir+'/'+iStation+'/'+'\*full_output*.csv') # TODO chose between glob and os.listdir
-    eddy_df=pd.read_csv(eddyFileToLoad[0],skiprows=[0,2], sep=',', index_col=None,low_memory=False)
-    eddy_df.index=pd.to_datetime(eddy_df.date.map(str) +" "+ eddy_df.time.map(str), yearfirst=True)
+    # eddyFileToLoad = glob(eddyproOutDir+'/'+stationName+'/'+'\*full_output*.csv') # TODO chose between glob and os.listdir
+    # eddy_df=pd.read_csv(eddyFileToLoad[0],skiprows=[0,2], sep=',', index_col=None,low_memory=False)
+    # eddy_df.index=pd.to_datetime(eddy_df.date.map(str) +" "+ eddy_df.time.map(str), yearfirst=True)
 
     # Merge and save
     merged_df=pd.concat([eddy_df, slow_df], axis=1)
     merged_df.TIMESTAMP=merged_df.index # overwrite missing timestamp
     merged_df.index.name="date_index"
-    merged_df.to_csv(os.path.join(mergedCsvOutDir,iStation+"_merged_data.csv"))
+    merged_df.to_csv(os.path.join(mergedCsvOutDir,stationName+"_merged_data.csv"))
 
 
-def flux_gap_filling(iStation,var_to_fill,met_vars,mergedCsvOutDir):
+def flux_gap_filling(stationName,var_to_fill,met_vars,mergedCsvOutDir):
     # Coded from Reichtein et al. 2005
     #
     # Flowchart:
@@ -305,7 +325,7 @@ def flux_gap_filling(iStation,var_to_fill,met_vars,mergedCsvOutDir):
 
 
     # Import file
-    df = pd.read_csv(os.path.join(mergedCsvOutDir,iStation+"_merged_data.csv" ), low_memory=False)
+    df = pd.read_csv(os.path.join(mergedCsvOutDir,stationName+"_merged_data.csv" ), low_memory=False)
 
     # Add new columns to data frame that contains var_to_fill gapfilled
     gap_fil_col_name = var_to_fill + "_gap_filled"
@@ -314,7 +334,7 @@ def flux_gap_filling(iStation,var_to_fill,met_vars,mergedCsvOutDir):
     df[gap_fil_quality_col_name] = None
 
     # Identify missing flux
-    if not iStation=='Reservoir': # TODO find a better alternative
+    if not stationName=='Reservoir': # TODO find a better alternative
         id_rain = df.loc[:,'precip_Tot'] > 0
     id_spikes_pos = df.loc[:,var_to_fill] > 250 # TODO remove once despiking will be better handled with eddypro
     id_spikes_neg = df.loc[:,var_to_fill] < - 50 # TODO remove once despiking will be better handled with eddypro
@@ -415,4 +435,4 @@ def flux_gap_filling(iStation,var_to_fill,met_vars,mergedCsvOutDir):
                     print("Case 6 succeeded for search window = {0} days\n".format(search_window))
                     continue
 
-    df.to_csv(os.path.join(mergedCsvOutDir,iStation+"_gapfilled_data.csv"))
+    df.to_csv(os.path.join(mergedCsvOutDir,stationName+"_gapfilled_data.csv"))

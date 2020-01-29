@@ -1,8 +1,8 @@
 ;EDDYPRO_PROCESSING
 [Project]
 creation_date=2015-11-23T10:05:36
-last_change_date=2019-11-17T12:50:24
-file_name=C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/EddyProConfig/Ro2_Reservoir.eddypro
+last_change_date=2020-01-29T10:03:14
+file_name=C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/Config/EddyProConfig/Ro2_Reservoir.eddypro
 run_mode=0
 run_fcc=0
 project_title=Ro2_Reservoir
@@ -12,7 +12,7 @@ project_id=Ro2_Reservoir
 file_type=1
 file_prototype=yyyymmdd_HHMM_eddy.csv
 use_pfile=1
-proj_file=C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/EddyProConfig/Ro2_Reservoir.metadata
+proj_file=
 use_dyn_md_file=0
 dyn_metadata_file=
 binary_hnlines=-1
