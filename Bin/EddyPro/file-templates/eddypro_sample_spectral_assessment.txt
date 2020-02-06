@@ -1,0 +1,71 @@
+Transfer_function_parameters_(TFP)_for_IIR-shaped_filter_(see_Ibrom_et_al._2007_AFM).
+fc:_IIR_cut-off_frequency
+Fn:_normalization_parameter
+Water_vapour_TFP_are_calculated_for_9_RH_classes.
+Other_gases_TFP_are_calculated_on_a_monthly_base_(currently_all_months_together_).
+----------------------------------------------------------------------------------
+Water vapour TFP              Fn          fc    numerosity
+RH class   5 - 15% =     0.87208     0.23440            68
+RH class  15 - 25% =     0.83609     0.19713            69
+RH class  25 - 35% =     0.64556     0.15721            56
+RH class  35 - 45% =     0.66860     0.13490            56
+RH class  45 - 55% =     0.60233     0.10383            73
+RH class  55 - 65% =     0.62486     0.07325            23
+RH class  65 - 75% =     0.86164     0.03523            14
+RH class  75 - 85% =     0.86164     0.03523             7
+RH class  85 - 95% =     0.86164     0.03523             4
+
+CO2            TFP            Fn          fc
+January            =     1.12167     0.42768
+February           =     1.12167     0.42768
+March              =     1.12167     0.42768
+April              =     1.12167     0.42768
+May                =     1.12167     0.42768
+June               =     1.12167     0.42768
+July               =     1.12167     0.42768
+August             =     1.12167     0.42768
+September          =     1.12167     0.42768
+October            =     1.12167     0.42768
+November           =     1.12167     0.42768
+December           =     1.12167     0.42768
+
+CH4            TFP            Fn          fc
+January            = -9999.00000 -9999.00000
+February           = -9999.00000 -9999.00000
+March              = -9999.00000 -9999.00000
+April              = -9999.00000 -9999.00000
+May                = -9999.00000 -9999.00000
+June               = -9999.00000 -9999.00000
+July               = -9999.00000 -9999.00000
+August             = -9999.00000 -9999.00000
+September          = -9999.00000 -9999.00000
+October            = -9999.00000 -9999.00000
+November           = -9999.00000 -9999.00000
+December           = -9999.00000 -9999.00000
+
+none           TFP            Fn          fc
+January            = -9999.00000 -9999.00000
+February           = -9999.00000 -9999.00000
+March              = -9999.00000 -9999.00000
+April              = -9999.00000 -9999.00000
+May                = -9999.00000 -9999.00000
+June               = -9999.00000 -9999.00000
+July               = -9999.00000 -9999.00000
+August             = -9999.00000 -9999.00000
+September          = -9999.00000 -9999.00000
+October            = -9999.00000 -9999.00000
+November           = -9999.00000 -9999.00000
+December           = -9999.00000 -9999.00000
+
+RH/fc_exponential_fit_parameters_for_water_vapour_spectral_corrections
+-----------------------------------
+         exp1         exp2         exp3
+    -2.453073    -0.706304    -1.369192
+
+
+High-pass_correction_factor_model_parameters
+Model: CF = [c1 * u / (c2 + f_co) + 1] after_Ibrom_et_al_(2007_AFM)
+-------------------------------------------------------------------
+                   c1          c2
+unstable =   0.0045673   0.0022210
+stable   =   0.0095477   0.0058911

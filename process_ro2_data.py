@@ -17,6 +17,20 @@ from glob import glob
 
 # TODO manage error and warning codes to final CSV with log file
 
+def reject_outliers(data, slide_window=3, threshold=10):
+    
+    # Sliding windows
+    data_rolled = data.rolling(slide_window).median(center=True)
+    difference = np.abs(data - data_rolled)
+    outlier_idx = difference > threshold
+    data_despiked = data.copy()
+    data_despiked[outlier_idx] = np.NaN
+    
+    # Remaining statistical outliers
+    outlier_idx = np.abs(data_despiked - np.mean(data_despiked)) > np.std(data_despiked)*4
+    data_despiked[outlier_idx] = np.NaN
+    
+    return data_despiked
 
 def rename_trim_vars(stationName,df):
 
@@ -115,7 +129,7 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     logf.close()
 
 
-def batch_process_eddypro(stationName,asciiOutDir,eddyproConfigDir,eddyproOutDir):
+def batch_process_eddypro(stationName,asciiOutDir,eddyproConfigDir,eddyproOutDir,dates):
 
     # TODO check compatibility with unix and Wine
     # TODO check if the path must be absolute
@@ -127,7 +141,7 @@ def batch_process_eddypro(stationName,asciiOutDir,eddyproConfigDir,eddyproOutDir
     asciiOutDir     = asciiOutDir + stationName
 
     # Read in the Eddy Pro config file and replace target strings
-    with fileinput.FileInput(eddyproConfig, inplace=True, backup='.bak') as file:
+    with fileinput.FileInput(eddyproConfig, inplace=True) as file:
         for line in file:
             if re.match(r'file_name',line):
                 line = re.sub(r'^file_name=.*$',"file_name="+eddyproConfig, line.rstrip())
@@ -142,13 +156,13 @@ def batch_process_eddypro(stationName,asciiOutDir,eddyproConfigDir,eddyproOutDir
                 line = re.sub(r'^data_path=.*$',"data_path="+asciiOutDir, line.rstrip())
                 print(line,end='\n')
             elif re.match(r'pr_start_date',line):
-                line = re.sub(r'^pr_start_date=.*$',"pr_start_date="+"2018-06-01", line.rstrip())
+                line = re.sub(r'^pr_start_date=.*$',"pr_start_date="+dates['start'], line.rstrip())
                 print(line,end='\n')
             elif re.match(r'pr_start_time',line):
                 line = re.sub(r'^pr_start_time=.*$',"pr_start_time="+"00:00", line.rstrip())
                 print(line,end='\n')
             elif re.match(r'pr_end_date',line):
-                line = re.sub(r'^pr_end_date=.*$',"pr_end_date="+"2019-11-01", line.rstrip())
+                line = re.sub(r'^pr_end_date=.*$',"pr_end_date="+dates['end'], line.rstrip())
                 print(line,end='\n')
             elif re.match(r'pr_end_time',line):
                 line = re.sub(r'^pr_end_time=.*$',"pr_end_time="+"00:00", line.rstrip())
@@ -156,7 +170,7 @@ def batch_process_eddypro(stationName,asciiOutDir,eddyproConfigDir,eddyproOutDir
             else:
                 print(line,end='')
 
-    process=os.path.join(".\Bin","EddyPro","eddypro_rp.exe")
+    process=os.path.join(".\Bin","EddyPro","bin","eddypro_rp.exe")
     subprocess.call([process, eddyproConfig])
 
 
@@ -180,8 +194,14 @@ def merge_thermistors(rawFileDir,mergedCsvOutDir):
 
             for iSensor in listThermSensors:
 
-                sensorNiceName = re.sub('\.','m',iSensor,1)[0:-5]
+                # Load data
                 df_tmp = pd.read_excel(os.path.join(rawFileDir,iFieldCampain,iDataCollection,'Excel_exported',iSensor), skiprows=[0])
+
+                # Making nice variable names
+                tmp_sensorNiceName = re.sub('\.','m',iSensor,1)[0:-5]
+                sensorNiceNameTemp = 'water_temp_' + re.split('_',tmp_sensorNiceName)[1] + '_' + re.split('_',tmp_sensorNiceName)[0]
+                sensorNiceNamePress = 'water_height_' + re.split('_',tmp_sensorNiceName)[1] + '_' + re.split('_',tmp_sensorNiceName)[0]
+
 
                 # Remove log columns
                 listCol = [c for c in df_tmp.columns if re.match('.*(Date|Temp|Pres).*', c)]
@@ -193,23 +213,25 @@ def merge_thermistors(rawFileDir,mergedCsvOutDir):
                 if df_tmp.shape[1] == 2: # Temperature only sensor
                     idDates_RecInRef = df_tmp.index.isin(df.index)
                     idDates_RefInRec = df.index.isin(df_tmp.index)
-                    df.loc[idDates_RefInRec,'T_'+sensorNiceName] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[1]]
+                    df.loc[idDates_RefInRec,sensorNiceNameTemp] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[1]]
 
                 elif df_tmp.shape[1] == 3: # Temperature and pressure sensor
                     idDates_RecInRef = df_tmp.index.isin(df.index)
                     idDates_RefInRec = df.index.isin(df_tmp.index)
-                    df.loc[idDates_RefInRec,'T_'+sensorNiceName] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[2]]
-                    df.loc[idDates_RefInRec,'P_'+sensorNiceName] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[1]]
+                    df.loc[idDates_RefInRec,sensorNiceNameTemp] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[2]]
+                    df.loc[idDates_RefInRec,sensorNiceNamePress] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[1]]
 
-    df.to_csv(os.path.join(mergedCsvOutDir,'TidBit.csv'))
+    df.to_csv(os.path.join(mergedCsvOutDir,'Thermistors.csv'))
 
 
 def merge_slow_csv(stationName,asciiOutDir):
 
     # Module to merge same type of slow data together
     def merge_slow_data(slowList):
+
         # Initialize columns name
-        slow_df = pd.read_csv(os.path.join(asciiOutDir,stationName,slowList[0]), sep=',',skiprows=[0,2,3], nrows=0, low_memory=False)
+        slow_df = pd.read_csv(os.path.join(asciiOutDir,stationName,slowList[0]), sep=',',skiprows=[0,2,3],nrows=0,low_memory=False)
+
         # Append the files
         for iSlow in slowList:
             tmp_df = pd.read_csv(os.path.join(asciiOutDir,stationName,iSlow), sep=',',skiprows=[0,2,3], low_memory=False)
@@ -217,6 +239,7 @@ def merge_slow_csv(stationName,asciiOutDir):
                 tmp_df = tmp_df.drop_duplicates(subset='TIMESTAMP', keep='last')
             slow_df = slow_df.append(tmp_df, sort=False)
         slow_df.index = pd.to_datetime(slow_df.TIMESTAMP, yearfirst=True)
+
         return slow_df
 
     # List all slow csv files and merge them together
@@ -234,10 +257,14 @@ def merge_slow_csv(stationName,asciiOutDir):
         slow_df2 = slow_df2.loc[:,~slow_df2.columns.isin(slow_df.columns)] # Remove data from slow_df2 if already included in slow_df
         slow_df = pd.concat([slow_df, slow_df2], axis=1, sort=False)
 
+    # Uniformization of the data
+    slow_df.drop('TIMESTAMP',axis=1,inplace=True)
+    slow_df = slow_df.astype(float)
+
     return slow_df
 
 
-def merge_slow_csv_and_eddypro(stationName,slow_df, eddy_df, mergedCsvOutDir):
+def merge_slow_csv_and_eddypro(stationName,slow_df,eddy_df, mergedCsvOutDir):
 
     # Eddy file to load
     # TODO check Eddy pro file naming conventions. Essential vs full_output
@@ -249,10 +276,24 @@ def merge_slow_csv_and_eddypro(stationName,slow_df, eddy_df, mergedCsvOutDir):
     merged_df=pd.concat([eddy_df, slow_df], axis=1)
     merged_df.TIMESTAMP=merged_df.index # overwrite missing timestamp
     merged_df.index.name="date_index"
+    merged_df = merged_df.reindex(sorted(merged_df.columns), axis=1)
     merged_df.to_csv(os.path.join(mergedCsvOutDir,stationName+"_merged_data.csv"))
 
+    return merged_df
 
-def flux_gap_filling(stationName,var_to_fill,met_vars,mergedCsvOutDir):
+def gap_fill(stationName,df,mergedCsvOutDir,gapfillConfig):
+
+    # load gap filling config file
+    xlsFile = pd.ExcelFile('./Config/GapFillingConfig/gapfilling_configuration.xlsx')
+    df_config = pd.read_excel(xlsFile,stationName+'_MDS')
+
+
+    for iVar_to_fill in df_config.Vars_to_fill:
+        if ~pd.isna(iVar_to_fill):
+            gapfill_mds(df,iVar_to_fill,df_config,mergedCsvOutDir)
+
+
+def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
     # Coded from Reichtein et al. 2005
     #
     # Flowchart:
@@ -324,20 +365,32 @@ def flux_gap_filling(stationName,var_to_fill,met_vars,mergedCsvOutDir):
         return index_proxy_met, fail_code
 
 
-    # Import file
-    df = pd.read_csv(os.path.join(mergedCsvOutDir,stationName+"_merged_data.csv" ), low_memory=False)
+    # # Import file
+    # df = pd.read_csv(os.path.join(mergedCsvOutDir,stationName+"_merged_data.csv" ), low_memory=False)
 
     # Add new columns to data frame that contains var_to_fill gapfilled
-    gap_fil_col_name = var_to_fill + "_gap_filled"
+    gap_fil_col_name = var_to_fill + "_gf_mds"
     df[gap_fil_col_name] = df[var_to_fill]
-    gap_fil_quality_col_name = gap_fil_col_name + "_quality"
+    gap_fil_quality_col_name = gap_fil_col_name + "_qf"
     df[gap_fil_quality_col_name] = None
 
-    # Identify missing flux
+    # Check that all proxy vars are available for gap filling
+    for iProxy_var in df_config.Proxy_vars:
+        if iProxy_var not in df.keys():
+            print(iProxy_var)
+            print(df_config.Proxy_vars_alternative_station[0])
+            df_altStation = pd.read_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/" 
+                                        + df_config.Proxy_vars_alternative_station[0]+'.csv', 
+                                        index_col=0)
+
+    # Identify missing flux and time step that should be discarded
+    if "precip_TB4" not in df.keys():
+        df_precip = pd.read_csv(mergedCsvOutDir+'/'+  +'_merged_data.csv')
     if not stationName=='Reservoir': # TODO find a better alternative
         id_rain = df.loc[:,'precip_Tot'] > 0
     id_spikes_pos = df.loc[:,var_to_fill] > 250 # TODO remove once despiking will be better handled with eddypro
     id_spikes_neg = df.loc[:,var_to_fill] < - 50 # TODO remove once despiking will be better handled with eddypro
+
     id_missing_nee = df.isna()[var_to_fill]
     id_missing_flux = pd.concat([id_rain, id_spikes_pos, id_spikes_neg, id_missing_nee], axis=1)
     id_missing_flux = id_missing_flux.any(axis=1)
