@@ -1,12 +1,12 @@
 ;EDDYPRO_PROCESSING
 [Project]
 creation_date=2015-11-23T10:05:36
-last_change_date=2020-02-06T17:32:21
+last_change_date=2020-02-07T18:38:49
 file_name=C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/Config/EddyProConfig/Ro2_Berge.eddypro
 run_mode=0
 run_fcc=0
 project_title=Ro2_Berge
-sw_version=7.0.3
+sw_version=7.0.6
 ini_version=4.5.0
 project_id=Ro2_Berge
 file_type=1
@@ -63,7 +63,7 @@ out_mean_cosp=0
 out_biomet=0
 bin_sp_avail=0
 full_sp_avail=0
-files_found=258
+files_found=0
 out_mean_spec=0
 hf_correct_ghg_ba=1
 hf_correct_ghg_zoh=1
@@ -130,7 +130,7 @@ sa_gas4_g1_start=1
 sa_gas4_g1_stop=12
 
 [RawProcess_General]
-data_path=E:/Ro2_micormet_processed_data/Ascii_data/Berge
+data_path=
 recurse=0
 use_geo_north=0
 mag_dec=0
@@ -222,7 +222,7 @@ out_full_cosp_w_co2=0
 out_full_cosp_w_h2o=0
 out_full_cosp_w_ch4=0
 out_full_cosp_w_n2o=0
-filter_sr=1
+filter_sr=0
 filter_al=1
 bu_corr=0
 bu_multi=0

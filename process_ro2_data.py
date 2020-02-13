@@ -17,20 +17,29 @@ from glob import glob
 
 # TODO manage error and warning codes to final CSV with log file
 
-def reject_outliers(data, slide_window=3, threshold=10):
+def vickers_spikes(data, slide_window=3000, upbound=500, lowbound=-50):
     
-    # Sliding windows
-    data_rolled = data.rolling(slide_window).median(center=True)
-    difference = np.abs(data - data_rolled)
-    outlier_idx = difference > threshold
-    data_despiked = data.copy()
-    data_despiked[outlier_idx] = np.NaN
+    # Initial standard deviation tolerance
+    std_threshold = 3.5
+    # Initialization of outlier lists
+    outliers_idx = [True]
+    # Hard copy of input
+    data_trimmed = data.copy()
     
-    # Remaining statistical outliers
-    outlier_idx = np.abs(data_despiked - np.mean(data_despiked)) > np.std(data_despiked)*4
-    data_despiked[outlier_idx] = np.NaN
+    while any(outliers_idx):
+        # Sliding windows
+        data_rolled_mean = data.rolling(slide_window,center=True, min_periods=1).mean(skipna=True)
+        data_rolled_std  = data.rolling(slide_window,center=True, min_periods=1).std(skipna=True)
+        outliers_idx = abs(data) > abs(data_rolled_mean + (std_threshold * data_rolled_std) )
+        data_trimmed[outliers_idx] = np.nan
+        std_threshold += 0.1
     
-    return data_despiked
+    # Absolute min and max
+    amm_outliers_idx = (data > upbound) | (data < lowbound)
+    data_trimmed[amm_outliers_idx] = np.nan
+    
+    return data_trimmed
+
 
 def rename_trim_vars(stationName,df):
 
@@ -48,6 +57,10 @@ def rename_trim_vars(stationName,df):
     idColumnsIntersect = column_dic.cs_name.isin(df.columns)
     df = df[column_dic.cs_name[idColumnsIntersect]]
     df.columns = column_dic.db_name[idColumnsIntersect]
+    
+    # Merge columns that have similar column name
+    if df.keys().shape != df.keys().unique().shape:
+        df = df.groupby(df.columns, axis=1).mean()        
 
     return df
 
@@ -98,7 +111,7 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
                         extension="_eddy.csv"
                     elif bool(re.search("alerte",rawFile)):
                         extension="_alert.csv"
-                    elif bool(re.search("_Flux_CSIFormat_",rawFile)) | bool(re.search("flux",rawFile)):
+                    elif bool(re.search("_Flux_CSIFormat_",rawFile)) | bool(re.search("flux",rawFile)) | bool(re.search("data_",rawFile)):
                         extension="_slow.csv"
                     elif bool(re.search("radiation",rawFile)) | bool(re.search("_Flux_Notes_",rawFile)):
                         extension="_slow2.csv"
