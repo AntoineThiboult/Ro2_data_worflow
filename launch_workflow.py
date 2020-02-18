@@ -23,59 +23,54 @@ gapfillConfigDir    = "C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/Confi
 
 dates = {'start':'2018-06-01','end':'2019-11-01'}
 
+allStations = ["Berge"]
+eddyCovStations  = ["Berge"]
+
 ### Process stations
 
-# # Merge Hobo TidBit thermistors
+# Merge Hobo TidBit thermistors
 # prd.merge_thermistors(rawFileDir, mergedCsvOutDir)
 
-# allStations     = ["Berge"]
-# for iStation in allStations:
+for iStation in allStations:
 
-#     # # Binary to ascii
-#     # prd.convert_CSbinary_to_csv(iStation,rawFileDir,asciiOutDir)
+    # Binary to ascii
+    # prd.convert_CSbinary_to_csv(iStation,rawFileDir,asciiOutDir)
 
-#     # Merge slow data
-#     slow_df = prd.merge_slow_csv(iStation,asciiOutDir)
-#     # Rename and trim slow variables
-#     slow_df = prd.rename_trim_vars(iStation,slow_df)
+    # Merge slow data
+    slow_df = prd.merge_slow_csv(iStation,asciiOutDir)
     
-#     if iStation in eddyCovStations:
-
-#         # Ascii to eddypro
-#         # prd.batch_process_eddypro(iStation,asciiOutDir,eddyproConfigDir,eddyproOutDir,dates)
-        
-#         # Load eddypro file
-#         eddy_df = prd.load_eddypro_file(iStation,eddyproOutDir)
-        
-#         # Rename and trim eddy variables
-#         eddy_df = prd.rename_trim_vars(iStation,eddy_df)
+    # Rename and trim slow variables
+    slow_df = prd.rename_trim_vars(iStation,slow_df)
     
-#         # Merge slow and eddy data
-#         df = prd.merge_slow_csv_and_eddypro(iStation, slow_df, eddy_df, mergedCsvOutDir)
-        
-#         # Save to csv
-#         df.to_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/test.csv") # TODO change once debug over
-        
-#     else:
-        
-#         # Save to csv
-#         slow_df.to_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/test.csv") # TODO change once debug over
-        
-        
+    if iStation in eddyCovStations:
 
-
-
+        # Ascii to eddypro
+        # prd.batch_process_eddypro(iStation,asciiOutDir,eddyproConfigDir,eddyproOutDir,dates)
+        
+        # Load eddypro file
+        eddy_df = prd.load_eddypro_file(iStation,eddyproOutDir)
+        
+        # Rename and trim eddy variables
+        eddy_df = prd.rename_trim_vars(iStation,eddy_df)
+    
+        # Merge slow and eddy data
+        df = prd.merge_slow_csv_and_eddypro(iStation, slow_df, eddy_df, mergedCsvOutDir)
+        
+        # Save to csv
+        df.to_csv(mergedCsvOutDir+iStation+'.csv')
+        
+    else:
+        
+        # Save to csv
+        slow_df.to_csv(mergedCsvOutDir+iStation+'.csv')
+        
+        
 for iStation in eddyCovStations:
     
-    df = pd.read_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/test.csv", index_col=0)
-    iStation = "Berge"
+    df = pd.read_csv(mergedCsvOutDir+iStation+'.csv')
+
     # Perform gap filling
-    prd.gap_fill(iStation,df,mergedCsvOutDir,gapfillConfigDir)
-
-#     # var_to_fill = "LE"
-#     # if (iStation == "Berge") | (iStation == "Foret_ouest") | (iStation == "Foret_est"):
-#     #     met_vars = pd.DataFrame({"Rs_incoming_Avg" : 50, "HMP45C_Sensor_temp_Avg" : 2.5,"vpd" : 500}, index=[0] )
-#     # elif iStation == "Reservoir":
-#     #     met_vars = pd.DataFrame({"SWUpper_Avg" : 50, "air_temperature" : 2.5}, index=[0] )
-#     #     prd.flux_gap_filling(iStation,var_to_fill,met_vars,mergedCsvOutDir)
-
+    df = prd.gap_fill(iStation,df,mergedCsvOutDir,gapfillConfigDir)
+    
+    # Save to csv
+    df.to_csv(mergedCsvOutDir+iStation+'.csv')

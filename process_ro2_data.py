@@ -279,15 +279,9 @@ def merge_slow_csv(stationName,asciiOutDir):
 
 def merge_slow_csv_and_eddypro(stationName,slow_df,eddy_df, mergedCsvOutDir):
 
-    # Eddy file to load
-    # TODO check Eddy pro file naming conventions. Essential vs full_output
-    # eddyFileToLoad = glob(eddyproOutDir+'/'+stationName+'/'+'\*full_output*.csv') # TODO chose between glob and os.listdir
-    # eddy_df=pd.read_csv(eddyFileToLoad[0],skiprows=[0,2], sep=',', index_col=None,low_memory=False)
-    # eddy_df.index=pd.to_datetime(eddy_df.date.map(str) +" "+ eddy_df.time.map(str), yearfirst=True)
-
     # Merge and save
     merged_df=pd.concat([eddy_df, slow_df], axis=1)
-    merged_df.TIMESTAMP=merged_df.index # overwrite missing timestamp
+    merged_df['TIMESTAMP']=merged_df.index # overwrite missing timestamp
     merged_df.index.name="date_index"
     merged_df = merged_df.reindex(sorted(merged_df.columns), axis=1)
     merged_df.to_csv(os.path.join(mergedCsvOutDir,stationName+"_merged_data.csv"))
@@ -309,15 +303,15 @@ def gap_fill(stationName,df,mergedCsvOutDir,gapfillConfig):
             for iProxy_vars_alternative_station in df_config.Proxy_vars_alternative_station:
                 if not pd.isna(iProxy_vars_alternative_station):
                     df[iProxy_vars_alternative_station] = df_altStation[iProxy_vars_alternative_station]        
-        delta_Tair_Twater = df[['water_temp_0m0_Therm1','water_temp_0m0_Therm2',
-                                           'water_temp_0m4_Therm1','water_temp_0m4_Therm2']].mean(axis=1)
-        delta2 = vickers_spikes(delta_Tair_Twater,100)
+        tmp = df[['water_temp_0m0_Therm1','water_temp_0m0_Therm2',
+                  'water_temp_0m4_Therm1','water_temp_0m4_Therm2']].mean(axis=1)        
+        df['delta_Tair_Teau'] = abs(tmp - df.air_temp_IRGASON107probe)
         
     for iVar_to_fill in df_config.Vars_to_fill:
         if not pd.isna(iVar_to_fill):
-            gapfill_mds(df,iVar_to_fill,df_config,mergedCsvOutDir)
+            df = gapfill_mds(df,iVar_to_fill,df_config,mergedCsvOutDir)
 
-    df.to_csv(os.path.join(mergedCsvOutDir,stationName+"_gapfilled_data.csv"))
+    return df
     
 def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
     # Coded from Reichtein et al. 2005
@@ -351,17 +345,18 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
     #   NEE available within |dt|<= 7, 21, 28,...days                 --> Yes     --> Filling quality C (case 8)
 
     # Submodule to find similar meteorological condition within a given window search
-    def find_meteo_proxy_index(df, t, search_window, proxy_vars, proxy_vars_range):
+    def find_meteo_proxy_index(df, t, search_window, proxy_vars, proxy_vars_range):        
         proxy_vars.dropna(inplace=True)
         current_met = df.loc[t,proxy_vars]
         if any(current_met.isna()):
             index_proxy_met = None
             fail_code = "NaN in current proxy meteorological vars"
-        else:                        
-            t_start = np.max([0, t-int(search_window*48)])
-            t_end = np.min([df.shape[0], t+int(search_window*48)+1])
+        else:            
+            t_loc = df.index.get_loc(t)
+            t_start = np.max([0, t_loc-int(search_window*48)])
+            t_end = np.min([df.shape[0], t_loc+int(search_window*48)+1])
             time_window = list( range(t_start ,t_end) )
-            time_window_met = df.loc[time_window,proxy_vars]
+            time_window_met = df.loc[df.index[time_window],proxy_vars]
             index_proxy_met_bool = pd.DataFrame()
             # Check if proxy met matches gap filling conditions
             for iVar in range(0,proxy_vars.shape[0]):
@@ -370,7 +365,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
                      abs(time_window_met.iloc[:,iVar] - current_met.iloc[iVar]) < proxy_vars_range[iVar]], axis=1)
                 
             # Check that the corresponding var_to_fill is not NaN
-            index_proxy_met_bool = pd.concat([index_proxy_met_bool, ~df.isna()[var_to_fill][time_window]], axis=1)
+            index_proxy_met_bool = pd.concat([index_proxy_met_bool, ~df.loc[df.index[time_window],var_to_fill].isna()], axis=1)
             index_proxy_met_bool = index_proxy_met_bool.all(axis=1)
             # Convert bool to index
             index_proxy_met = index_proxy_met_bool.index[index_proxy_met_bool == True]
@@ -382,13 +377,14 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
 
     # Submodule to find a NEE within one day at the same hour of day
     def find_nee_proxy_index(df, t, search_window, exact_time=False):
-        t_start = np.max([0, t-int(search_window*48)])
-        t_end = np.min([df.shape[0], t+int(search_window*48)+1])
+        t_loc = df.index.get_loc(t)
+        t_start = np.max([0, t_loc-int(search_window*48)])
+        t_end = np.min([df.shape[0], t_loc+int(search_window*48)+1])
         if exact_time:
             time_window = list([t_start ,t_end])
         else:
             time_window = list( range(t_start ,t_end) )
-        time_window_met = df.loc[time_window,var_to_fill]
+        time_window_met = df.loc[df.index[time_window],var_to_fill]
         index_proxy_met_bool = ~time_window_met.isna()
         index_proxy_met = index_proxy_met_bool.index[index_proxy_met_bool == True]
         if index_proxy_met.size == 0:
@@ -401,9 +397,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
     gap_fil_col_name = var_to_fill + "_gf_mds"
     df[gap_fil_col_name] = df[var_to_fill]
     gap_fil_quality_col_name = gap_fil_col_name + "_qf"
-    df[gap_fil_quality_col_name] = None
-
-    
+    df[gap_fil_quality_col_name] = None   
                         
     # Load proxy precipitation station data
     if 'Proxy_precip_station' in df.columns:
@@ -413,97 +407,94 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         df['precip_TB4'] = df_precipStation['precip_TB4']
 
     # Identify missing flux and time step that should be discarded                
+    df[var_to_fill] = vickers_spikes(df[var_to_fill])    
     id_rain = df['precip_TB4'] > 0
-    id_spikes_pos = df[var_to_fill] > 250 # TODO remove once despiking will be better handled with eddypro
-    id_spikes_neg = df[var_to_fill] < - 50 # TODO remove once despiking will be better handled with eddypro
     id_missing_nee = df.isna()[var_to_fill]
     id_low_quality = df[var_to_fill+'_qf'] == 2
-    id_missing_flux = id_rain | id_spikes_pos | id_spikes_neg | id_missing_nee | id_low_quality    
+    id_missing_flux = id_rain | id_missing_nee | id_low_quality    
     df.loc[id_missing_flux,var_to_fill] = np.nan
 
-
     # Loop over time steps
-    for t in df.index[id_missing_flux]:
-    # for t in range (270, 280): #TODO remove after testing
+    for t in df.index[id_missing_flux]:    
         print(t)
         
-        # # Case 1
-        # search_window = 7
-        # index_proxy_met, fail_code = find_meteo_proxy_index(
-        #     df, t, search_window, df_config.Proxy_vars, df_config.Proxy_vars_range)
-        # if not fail_code:
-        #     df.loc[t,gap_fil_col_name] = np.mean(df.loc[index_proxy_met,var_to_fill])
-        #     df.loc[t,gap_fil_quality_col_name] = "A1"
-        #     print("Case 1 succeeds\n")
-        #     continue
+        # Case 1
+        search_window = 7
+        index_proxy_met, fail_code = find_meteo_proxy_index(
+            df, t, search_window, df_config.Proxy_vars, df_config.Proxy_vars_range)
+        if not fail_code:
+            df.loc[t,gap_fil_col_name] = np.mean(df.loc[index_proxy_met,var_to_fill])
+            df.loc[t,gap_fil_quality_col_name] = "A1"
+            print("Case 1 succeeds\n")
+            continue
 
-        # # Case 2
-        # search_window = 14
-        # index_proxy_met, fail_code = find_meteo_proxy_index(
-        #     df, t, search_window, df_config.Proxy_vars, df_config.Proxy_vars_range)
-        # if not fail_code:
-        #     df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
-        #     df.loc[t,gap_fil_quality_col_name] = "A2"
-        #     print("Case 2 succeeds\n")
-        #     continue
+        # Case 2
+        search_window = 14
+        index_proxy_met, fail_code = find_meteo_proxy_index(
+            df, t, search_window, df_config.Proxy_vars, df_config.Proxy_vars_range)
+        if not fail_code:
+            df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+            df.loc[t,gap_fil_quality_col_name] = "A2"
+            print("Case 2 succeeds\n")
+            continue
 
-        # # Case 3
-        # search_window = 7
-        # index_proxy_met, fail_code = find_meteo_proxy_index(
-        #     df, t, search_window, df_config.Proxy_vars_subset, df_config.Proxy_vars_range)
-        # if not fail_code:
-        #     df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
-        #     df.loc[t,gap_fil_quality_col_name] = "A3"
-        #     print("Case 3 succeeds\n")
-        #     continue
+        # Case 3
+        search_window = 7
+        index_proxy_met, fail_code = find_meteo_proxy_index(
+            df, t, search_window, df_config.Proxy_vars_subset, df_config.Proxy_vars_range)
+        if not fail_code:
+            df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+            df.loc[t,gap_fil_quality_col_name] = "A3"
+            print("Case 3 succeeds\n")
+            continue
 
-        # # Case 4
-        # search_window = 1/24
-        # index_proxy_met, fail_code = find_nee_proxy_index(df, t, search_window)
-        # if not fail_code:
-        #     df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
-        #     df.loc[t,gap_fil_quality_col_name] = "A4"
-        #     print("Case 4 succeeds\n")
-        #     continue
+        # Case 4
+        search_window = 1/24
+        index_proxy_met, fail_code = find_nee_proxy_index(df, t, search_window)
+        if not fail_code:
+            df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+            df.loc[t,gap_fil_quality_col_name] = "A4"
+            print("Case 4 succeeds\n")
+            continue
 
-        # # Case 5
-        # search_window = 1
-        # index_proxy_met, fail_code = find_nee_proxy_index(df, t, search_window, True)
-        # if not fail_code:
-        #     df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
-        #     df.loc[t,gap_fil_quality_col_name] = "B1"
-        #     print("Case 5 succeeds\n")
-        #     continue
+        # Case 5
+        search_window = 1
+        index_proxy_met, fail_code = find_nee_proxy_index(df, t, search_window, True)
+        if not fail_code:
+            df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+            df.loc[t,gap_fil_quality_col_name] = "B1"
+            print("Case 5 succeeds\n")
+            continue
 
-        # # Case 6
-        # search_window = 14
-        # while bool(fail_code) & (search_window <= 140):
-        #     search_window += 7
-        #     index_proxy_met, fail_code = find_meteo_proxy_index(
-        #         df, t, search_window, df_config.Proxy_vars, df_config.Proxy_vars_range)
-        #     if not fail_code:
-        #         df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
-        #         if search_window <= 28:
-        #             df.loc[t,gap_fil_quality_col_name] = "B2"
-        #         else:
-        #             df.loc[t,gap_fil_quality_col_name] = "C1"
-        #         print("Case 6 succeeds for search window = {0} days\n".format(search_window))
-        #         continue
+        # Case 6
+        search_window = 14
+        while bool(fail_code) & (search_window <= 140):
+            search_window += 7
+            index_proxy_met, fail_code = find_meteo_proxy_index(
+                df, t, search_window, df_config.Proxy_vars, df_config.Proxy_vars_range)
+            if not fail_code:
+                df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+                if search_window <= 28:
+                    df.loc[t,gap_fil_quality_col_name] = "B2"
+                else:
+                    df.loc[t,gap_fil_quality_col_name] = "C1"
+                print("Case 6 succeeds for search window = {0} days\n".format(search_window))
+                continue
 
-        # # Case 7
-        # search_window = 7
-        # while bool(fail_code) & (search_window <= 140):
-        #     search_window += 7
-        #     index_proxy_met, fail_code = find_meteo_proxy_index(
-        #         df, t, search_window, df_config.Proxy_vars_subset, df_config.Proxy_vars_range)
-        #     if not fail_code:
-        #         df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
-        #         if search_window <= 14:
-        #             df.loc[t,gap_fil_quality_col_name] = "B3"
-        #         else:
-        #             df.loc[t,gap_fil_quality_col_name] = "C2"
-        #         print("Case 7 succeeds for search window = {0} days\n".format(search_window))
-        #         continue
+        # Case 7
+        search_window = 7
+        while bool(fail_code) & (search_window <= 140):
+            search_window += 7
+            index_proxy_met, fail_code = find_meteo_proxy_index(
+                df, t, search_window, df_config.Proxy_vars_subset, df_config.Proxy_vars_range)
+            if not fail_code:
+                df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+                if search_window <= 14:
+                    df.loc[t,gap_fil_quality_col_name] = "B3"
+                else:
+                    df.loc[t,gap_fil_quality_col_name] = "C2"
+                print("Case 7 succeeds for search window = {0} days\n".format(search_window))
+                continue
 
         # Case 8
         search_window = 0
@@ -515,3 +506,4 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
                 df.loc[t,gap_fil_quality_col_name] = "C3"
                 print("Case 8 succeeds for search window = {0} days\n".format(search_window))
                 continue
+    return df
