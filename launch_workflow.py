@@ -7,6 +7,7 @@ import process_ro2_data as prd
 # TODO think of thermistor vars renaming
 # TODO add a row for units
 # TODO add verbose
+# TODO add despike 
 
 ### Define paths
 
@@ -27,49 +28,49 @@ dates = {'start':'2018-06-01','end':'2019-11-01'}
 # # Merge Hobo TidBit thermistors
 # prd.merge_thermistors(rawFileDir, mergedCsvOutDir)
 
-allStations     = ["Berge"]
-for iStation in allStations:
+# allStations     = ["Berge"]
+# for iStation in allStations:
 
-    # # Binary to ascii
-    # prd.convert_CSbinary_to_csv(iStation,rawFileDir,asciiOutDir)
+#     # # Binary to ascii
+#     # prd.convert_CSbinary_to_csv(iStation,rawFileDir,asciiOutDir)
 
-    # Merge slow data
-    slow_df = prd.merge_slow_csv(iStation,asciiOutDir)
-    # Rename and trim slow variables
-    slow_df = prd.rename_trim_vars(iStation,slow_df)
+#     # Merge slow data
+#     slow_df = prd.merge_slow_csv(iStation,asciiOutDir)
+#     # Rename and trim slow variables
+#     slow_df = prd.rename_trim_vars(iStation,slow_df)
     
-    if iStation in eddyCovStations:
+#     if iStation in eddyCovStations:
 
-        # Ascii to eddypro
-        # prd.batch_process_eddypro(iStation,asciiOutDir,eddyproConfigDir,eddyproOutDir,dates)
+#         # Ascii to eddypro
+#         # prd.batch_process_eddypro(iStation,asciiOutDir,eddyproConfigDir,eddyproOutDir,dates)
         
-        # Load eddypro file
-        eddy_df = prd.load_eddypro_file(iStation,eddyproOutDir)
+#         # Load eddypro file
+#         eddy_df = prd.load_eddypro_file(iStation,eddyproOutDir)
         
-        # Rename and trim eddy variables
-        eddy_df = prd.rename_trim_vars(iStation,eddy_df)
+#         # Rename and trim eddy variables
+#         eddy_df = prd.rename_trim_vars(iStation,eddy_df)
     
-        # Merge slow and eddy data
-        df = prd.merge_slow_csv_and_eddypro(iStation, slow_df, eddy_df, mergedCsvOutDir)
+#         # Merge slow and eddy data
+#         df = prd.merge_slow_csv_and_eddypro(iStation, slow_df, eddy_df, mergedCsvOutDir)
         
-        # Save to csv
-        df.to_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/test.csv") # TODO change once debug over
+#         # Save to csv
+#         df.to_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/test.csv") # TODO change once debug over
         
-    else:
+#     else:
         
-        # Save to csv
-        slow_df.to_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/test.csv") # TODO change once debug over
+#         # Save to csv
+#         slow_df.to_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/test.csv") # TODO change once debug over
         
         
-    
 
 
-# for iStation in eddyCovStations:
+
+for iStation in eddyCovStations:
     
-#     df = pd.read_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/test.csv",index_col=0)
-#     iStation = "Reservoir"
-#     # Perform gap filling
-#     prd.gap_fill(iStation,df,mergedCsvOutDir,gapfillConfigDir)
+    df = pd.read_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/test.csv", index_col=0)
+    iStation = "Berge"
+    # Perform gap filling
+    prd.gap_fill(iStation,df,mergedCsvOutDir,gapfillConfigDir)
 
 #     # var_to_fill = "LE"
 #     # if (iStation == "Berge") | (iStation == "Foret_ouest") | (iStation == "Foret_est"):

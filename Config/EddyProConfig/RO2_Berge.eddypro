@@ -1,7 +1,7 @@
 ;EDDYPRO_PROCESSING
 [Project]
 creation_date=2015-11-23T10:05:36
-last_change_date=2020-02-07T18:38:49
+last_change_date=2020-02-17T14:12:07
 file_name=C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/Config/EddyProConfig/Ro2_Berge.eddypro
 run_mode=0
 run_fcc=0
@@ -70,7 +70,7 @@ hf_correct_ghg_zoh=1
 sonic_output_rate=-1
 fluxnet_standardize_biomet=0
 fluxnet_err_label=0
-ru_meth=0
+ru_meth=1
 ru_its_meth=1
 ru_tlag_max=10.0
 
