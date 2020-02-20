@@ -14,7 +14,6 @@ import fileinput
 from datetime import datetime as dt
 from glob import glob
 
-
 # TODO manage error and warning codes to final CSV with log file
 
 def vickers_spikes(data, slide_window=3000, upbound=500, lowbound=-50):
@@ -28,8 +27,8 @@ def vickers_spikes(data, slide_window=3000, upbound=500, lowbound=-50):
     
     while any(outliers_idx):
         # Sliding windows
-        data_rolled_mean = data.rolling(slide_window,center=True, min_periods=1).mean(skipna=True)
-        data_rolled_std  = data.rolling(slide_window,center=True, min_periods=1).std(skipna=True)
+        data_rolled_mean = data.rolling(slide_window,center=True, min_periods=1).mean()
+        data_rolled_std  = data.rolling(slide_window,center=True, min_periods=1).std()
         outliers_idx = abs(data) > abs(data_rolled_mean + (std_threshold * data_rolled_std) )
         data_trimmed[outliers_idx] = np.nan
         std_threshold += 0.1
@@ -43,6 +42,7 @@ def vickers_spikes(data, slide_window=3000, upbound=500, lowbound=-50):
 
 def rename_trim_vars(stationName,df):
 
+    print('Start renaming variables for station:', stationName, '...')
     # Import Excel documentation file
     xlsFile = pd.ExcelFile('./Resources/EmpreinteVariableDescription.xlsx')
     column_dic = pd.read_excel(xlsFile,stationName)
@@ -60,13 +60,15 @@ def rename_trim_vars(stationName,df):
     
     # Merge columns that have similar column name
     if df.keys().shape != df.keys().unique().shape:
-        df = df.groupby(df.columns, axis=1).mean()        
+        df = df.groupby(df.columns, axis=1).mean()
+    print('Done!')
 
     return df
 
 
 def load_eddypro_file(stationName,inputDir):
 
+    print('Start loading eddy pro file for station:', stationName, '...')
     # List eddy pro output files and select most recent one
     eddyFullOutputList = glob(inputDir+'/'+stationName+'/'+'\*full_output*.csv') # TODO chose between glob and os.listdir
     eddyProFileToLoad = max(eddyFullOutputList, key=os.path.getctime) # Select latest file
@@ -76,7 +78,8 @@ def load_eddypro_file(stationName,inputDir):
 
     # Create time based index
     df.index=pd.to_datetime(df.date.map(str) +" "+ df.time.map(str), yearfirst=True)
-
+    print('Done!')
+    
     return df
 
 
@@ -84,7 +87,9 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
 
     # TODO check compatibility with unix and Wine
     # TODO solve issue with shutil.copy that overwrite previous file. Add iDataCollection to name
-
+    
+    print('Start converting Campbell binary files to csv for station:', stationName, '...')
+    
     # Open error log file
     logf = open("convert_CSbinary_to_csv.log", "w")
 
@@ -140,6 +145,8 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
 
     # Close error log file
     logf.close()
+    
+    print('Done!')
 
 
 def batch_process_eddypro(stationName,asciiOutDir,eddyproConfigDir,eddyproOutDir,dates):
@@ -147,7 +154,9 @@ def batch_process_eddypro(stationName,asciiOutDir,eddyproConfigDir,eddyproOutDir
     # TODO check compatibility with unix and Wine
     # TODO check if the path must be absolute
     # TODO manage error code with subprocess.call and add exception
-
+    
+    print('Start Eddy Pro processing for station:', stationName, '...')
+    
     eddyproOutDir   = eddyproOutDir + stationName
     eddyproConfig   = eddyproConfigDir + "Ro2_" + stationName + ".eddypro"
     eddyproMetaData = eddyproConfigDir + "Ro2_" + stationName + ".metadata"
@@ -185,9 +194,12 @@ def batch_process_eddypro(stationName,asciiOutDir,eddyproConfigDir,eddyproOutDir
 
     process=os.path.join(".\Bin","EddyPro","bin","eddypro_rp.exe")
     subprocess.call([process, eddyproConfig])
-
+    
+    print('Done!')
 
 def merge_thermistors(rawFileDir,mergedCsvOutDir):
+    
+    print('Start merging thermistors data')
     df = pd.DataFrame( index=pd.date_range(start='2018/01/01', end='2020/01/01', freq='30min') )
 
     #Find folders that match the pattern Ro2_YYYYMMDD
@@ -235,10 +247,11 @@ def merge_thermistors(rawFileDir,mergedCsvOutDir):
                     df.loc[idDates_RefInRec,sensorNiceNamePress] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[1]]
 
     df.to_csv(os.path.join(mergedCsvOutDir,'Thermistors.csv'))
-
+    print('Done!')
 
 def merge_slow_csv(stationName,asciiOutDir):
-
+    
+    print('Start merging slow data for station:', stationName, '...')
     # Module to merge same type of slow data together
     def merge_slow_data(slowList):
 
@@ -273,19 +286,23 @@ def merge_slow_csv(stationName,asciiOutDir):
     # Uniformization of the data
     slow_df.drop('TIMESTAMP',axis=1,inplace=True)
     slow_df = slow_df.astype(float)
-
+    
+    print('Done')
+    
     return slow_df
 
 
 def merge_slow_csv_and_eddypro(stationName,slow_df,eddy_df, mergedCsvOutDir):
-
+    
+    print('Start merging slow and Eddy Pro data for station:', stationName, '...')
     # Merge and save
     merged_df=pd.concat([eddy_df, slow_df], axis=1)
     merged_df['TIMESTAMP']=merged_df.index # overwrite missing timestamp
     merged_df.index.name="date_index"
     merged_df = merged_df.reindex(sorted(merged_df.columns), axis=1)
     merged_df.to_csv(os.path.join(mergedCsvOutDir,stationName+"_merged_data.csv"))
-
+    print('Done!')
+    
     return merged_df
 
 def gap_fill(stationName,df,mergedCsvOutDir,gapfillConfig):
@@ -309,6 +326,7 @@ def gap_fill(stationName,df,mergedCsvOutDir,gapfillConfig):
         
     for iVar_to_fill in df_config.Vars_to_fill:
         if not pd.isna(iVar_to_fill):
+            print('Start gap filling for variable {:s} and station {:s}'.format(iVar_to_fill, stationName))
             df = gapfill_mds(df,iVar_to_fill,df_config,mergedCsvOutDir)
 
     return df
@@ -413,10 +431,12 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
     id_low_quality = df[var_to_fill+'_qf'] == 2
     id_missing_flux = id_rain | id_missing_nee | id_low_quality    
     df.loc[id_missing_flux,var_to_fill] = np.nan
+    
 
     # Loop over time steps
-    for t in df.index[id_missing_flux]:    
-        print(t)
+    for t in df.index[id_missing_flux]:
+        if not t%100:
+            print("\rGap filling {:s}, progress {:2.1%} ".format(var_to_fill, t/len(df.index)), end='\r')
         
         # Case 1
         search_window = 7
@@ -424,8 +444,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
             df, t, search_window, df_config.Proxy_vars, df_config.Proxy_vars_range)
         if not fail_code:
             df.loc[t,gap_fil_col_name] = np.mean(df.loc[index_proxy_met,var_to_fill])
-            df.loc[t,gap_fil_quality_col_name] = "A1"
-            print("Case 1 succeeds\n")
+            df.loc[t,gap_fil_quality_col_name] = "A1"        
             continue
 
         # Case 2
@@ -435,7 +454,6 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         if not fail_code:
             df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
             df.loc[t,gap_fil_quality_col_name] = "A2"
-            print("Case 2 succeeds\n")
             continue
 
         # Case 3
@@ -445,7 +463,6 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         if not fail_code:
             df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
             df.loc[t,gap_fil_quality_col_name] = "A3"
-            print("Case 3 succeeds\n")
             continue
 
         # Case 4
@@ -454,7 +471,6 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         if not fail_code:
             df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
             df.loc[t,gap_fil_quality_col_name] = "A4"
-            print("Case 4 succeeds\n")
             continue
 
         # Case 5
@@ -463,7 +479,6 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         if not fail_code:
             df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
             df.loc[t,gap_fil_quality_col_name] = "B1"
-            print("Case 5 succeeds\n")
             continue
 
         # Case 6
@@ -478,7 +493,6 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
                     df.loc[t,gap_fil_quality_col_name] = "B2"
                 else:
                     df.loc[t,gap_fil_quality_col_name] = "C1"
-                print("Case 6 succeeds for search window = {0} days\n".format(search_window))
                 continue
 
         # Case 7
@@ -493,7 +507,6 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
                     df.loc[t,gap_fil_quality_col_name] = "B3"
                 else:
                     df.loc[t,gap_fil_quality_col_name] = "C2"
-                print("Case 7 succeeds for search window = {0} days\n".format(search_window))
                 continue
 
         # Case 8
@@ -504,6 +517,6 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
             if not fail_code:
                 df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
                 df.loc[t,gap_fil_quality_col_name] = "C3"
-                print("Case 8 succeeds for search window = {0} days\n".format(search_window))
                 continue
+            
     return df
