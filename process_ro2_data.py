@@ -42,7 +42,7 @@ def vickers_spikes(data, slide_window=3000, upbound=500, lowbound=-50):
 
 def rename_trim_vars(stationName,df):
 
-    print('Start renaming variables for station:', stationName, '...')
+    print('Start renaming variables for station:', stationName, '...', end='\r')
     # Import Excel documentation file
     xlsFile = pd.ExcelFile('./Resources/EmpreinteVariableDescription.xlsx')
     column_dic = pd.read_excel(xlsFile,stationName)
@@ -68,7 +68,7 @@ def rename_trim_vars(stationName,df):
 
 def load_eddypro_file(stationName,inputDir):
 
-    print('Start loading eddy pro file for station:', stationName, '...')
+    print('Start loading eddy pro file for station:', stationName, '...', end='\r')
     # List eddy pro output files and select most recent one
     eddyFullOutputList = glob(inputDir+'/'+stationName+'/'+'\*full_output*.csv') # TODO chose between glob and os.listdir
     eddyProFileToLoad = max(eddyFullOutputList, key=os.path.getctime) # Select latest file
@@ -88,7 +88,7 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     # TODO check compatibility with unix and Wine
     # TODO solve issue with shutil.copy that overwrite previous file. Add iDataCollection to name
     
-    print('Start converting Campbell binary files to csv for station:', stationName, '...')
+    print('Start converting Campbell binary files to csv for station:', stationName, '...', end='\r')
     
     # Open error log file
     logf = open("convert_CSbinary_to_csv.log", "w")
@@ -155,7 +155,7 @@ def batch_process_eddypro(stationName,asciiOutDir,eddyproConfigDir,eddyproOutDir
     # TODO check if the path must be absolute
     # TODO manage error code with subprocess.call and add exception
     
-    print('Start Eddy Pro processing for station:', stationName, '...')
+    print('Start Eddy Pro processing for station:', stationName, '...', end='\r')
     
     eddyproOutDir   = eddyproOutDir + stationName
     eddyproConfig   = eddyproConfigDir + "Ro2_" + stationName + ".eddypro"
@@ -251,7 +251,7 @@ def merge_thermistors(rawFileDir,mergedCsvOutDir):
 
 def merge_slow_csv(stationName,asciiOutDir):
     
-    print('Start merging slow data for station:', stationName, '...')
+    print('Start merging slow data for station:', stationName, '...', end='\r')
     # Module to merge same type of slow data together
     def merge_slow_data(slowList):
 
@@ -287,14 +287,14 @@ def merge_slow_csv(stationName,asciiOutDir):
     slow_df.drop('TIMESTAMP',axis=1,inplace=True)
     slow_df = slow_df.astype(float)
     
-    print('Done')
+    print('Done!')
     
     return slow_df
 
 
 def merge_slow_csv_and_eddypro(stationName,slow_df,eddy_df, mergedCsvOutDir):
     
-    print('Start merging slow and Eddy Pro data for station:', stationName, '...')
+    print('Start merging slow and Eddy Pro data for station:', stationName, '...', end='\r')
     # Merge and save
     merged_df=pd.concat([eddy_df, slow_df], axis=1)
     merged_df['TIMESTAMP']=merged_df.index # overwrite missing timestamp
@@ -372,7 +372,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         else:            
             t_loc = df.index.get_loc(t)
             t_start = np.max([0, t_loc-int(search_window*48)])
-            t_end = np.min([df.shape[0], t_loc+int(search_window*48)+1])
+            t_end = np.min([df.shape[0]-1, t_loc+int(search_window*48)+1])
             time_window = list( range(t_start ,t_end) )
             time_window_met = df.loc[df.index[time_window],proxy_vars]
             index_proxy_met_bool = pd.DataFrame()
@@ -397,7 +397,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
     def find_nee_proxy_index(df, t, search_window, exact_time=False):
         t_loc = df.index.get_loc(t)
         t_start = np.max([0, t_loc-int(search_window*48)])
-        t_end = np.min([df.shape[0], t_loc+int(search_window*48)+1])
+        t_end = np.min([df.shape[0]-1, t_loc+int(search_window*48)+1])
         if exact_time:
             time_window = list([t_start ,t_end])
         else:
