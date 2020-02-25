@@ -17,6 +17,12 @@ from glob import glob
 # TODO manage error and warning codes to final CSV with log file
 
 def vickers_spikes(data, slide_window=3000, upbound=500, lowbound=-50):
+    """Detect spikes in data series according to :
+    DEAN VICKERS AND L. MAHRT, Quality Control and Flux Sampling Problems for Tower and Aircraft Data, 
+    Journal of atmospheric and oceanic technologies
+    Input: pandas dataframe column
+    Output: index of spikes"""
+    # TODO return index of spikes instead of despiked series
     
     # Initial standard deviation tolerance
     std_threshold = 3.5
@@ -299,8 +305,8 @@ def merge_slow_csv_and_eddypro(stationName,slow_df,eddy_df, mergedCsvOutDir):
     merged_df=pd.concat([eddy_df, slow_df], axis=1)
     merged_df['TIMESTAMP']=merged_df.index # overwrite missing timestamp
     merged_df.index.name="date_index"
-    merged_df = merged_df.reindex(sorted(merged_df.columns), axis=1)
-    merged_df.to_csv(os.path.join(mergedCsvOutDir,stationName+"_merged_data.csv"))
+    # merged_df = merged_df.reindex(sorted(merged_df.columns), axis=1) # TODO solve bug 
+    # merged_df.to_csv(os.path.join(mergedCsvOutDir,stationName+"_merged_data.csv")) # TODO check if necessary
     print('Done!')
     
     return merged_df
@@ -326,6 +332,8 @@ def gap_fill(stationName,df,mergedCsvOutDir,gapfillConfig):
         
     for iVar_to_fill in df_config.Vars_to_fill:
         if not pd.isna(iVar_to_fill):
+            iVar_to_fill = df_config.Vars_to_fill[2] # TODO remove after debug
+            df = df[18000:20000] # TODO remove after debug
             print('Start gap filling for variable {:s} and station {:s}'.format(iVar_to_fill, stationName))
             df = gapfill_mds(df,iVar_to_fill,df_config,mergedCsvOutDir)
 
@@ -425,7 +433,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         df['precip_TB4'] = df_precipStation['precip_TB4']
 
     # Identify missing flux and time step that should be discarded                
-    df[var_to_fill] = vickers_spikes(df[var_to_fill])    
+    df[var_to_fill] = vickers_spikes(df[var_to_fill])
     id_rain = df['precip_TB4'] > 0
     id_missing_nee = df.isna()[var_to_fill]
     id_low_quality = df[var_to_fill+'_qf'] == 2
