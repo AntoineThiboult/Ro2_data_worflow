@@ -82,8 +82,8 @@ def load_eddypro_file(stationName,inputDir):
     # Import as dataframe
     df = pd.read_csv(eddyProFileToLoad,skiprows=[0,2])
 
-    # Create time based index
-    df.index=pd.to_datetime(df.date.map(str) +" "+ df.time.map(str), yearfirst=True)
+    # Create a standardized time column
+    df['TIMESTAMP']=pd.to_datetime(df.date.map(str) +" "+ df.time.map(str), yearfirst=True)
     print('Done!')
     
     return df
@@ -203,14 +203,15 @@ def batch_process_eddypro(stationName,asciiOutDir,eddyproConfigDir,eddyproOutDir
     
     print('Done!')
 
-def merge_thermistors(rawFileDir,mergedCsvOutDir):
+def merge_thermistors(dates, rawFileDir,mergedCsvOutDir):
     
     print('Start merging thermistors data')
-    df = pd.DataFrame( index=pd.date_range(start='2018/01/01', end='2020/01/01', freq='30min') )
+    df = pd.DataFrame( index=pd.date_range(start=dates['start'], end=dates['end'], freq='30min') )
 
     #Find folders that match the pattern Ro2_YYYYMMDD
     listFieldCampains = [f for f in os.listdir(rawFileDir) if re.match(r'^Ro2_[0-9]{8}$', f)]
-
+    
+    counterField = 0
     for iFieldCampain in listFieldCampains:
 
         #Find folders that match the pattern TidBit_YYYYMMDD
@@ -222,9 +223,10 @@ def merge_thermistors(rawFileDir,mergedCsvOutDir):
             #Find all thermistor files in folder
             thermNameRegex = r'^' + 'Therm' + r'[1-2].*xlsx$'
             listThermSensors = [f for f in os.listdir(os.path.join(rawFileDir,iFieldCampain,iDataCollection,'Excel_exported')) if re.match(thermNameRegex, f)]
-
+            
+            counter = 0
             for iSensor in listThermSensors:
-
+                
                 # Load data
                 df_tmp = pd.read_excel(os.path.join(rawFileDir,iFieldCampain,iDataCollection,'Excel_exported',iSensor), skiprows=[0])
 
@@ -251,47 +253,50 @@ def merge_thermistors(rawFileDir,mergedCsvOutDir):
                     idDates_RefInRec = df.index.isin(df_tmp.index)
                     df.loc[idDates_RefInRec,sensorNiceNameTemp] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[2]]
                     df.loc[idDates_RefInRec,sensorNiceNamePress] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[1]]
+                
+                print("\rMerging thermistors for dataset {:s}, progress {:2.1%} ".format(iFieldCampain, counter/len(listThermSensors)), end='\r')
+                counter += 1
 
-    df.to_csv(os.path.join(mergedCsvOutDir,'Thermistors.csv'))
+    df['timestamp'] = df.index
+    df = df.reindex(sorted(df.columns), axis=1)
+    df.to_csv(os.path.join(mergedCsvOutDir,'Thermistors.csv'), index=False)
     print('Done!')
 
-def merge_slow_csv(stationName,asciiOutDir):
+def merge_slow_csv(stationName,asciiOutDir,dates):
     
     print('Start merging slow data for station:', stationName, '...', end='\r')
     # Module to merge same type of slow data together
-    def merge_slow_data(slowList):
-
-        # Initialize columns name
-        slow_df = pd.read_csv(os.path.join(asciiOutDir,stationName,slowList[0]), sep=',',skiprows=[0,2,3],nrows=0,low_memory=False)
-
-        # Append the files
+    def merge_slow_data(slow_df, slowList):
+       
         for iSlow in slowList:
-            tmp_df = pd.read_csv(os.path.join(asciiOutDir,stationName,iSlow), sep=',',skiprows=[0,2,3], low_memory=False)
-            if not tmp_df.TIMESTAMP.shape == tmp_df.TIMESTAMP.unique().shape: # TODO check for more elegant solution that discard less data
-                tmp_df = tmp_df.drop_duplicates(subset='TIMESTAMP', keep='last')
-            slow_df = slow_df.append(tmp_df, sort=False)
-        slow_df.index = pd.to_datetime(slow_df.TIMESTAMP, yearfirst=True)
+            tmp_df = pd.read_csv(os.path.join(asciiOutDir,stationName,iSlow), sep=',',skiprows=[0,2,3], low_memory=False)            
+            slow_df = slow_df.append(tmp_df)            
+        slow_df = slow_df.drop_duplicates(subset='TIMESTAMP', keep='last')
 
         return slow_df
 
     # List all slow csv files and merge them together
     fileInDir = os.listdir(os.path.join(asciiOutDir,stationName))
     fileInDir.sort()
-
+    
     # Slow data
     slowList = [s for s in fileInDir if re.match('.*slow\.csv', s)]
-    slow_df = merge_slow_data(slowList)
+    slow_df = pd.DataFrame()
+    slow_df = merge_slow_data(slow_df, slowList)
 
     # Slow data 2
     slowList2 = [s for s in fileInDir if re.match('.*slow2\.csv', s)]
     if slowList2:
-        slow_df2 = merge_slow_data(slowList2)
-        slow_df2 = slow_df2.loc[:,~slow_df2.columns.isin(slow_df.columns)] # Remove data from slow_df2 if already included in slow_df
-        slow_df = pd.concat([slow_df, slow_df2], axis=1, sort=False)
+        slow_df2 = pd.DataFrame()
+        slow_df2 = merge_slow_data(slow_df2, slowList2)        
+        nonDuplicatedColumns = slow_df2.columns[~slow_df2.columns.isin(slow_df.columns)].append(pd.Index(['TIMESTAMP']))
+        slow_df = slow_df.merge(slow_df2[nonDuplicatedColumns], how='left', on='TIMESTAMP')
 
-    # Uniformization of the data
-    slow_df.drop('TIMESTAMP',axis=1,inplace=True)
-    slow_df = slow_df.astype(float)
+    # Create the TIMESTAMP column that will be used for merging with other df
+    slow_df['TIMESTAMP'] = pd.to_datetime(slow_df['TIMESTAMP'])
+    
+    # Converts everything but 'TIMESTAMP' to float
+    slow_df.loc[:,slow_df.columns != 'TIMESTAMP'] = slow_df.loc[:,slow_df.columns != 'TIMESTAMP'].astype(float)
     
     print('Done!')
     
@@ -301,12 +306,10 @@ def merge_slow_csv(stationName,asciiOutDir):
 def merge_slow_csv_and_eddypro(stationName,slow_df,eddy_df, mergedCsvOutDir):
     
     print('Start merging slow and Eddy Pro data for station:', stationName, '...', end='\r')
+    
     # Merge and save
-    merged_df=pd.concat([eddy_df, slow_df], axis=1)
-    merged_df['TIMESTAMP']=merged_df.index # overwrite missing timestamp
-    merged_df.index.name="date_index"
-    # merged_df = merged_df.reindex(sorted(merged_df.columns), axis=1) # TODO solve bug 
-    # merged_df.to_csv(os.path.join(mergedCsvOutDir,stationName+"_merged_data.csv")) # TODO check if necessary
+    merged_df = eddy_df.merge(slow_df, on='timestamp', how='left')
+    
     print('Done!')
     
     return merged_df
@@ -321,20 +324,16 @@ def gap_fill(stationName,df,mergedCsvOutDir,gapfillConfig):
         # Check that all proxy vars are available for gap filling
         if 'Alternative_station' in df_config.columns:
             df_altStation = pd.read_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/" 
-                                            + df_config.Alternative_station[0]+'.csv', 
-                                            index_col=0)
-            for iProxy_vars_alternative_station in df_config.Proxy_vars_alternative_station:
-                if not pd.isna(iProxy_vars_alternative_station):
-                    df[iProxy_vars_alternative_station] = df_altStation[iProxy_vars_alternative_station]        
-        tmp = df[['water_temp_0m0_Therm1','water_temp_0m0_Therm2',
-                  'water_temp_0m4_Therm1','water_temp_0m4_Therm2']].mean(axis=1)        
-        df['delta_Tair_Teau'] = abs(tmp - df.air_temp_IRGASON107probe)
+                                            + df_config.Alternative_station[0]+'.csv')
+            tmp = pd.DataFrame()
+            tmp['water_temp_surface'] = df_altStation[df_config.Proxy_vars_alternative_station.dropna()].mean(axis=1)
+            tmp['timestamp'] = df_altStation['timestamp']            
+            df = df.merge(tmp, on='timestamp', how='left')            
+            df['delta_Tair_Teau'] = abs(df['water_temp_surface'] - df['air_temp_IRGASON107probe'])
         
     for iVar_to_fill in df_config.Vars_to_fill:
-        if not pd.isna(iVar_to_fill):
-            iVar_to_fill = df_config.Vars_to_fill[2] # TODO remove after debug
-            df = df[18000:20000] # TODO remove after debug
-            print('Start gap filling for variable {:s} and station {:s}'.format(iVar_to_fill, stationName))
+        if not pd.isna(iVar_to_fill):           
+            print('\nStart gap filling for variable {:s} and station {:s}'.format(iVar_to_fill, stationName))
             df = gapfill_mds(df,iVar_to_fill,df_config,mergedCsvOutDir)
 
     return df
@@ -418,13 +417,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         else:
             fail_code = None
         return index_proxy_met, fail_code
-    
-    # Add new columns to data frame that contains var_to_fill gapfilled
-    gap_fil_col_name = var_to_fill + "_gf_mds"
-    df[gap_fil_col_name] = df[var_to_fill]
-    gap_fil_quality_col_name = gap_fil_col_name + "_qf"
-    df[gap_fil_quality_col_name] = None   
-                        
+        
     # Load proxy precipitation station data
     if 'Proxy_precip_station' in df.columns:
         df_precipStation = pd.read_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/" 
@@ -440,6 +433,12 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
     id_missing_flux = id_rain | id_missing_nee | id_low_quality    
     df.loc[id_missing_flux,var_to_fill] = np.nan
     
+    # Add new columns to data frame that contains var_to_fill gapfilled
+    gap_fil_col_name = var_to_fill + "_gf_mds"
+    df[gap_fil_col_name] = df[var_to_fill]
+    gap_fil_quality_col_name = gap_fil_col_name + "_qf"
+    df[gap_fil_quality_col_name] = None
+                        
 
     # Loop over time steps
     for t in df.index[id_missing_flux]:
