@@ -322,17 +322,19 @@ def gap_fill(stationName,df,mergedCsvOutDir,gapfillConfig):
     
     # Check that all proxy vars are available for gap filling
     if 'Alternative_station' in df_config.columns:
-        for iAlternative_station in df_config.loc[~df_config['Alternative_station'].isna(),'Alternative_station']:
+        nAlternative_station = sum(~df_config['Alternative_station'].isna())
+        for iAlternative_station in range(nAlternative_station):
             # Load alternative station data
-            df_altStation = pd.read_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/"+iAlternative_station+'.csv')        
+            df_altStation = pd.read_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/"+
+                                        df_config.loc[iAlternative_station,'Alternative_station']+'.csv')
+            df_altStation = df_altStation[ ['timestamp',df_config.loc[iAlternative_station,'Proxy_vars_alternative_station']] ]
+            df = df.merge(df_altStation, on='timestamp', how='left')            
             
-            # Handle special case of berge and reservoir
-            if stationName in ['Berge', 'Reservoir']:        
-                tmp = pd.DataFrame()
-                tmp['water_temp_surface'] = df_altStation[df_config.Proxy_vars_alternative_station.dropna()].mean(axis=1)
-                tmp['timestamp'] = df_altStation['timestamp']            
-                df = df.merge(tmp, on='timestamp', how='left')
-                df['delta_Tair_Teau'] = abs(df['water_temp_surface'] - df['air_temp_IRGASON107probe'])
+    # Handle special case of berge and reservoir
+    if stationName in ['Berge', 'Reservoir']:                
+        df['water_temp_surface'] = df[['water_temp_0m0_Therm1','water_temp_0m0_Therm2',
+                                       'water_temp_0m4_Therm1','water_temp_0m4_Therm2']].mean(axis=1)        
+        df['delta_Tair_Teau'] = abs(df['water_temp_surface'] - df['air_temp_IRGASON107probe'])
         
     for iVar_to_fill in df_config.loc[~df_config['Vars_to_fill'].isna(),'Vars_to_fill']:        
         print('\nStart gap filling for variable {:s} and station {:s}'.format(iVar_to_fill, stationName))
@@ -420,13 +422,6 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
             fail_code = None
         return index_proxy_met, fail_code
         
-    # Load proxy precipitation station data
-    if 'Proxy_precip_station' in df.columns:
-        df_precipStation = pd.read_csv("C:/Users/anthi182/Desktop/Micromet_data/Merged_csv/" 
-                                        + df_config.Proxy_precip_station[0]+'.csv', 
-                                        index_col=0)
-        df['precip_TB4'] = df_precipStation['precip_TB4']
-
     # Identify missing flux and time step that should be discarded           
     df[var_to_fill] = vickers_spikes(df[var_to_fill])
     id_rain = df['precip_TB4'] > 0
