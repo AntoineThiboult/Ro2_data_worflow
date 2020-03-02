@@ -94,7 +94,7 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     # TODO check compatibility with unix and Wine
     # TODO solve issue with shutil.copy that overwrite previous file. Add iDataCollection to name
     
-    print('Start converting Campbell binary files to csv for station:', stationName, '...', end='\r')
+    print('Start converting Campbell binary files to csv for station:', stationName)
     
     # Open error log file
     logf = open("convert_CSbinary_to_csv.log", "w")
@@ -110,44 +110,51 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
 
         for iDataCollection in listDataCollection:
             print(iDataCollection)
-            for rawFile in os.listdir(os.path.join(rawFileDir,iFieldCampain,iDataCollection)):
-                print('\t'+rawFile)
-
-                inFile=os.path.join(rawFileDir,iFieldCampain,iDataCollection,rawFile)
-                outFile=os.path.join(asciiOutDir,stationName,rawFile)
-
-                try:
-                    # File type name handling
-                    if bool(re.search("ts_data_",rawFile)) | bool(re.search("_Time_Series_",rawFile)):
-                        extension="_eddy.csv"
-                    elif bool(re.search("alerte",rawFile)):
-                        extension="_alert.csv"
-                    elif bool(re.search("_Flux_CSIFormat_",rawFile)) | bool(re.search("flux",rawFile)) | bool(re.search("data_",rawFile)):
-                        extension="_slow.csv"
-                    elif bool(re.search("radiation",rawFile)) | bool(re.search("_Flux_Notes_",rawFile)):
-                        extension="_slow2.csv"
-                    elif bool(re.search("met30min",rawFile)):
-                        extension="_slow3.csv"
-                    else:                           # .cr1 / .cr3 / sys_log files / Config_Setting_Notes / Flux_AmeriFluxFormat_12
-                        shutil.copy(inFile,outFile)
-                        continue
-
-                    # Conversion from the Campbell binary file to csv format
-                    process=os.path.join(".\Bin","raw2ascii","csidft_convert.exe")
-                    subprocess.call([process, inFile, outFile, 'ToA5'])
-
-                    # Rename file according to date
-                    fileContent=pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3], nrows=1)
+            
+            # Check if conversion has already been performed
+            destDirContent = os.listdir(os.path.join(asciiOutDir,stationName))
+            subStr = re.search(r'^.*([0-9]{8})$', iDataCollection).group(1)
+            
+            if not [f for f in destDirContent if re.match(subStr, f)]:       
+            
+                for rawFile in os.listdir(os.path.join(rawFileDir,iFieldCampain,iDataCollection)):
+                    print('\t'+rawFile)
+    
+                    inFile=os.path.join(rawFileDir,iFieldCampain,iDataCollection,rawFile)
+                    outFile=os.path.join(asciiOutDir,stationName,rawFile)
+    
                     try:
-                        fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S")    # TIMESTAMP format for _alert.csv, _radiation.csv, and _met30min.csv
-                    except:
-                        fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S.%f") # TIMESTAMP format for _eddy.csv file
-
-                    newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
-                    shutil.move(outFile,os.path.join(asciiOutDir,stationName,newFileName))
-                except Exception as e:
-                    print(str(e))
-                    logf.write("Failed to convert {0} from bin to csv: {1} \n".format(inFile, str(e)))
+                        # File type name handling
+                        if bool(re.search("ts_data_",rawFile)) | bool(re.search("_Time_Series_",rawFile)):
+                            extension="_eddy.csv"
+                        elif bool(re.search("alerte",rawFile)):
+                            extension="_alert.csv"
+                        elif bool(re.search("_Flux_CSIFormat_",rawFile)) | bool(re.search("flux",rawFile)) | bool(re.search("data_",rawFile)):
+                            extension="_slow.csv"
+                        elif bool(re.search("radiation",rawFile)) | bool(re.search("_Flux_Notes_",rawFile)):
+                            extension="_slow2.csv"
+                        elif bool(re.search("met30min",rawFile)):
+                            extension="_slow3.csv"
+                        else:                           # .cr1 / .cr3 / sys_log files / Config_Setting_Notes / Flux_AmeriFluxFormat_12
+                            shutil.copy(inFile,outFile)
+                            continue
+    
+                        # Conversion from the Campbell binary file to csv format
+                        process=os.path.join(".\Bin","raw2ascii","csidft_convert.exe")
+                        subprocess.call([process, inFile, outFile, 'ToA5'])
+    
+                        # Rename file according to date
+                        fileContent=pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3], nrows=1)
+                        try:
+                            fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S")    # TIMESTAMP format for _alert.csv, _radiation.csv, and _met30min.csv
+                        except:
+                            fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S.%f") # TIMESTAMP format for _eddy.csv file
+    
+                        newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
+                        shutil.move(outFile,os.path.join(asciiOutDir,stationName,newFileName))
+                    except Exception as e:
+                        print(str(e))
+                        logf.write("Failed to convert {0} from bin to csv: {1} \n".format(inFile, str(e)))
 
     # Close error log file
     logf.close()
