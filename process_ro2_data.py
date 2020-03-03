@@ -16,7 +16,7 @@ from glob import glob
 
 # TODO manage error and warning codes to final CSV with log file
 
-def papale_spikes(df, spiky_var, sliding_window=624, z=4, daynight=False):
+def detect_spikes(df, spiky_var, sliding_window=624, z=4, daynight=False):
     """Detect spikes on slow data according to Papale et al. (2006)
     
     Parameters
@@ -28,7 +28,8 @@ def papale_spikes(df, spiky_var, sliding_window=624, z=4, daynight=False):
                     value = 13*48 -- 13 days in total)
     z: discrimination factor. Default value = 4. Increasing value retains more
        data (up to 7)
-    daynight: if true, handle day/night time separately. Default=False
+    daynight: if true, handle day/night time separately. Default=False. For
+              carbon fluxes, it is recommended to switch it to 'True'
     
     Returns
     -------
@@ -44,7 +45,7 @@ def papale_spikes(df, spiky_var, sliding_window=624, z=4, daynight=False):
     # Clean the data    
     nee = df.dropna(subset=[spiky_var])[spiky_var]
     
-    if daynight:
+    if daynight: # Filter day and night separately
         daytime = df.dropna(subset=[spiky_var])['daytime']
         nee_day = nee[daytime==1]
         nee_night = nee[daytime==0]
@@ -68,7 +69,7 @@ def papale_spikes(df, spiky_var, sliding_window=624, z=4, daynight=False):
         # Merge the two outlier indices
         id_outlier = pd.concat([id_outlier_day,id_outlier_night]).sort_index()
 
-    else:
+    else: # Filter day and night as a whole
         # Identify outliers during day time 
         di = nee.diff(periods=1) + nee.diff(periods=-1)
         Md = di.rolling(window=sliding_window, center=True, min_periods=1).median()
@@ -83,8 +84,33 @@ def papale_spikes(df, spiky_var, sliding_window=624, z=4, daynight=False):
     # return id_outlier, lowerBound, upperBound, Md, MAD, di 
     return id_outlier
 
-def rename_trim_vars(stationName,df):
 
+def bandpass_filter(df, spiky_var):
+    """Detect outliers according to a passband filter specific to each variable.
+    
+    Parameters
+    ----------
+    df: pandas DataFrame that contains the spiky variable
+    spiky_var: string that designate the spiky variable    
+    
+    Returns
+    -------
+    id_outlier: index of outliers"""
+    
+    if spiky_var == 'LE':
+        id_bandpass = ( df[spiky_var] < -50 ) | ( df[spiky_var] > 500 )     # in [W+1m-2]
+    elif spiky_var == 'H':
+        id_bandpass = ( df[spiky_var] < -50 ) | ( df[spiky_var] > 500 )     # in [W+1m-2]
+    elif spiky_var == 'CO2_flux':
+        id_bandpass = ( df[spiky_var] < -20 ) | ( df[spiky_var] > 20 )      # in [µmol+1s-1m-2]
+    elif spiky_var == 'CH4_flux':
+        id_bandpass = ( df[spiky_var] < -0.1 ) | ( df[spiky_var] > 0.25 )   # in [µmol+1s-1m-2]
+    
+    return id_bandpass
+
+
+def rename_trim_vars(stationName,df):
+    
     print('Start renaming variables for station:', stationName, '...', end='\r')
     # Import Excel documentation file
     xlsFile = pd.ExcelFile('./Resources/EmpreinteVariableDescription.xlsx')
@@ -247,7 +273,7 @@ def batch_process_eddypro(stationName,asciiOutDir,eddyproConfigDir,eddyproOutDir
     
     print('Done!')
 
-def merge_thermistors(dates, rawFileDir,mergedCsvOutDir):
+def merge_thermistors(dates, rawFileDir, mergedCsvOutDir):
     
     print('Start merging thermistors data')
     df = pd.DataFrame( index=pd.date_range(start=dates['start'], end=dates['end'], freq='30min') )
@@ -387,35 +413,54 @@ def gap_fill(stationName,df,mergedCsvOutDir,gapfillConfig):
     return df
     
 def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
-    # Coded from Reichtein et al. 2005
-    #
-    # Flowchart:
-    #
-    #   NEE present ?                                                 --> Yes     --> Does nothing
-    #    |
-    #    V
-    #   Rg, T, VPD, NEE available within |dt|<= 7 days                --> Yes     --> Filling quality A (case 1)
-    #    |
-    #    V
-    #   Rg, T, VPD, NEE available within |dt|<= 14 days               --> Yes     --> Filling quality A (case 2)
-    #    |
-    #    V
-    #   Rg, NEE available within |dt|<= 7 days                        --> Yes     --> Filling quality A (case 3)
-    #    |
-    #    V
-    #   NEE available within |dt|<= 1h                                --> Yes     --> Filling quality A (case 4)
-    #    |
-    #    V
-    #   NEE available within |dt|= 1 day & same hour of day           --> Yes     --> Filling quality B (case 5)
-    #    |
-    #    V
-    #   Rg, T, VPD, NEE available within |dt|<= 21, 28,..., 140 days  --> Yes     --> Filling quality B if |dt|<=28, else C (case 6)
-    #    |
-    #    V
-    #   Rg, NEE available within |dt|<= 14, 21, 28,..., 140 days      --> Yes     --> Filling quality B if |dt|<=28, else C (case 7)
-    #    |
-    #    V
-    #   NEE available within |dt|<= 7, 21, 28,...days                 --> Yes     --> Filling quality C (case 8)
+    """
+    Performs gap filling with the marginal distribution sampling methodology
+    proposed by Reichtein et al. 2005.
+    
+    Parameters
+    ----------
+    df: pandas DataFrame that contains the variable that requires to be gap
+        filled.
+    var_to_fill: string that indicates the variable that will be gap filled
+    df_config: pandas DataFrame that contains the gap filling configuration
+    mergedCsvOutDir: path to the output directory as string
+    
+    Returns
+    -------    
+    
+    See also
+    --------
+    Reichstein et al. “On the separation of net ecosystem exchange 
+    into assimilation and ecosystem respiration: review and improved algorithm.” (2005).
+    
+    Algorithm following the Appendix flowchart
+    
+      NEE present ?                                                 --> Yes     --> Does nothing
+        |
+        V
+      Rg, T, VPD, NEE available within |dt|<= 7 days                --> Yes     --> Filling quality A (case 1)
+        |
+        V
+      Rg, T, VPD, NEE available within |dt|<= 14 days               --> Yes     --> Filling quality A (case 2)
+        |
+        V
+      Rg, NEE available within |dt|<= 7 days                        --> Yes     --> Filling quality A (case 3)
+        |
+        V
+      NEE available within |dt|<= 1h                                --> Yes     --> Filling quality A (case 4)
+        |
+        V
+      NEE available within |dt|= 1 day & same hour of day           --> Yes     --> Filling quality B (case 5)
+        |
+        V
+      Rg, T, VPD, NEE available within |dt|<= 21, 28,..., 140 days  --> Yes     --> Filling quality B if |dt|<=28, else C (case 6)
+        |
+        V
+      Rg, NEE available within |dt|<= 14, 21, 28,..., 140 days      --> Yes     --> Filling quality B if |dt|<=28, else C (case 7)
+        |
+        V
+      NEE available within |dt|<= 7, 21, 28,...days                 --> Yes     --> Filling quality C (case 8)
+      """
 
     # Submodule to find similar meteorological condition within a given window search
     def find_meteo_proxy_index(df, t, search_window, proxy_vars, proxy_vars_range):        
@@ -467,11 +512,12 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         return index_proxy_met, fail_code
         
     # Identify missing flux and time step that should be discarded           
-    id_papale = papale_spikes(df, var_to_fill)
+    id_spikes = detect_spikes(df, var_to_fill)
+    id_band = bandpass_filter(df, var_to_fill)
     id_rain = df['precip_TB4'] > 0
     id_missing_nee = df.isna()[var_to_fill]
     id_low_quality = df[var_to_fill+'_qf'] == 2
-    id_missing_flux = id_papale | id_rain | id_missing_nee | id_low_quality
+    id_missing_flux = id_spikes | id_band | id_rain | id_missing_nee | id_low_quality 
     df.loc[id_missing_flux,var_to_fill] = np.nan
     
     # Add new columns to data frame that contains var_to_fill gapfilled
