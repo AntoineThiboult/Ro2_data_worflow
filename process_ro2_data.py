@@ -16,35 +16,72 @@ from glob import glob
 
 # TODO manage error and warning codes to final CSV with log file
 
-def vickers_spikes(data, slide_window=3000, upbound=500, lowbound=-50):
-    """Detect spikes in data series according to :
-    DEAN VICKERS AND L. MAHRT, Quality Control and Flux Sampling Problems for Tower and Aircraft Data, 
-    Journal of atmospheric and oceanic technologies
-    Input: pandas dataframe column
-    Output: index of spikes"""
-    # TODO return index of spikes instead of despiked series
+def papale_spikes(df, spiky_var, sliding_window=624, z=4, daynight=False):
+    """Detect spikes on slow data according to Papale et al. (2006)
     
-    # Initial standard deviation tolerance
-    std_threshold = 3.5
-    # Initialization of outlier lists
-    outliers_idx = [True]
-    # Hard copy of input
-    data_trimmed = data.copy()
+    Parameters
+    ----------
+    df: pandas DataFrame that contains the spiky variable, a daytime key 
+        (day=1, night=0)
+    spiky_var: string that designate the spiky variable
+    sliding_window: sliding window used to compute the moving median (default
+                    value = 13*48 -- 13 days in total)
+    z: discrimination factor. Default value = 4. Increasing value retains more
+       data (up to 7)
+    daynight: if true, handle day/night time separately. Default=False
     
-    while any(outliers_idx):
-        # Sliding windows
-        data_rolled_mean = data.rolling(slide_window,center=True, min_periods=1).mean()
-        data_rolled_std  = data.rolling(slide_window,center=True, min_periods=1).std()
-        outliers_idx = abs(data) > abs(data_rolled_mean + (std_threshold * data_rolled_std) )
-        data_trimmed[outliers_idx] = np.nan
-        std_threshold += 0.1
+    Returns
+    -------
+    id_outlier: index of outliers
     
-    # Absolute min and max
-    amm_outliers_idx = (data > upbound) | (data < lowbound)
-    data_trimmed[amm_outliers_idx] = np.nan
+    See also
+    --------
+    Papale et al. (2006) Towards a standardized processing of Net Ecosystem 
+    Exchange measured with eddy covariance technique: algorithms and 
+    uncertainty estimation. Biogeosciences, European Geosciences Union, 2006, 
+    3 (4), pp.571-583."""
     
-    return data_trimmed
+    # Clean the data    
+    nee = df.dropna(subset=[spiky_var])[spiky_var]
+    
+    if daynight:
+        daytime = df.dropna(subset=[spiky_var])['daytime']
+        nee_day = nee[daytime==1]
+        nee_night = nee[daytime==0]
+        
+        # Identify outliers during day time 
+        di = nee_day.diff(periods=1) + nee_day.diff(periods=-1)
+        Md = di.rolling(window=sliding_window, center=True, min_periods=1).median()
+        MAD = abs(di-Md).median()
+        lowerBound = Md - (z*MAD / 0.6745)
+        upperBound = Md + (z*MAD / 0.6745)
+        id_outlier_day = ( di < lowerBound ) | ( di > upperBound )
+        
+        # Identify outliers during night time 
+        di = nee_night.diff(periods=1) + nee_night.diff(periods=-1)
+        Md = di.rolling(window=sliding_window, center=True, min_periods=1).median()
+        MAD = abs(di-Md).median()
+        lowerBound = Md - (z*MAD / 0.6745)
+        upperBound = Md + (z*MAD / 0.6745)
+        id_outlier_night = ( di < lowerBound ) | ( di > upperBound )
+        
+        # Merge the two outlier indices
+        id_outlier = pd.concat([id_outlier_day,id_outlier_night]).sort_index()
 
+    else:
+        # Identify outliers during day time 
+        di = nee.diff(periods=1) + nee.diff(periods=-1)
+        Md = di.rolling(window=sliding_window, center=True, min_periods=1).median()
+        MAD = abs(di-Md).median()
+        lowerBound = Md - (z*MAD / 0.6745)
+        upperBound = Md + (z*MAD / 0.6745)
+        id_outlier = ( di < lowerBound ) | ( di > upperBound )
+    
+    # Reindex because of missing values (dropna())
+    id_outlier = id_outlier.reindex(df.index, fill_value=False)
+    
+    # return id_outlier, lowerBound, upperBound, Md, MAD, di 
+    return id_outlier
 
 def rename_trim_vars(stationName,df):
 
@@ -430,11 +467,11 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         return index_proxy_met, fail_code
         
     # Identify missing flux and time step that should be discarded           
-    df[var_to_fill] = vickers_spikes(df[var_to_fill])
+    id_papale = papale_spikes(df, var_to_fill)
     id_rain = df['precip_TB4'] > 0
     id_missing_nee = df.isna()[var_to_fill]
     id_low_quality = df[var_to_fill+'_qf'] == 2
-    id_missing_flux = id_rain | id_missing_nee | id_low_quality    
+    id_missing_flux = id_papale | id_rain | id_missing_nee | id_low_quality
     df.loc[id_missing_flux,var_to_fill] = np.nan
     
     # Add new columns to data frame that contains var_to_fill gapfilled
