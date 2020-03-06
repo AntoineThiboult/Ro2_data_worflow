@@ -98,9 +98,9 @@ def bandpass_filter(df, spiky_var):
     id_outlier: index of outliers"""
     
     if spiky_var == 'LE':
-        id_bandpass = ( df[spiky_var] < -50 ) | ( df[spiky_var] > 500 )     # in [W+1m-2]
+        id_bandpass = ( df[spiky_var] < -35 ) | ( df[spiky_var] > 300 )     # in [W+1m-2]
     elif spiky_var == 'H':
-        id_bandpass = ( df[spiky_var] < -50 ) | ( df[spiky_var] > 500 )     # in [W+1m-2]
+        id_bandpass = ( df[spiky_var] < -100 ) | ( df[spiky_var] > 400 )     # in [W+1m-2]
     elif spiky_var == 'CO2_flux':
         id_bandpass = ( df[spiky_var] < -20 ) | ( df[spiky_var] > 20 )      # in [µmol+1s-1m-2]
     elif spiky_var == 'CH4_flux':
@@ -511,14 +511,18 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
             fail_code = None
         return index_proxy_met, fail_code
         
-    # Identify missing flux and time step that should be discarded           
-    id_spikes = detect_spikes(df, var_to_fill)
+    # Identify doubtful/missing flux that should be discarded               
     id_band = bandpass_filter(df, var_to_fill)
     id_rain = df['precip_TB4'] > 0
     id_missing_nee = df.isna()[var_to_fill]
     id_low_quality = df[var_to_fill+'_qf'] == 2
-    id_missing_flux = id_spikes | id_band | id_rain | id_missing_nee | id_low_quality 
+    id_missing_flux = id_band | id_rain | id_missing_nee | id_low_quality
     df.loc[id_missing_flux,var_to_fill] = np.nan
+    
+    # Identify spikes that should be discarded
+    id_spikes = detect_spikes(df, var_to_fill)
+    df.loc[id_spikes,var_to_fill] = np.nan
+    id_missing_flux = id_missing_flux | id_spikes
     
     # Add new columns to data frame that contains var_to_fill gapfilled
     gap_fil_col_name = var_to_fill + "_gf_mds"
@@ -533,16 +537,17 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
     
     # Loop over time steps
     for t in df.index[id_missing_flux]:
+
         if not t%100:
             print("\rGap filling {:s}, progress {:2.1%} ".format(var_to_fill, t/len(df.index)), end='\r')
-        
+                   
         # Case 1
         search_window = 7
         index_proxy_met, fail_code = find_meteo_proxy_index(
             df, t, search_window, df_config[proxy_vars], df_config[proxy_vars_range])
         if not fail_code:
             df.loc[t,gap_fil_col_name] = np.mean(df.loc[index_proxy_met,var_to_fill])
-            df.loc[t,gap_fil_quality_col_name] = "A1"        
+            df.loc[t,gap_fil_quality_col_name] = "A1"
             continue
 
         # Case 2
@@ -609,7 +614,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
 
         # Case 8
         search_window = 0
-        while bool(fail_code) & (search_window <= 140):
+        while bool(fail_code):
             search_window += 7
             index_proxy_met, fail_code = find_nee_proxy_index(df, t, search_window)
             if not fail_code:
