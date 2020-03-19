@@ -1,7 +1,7 @@
 ;EDDYPRO_PROCESSING
 [Project]
 creation_date=2015-11-23T10:05:36
-last_change_date=2020-03-04T18:07:07
+last_change_date=2020-03-17T19:04:55
 file_name=C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/Config/EddyProConfig/Ro2_Berge.eddypro
 run_mode=0
 run_fcc=0
@@ -48,7 +48,7 @@ pr_end_time=00:00
 hf_meth=1
 lf_meth=1
 wpl_meth=1
-foot_meth=0
+foot_meth=1
 tob1_format=0
 out_path=C:/Users/anthi182/Desktop/Micromet_data/Eddypro_data/Berge
 fix_out_format=1
@@ -272,7 +272,7 @@ test_do=1
 test_al=1
 test_sk=1
 test_ds=1
-test_tl=0
+test_tl=1
 test_aa=0
 test_ns=0
 
@@ -330,9 +330,9 @@ ds_sf_var=2.00
 despike_vm=0
 tl_hf_lim=20.0
 tl_sf_lim=10.0
-tl_def_co2=0.0
-tl_def_h2o=0.0
-tl_def_ch4=0.0
+tl_def_co2=0.5
+tl_def_h2o=0.5
+tl_def_ch4=3.0
 tl_def_n2o=0.0
 aa_min=-30.0
 aa_max=30.0
@@ -397,6 +397,6 @@ biom_lwin=-1
 biom_ppfd=-1
 
 [RawProcess_WindDirectionFilter]
-wdf_apply=1
+wdf_apply=0
 wdf_sect_1_start=-140.0
 wdf_sect_1_end=15.0
