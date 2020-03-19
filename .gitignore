@@ -1,1 +1,3 @@
 *.csv
+*.log
+/process_micromet/__pycache__
