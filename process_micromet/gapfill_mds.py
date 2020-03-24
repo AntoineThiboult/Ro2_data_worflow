@@ -13,6 +13,8 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
     df: pandas DataFrame that contains the variable that requires to be gap
         filled.
     var_to_fill: string that indicates the variable that will be gap filled
+    var_to_fill_trim: similar to var_to_fill except it refers to the data after
+        cleaning (dispiked, bandpass filtered, etc)
     df_config: pandas DataFrame that contains the gap filling configuration
     mergedCsvOutDir: path to the output directory as string
 
@@ -102,27 +104,15 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
             fail_code = None
         return index_proxy_met, fail_code
 
-    # Identify doubtful/missing flux that should be discarded
-    id_band = bandpass_filter(df, var_to_fill)
-    id_rain = df['precip_TB4'] > 0
-    id_missing_nee = df.isna()[var_to_fill]
-    id_low_quality = df[var_to_fill+'_qf'] == 2
-    id_missing_flux = id_band | id_rain | id_missing_nee | id_low_quality
-    df.loc[id_missing_flux,var_to_fill] = np.nan
+    # Column name that contains cleaned flux data
+    var_to_fill_trim = var_to_fill+'_trim'
 
-    # Remove flux below the friction velocity threshold for carbon
-    if var_to_fill in ['CO2_flux', 'CH4_flux']:
-        id_fric_vel = find_friction_vel_threshold(df, var_to_fill, 'air_temp_IRGASON')
-        df.loc[id_fric_vel,var_to_fill] = np.nan
-
-    # Identify spikes that should be discarded
-    id_spikes = detect_spikes(df, var_to_fill)
-    df.loc[id_spikes,var_to_fill] = np.nan
-    id_missing_flux = id_missing_flux | id_spikes
+    # Identify missing flux indices
+    id_missing_flux = df[var_to_fill_trim].isna()
 
     # Add new columns to data frame that contains var_to_fill gapfilled
     gap_fil_col_name = var_to_fill + "_gf_mds"
-    df[gap_fil_col_name] = df[var_to_fill]
+    df[gap_fil_col_name] = df[var_to_fill_trim]
     gap_fil_quality_col_name = gap_fil_col_name + "_qf"
     df[gap_fil_quality_col_name] = None
 
@@ -142,7 +132,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         index_proxy_met, fail_code = find_meteo_proxy_index(
             df, t, search_window, df_config[proxy_vars], df_config[proxy_vars_range])
         if not fail_code:
-            df.loc[t,gap_fil_col_name] = np.mean(df.loc[index_proxy_met,var_to_fill])
+            df.loc[t,gap_fil_col_name] = np.mean(df.loc[index_proxy_met,var_to_fill_trim])
             df.loc[t,gap_fil_quality_col_name] = "A1"
             continue
 
@@ -151,7 +141,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         index_proxy_met, fail_code = find_meteo_proxy_index(
             df, t, search_window, df_config[proxy_vars], df_config[proxy_vars_range])
         if not fail_code:
-            df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+            df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill_trim][index_proxy_met])
             df.loc[t,gap_fil_quality_col_name] = "A2"
             continue
 
@@ -160,7 +150,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         index_proxy_met, fail_code = find_meteo_proxy_index(
             df, t, search_window, df_config[proxy_vars_subset], df_config[proxy_vars_range])
         if not fail_code:
-            df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+            df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill_trim][index_proxy_met])
             df.loc[t,gap_fil_quality_col_name] = "A3"
             continue
 
@@ -168,7 +158,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         search_window = 1/24
         index_proxy_met, fail_code = find_nee_proxy_index(df, t, search_window)
         if not fail_code:
-            df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+            df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill_trim][index_proxy_met])
             df.loc[t,gap_fil_quality_col_name] = "A4"
             continue
 
@@ -176,7 +166,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
         search_window = 1
         index_proxy_met, fail_code = find_nee_proxy_index(df, t, search_window, True)
         if not fail_code:
-            df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+            df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill_trim][index_proxy_met])
             df.loc[t,gap_fil_quality_col_name] = "B1"
             continue
 
@@ -187,7 +177,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
             index_proxy_met, fail_code = find_meteo_proxy_index(
                 df, t, search_window, df_config[proxy_vars], df_config[proxy_vars_range])
             if not fail_code:
-                df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+                df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill_trim][index_proxy_met])
                 if search_window <= 28:
                     df.loc[t,gap_fil_quality_col_name] = "B2"
                 else:
@@ -201,7 +191,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
             index_proxy_met, fail_code = find_meteo_proxy_index(
                 df, t, search_window, df_config[proxy_vars_subset], df_config[proxy_vars_range])
             if not fail_code:
-                df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+                df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill_trim][index_proxy_met])
                 if search_window <= 14:
                     df.loc[t,gap_fil_quality_col_name] = "B3"
                 else:
@@ -214,7 +204,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
             search_window += 7
             index_proxy_met, fail_code = find_nee_proxy_index(df, t, search_window)
             if not fail_code:
-                df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill][index_proxy_met])
+                df.loc[t,gap_fil_col_name] = np.mean(df[var_to_fill_trim][index_proxy_met])
                 df.loc[t,gap_fil_quality_col_name] = "C3"
                 continue
 

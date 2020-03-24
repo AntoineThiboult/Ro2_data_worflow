@@ -28,10 +28,13 @@ def find_friction_vel_threshold(df, flux_var, air_temp_var, n_bootstrap=100):
     3 (4), pp.571-583."""
 
     print('Start friction velocity threshold for variable :', flux_var, '...', end='\r')
+    # Make copy of df
+    df_tmp = df.copy()
+
     # Drop daytime and other unecessary columns
-    df = df.drop(df[df.daytime == 1].index)
-    df = df[ [flux_var, air_temp_var, 'friction_velocity'] ]
-    df = df.dropna()
+    df_tmp = df_tmp.drop(df_tmp[df_tmp.daytime == 1].index)
+    df_tmp = df_tmp[ [flux_var, air_temp_var, 'friction_velocity'] ]
+    df_tmp = df_tmp.dropna()
 
     # Initialize friction threshold list
     bootstrap_fric_vel_threshold=list()
@@ -40,23 +43,23 @@ def find_friction_vel_threshold(df, flux_var, air_temp_var, n_bootstrap=100):
     for i_bootstrap in range(1,n_bootstrap+1):
 
         # Randomly select subset of dataframe for bootstrap
-        df_tmp = df.copy()
-        selected_index = np.random.choice(df_tmp.index, int(len(df_tmp)/2))
-        df_tmp = df_tmp.loc[selected_index]
+        df_bootstrap = df.copy()
+        selected_index = np.random.choice(df_bootstrap.index, int(len(df_bootstrap)/2))
+        df_bootstrap = df_bootstrap.loc[selected_index]
 
         # Create the 6 equally distributed temperature bins
-        air_temp_bins = np.array([np.nanquantile(df_tmp[air_temp_var], np.linspace(0,1,7))[0:-1],
-                        np.nanquantile(df_tmp[air_temp_var], np.linspace(0,1,7))[1:]], np.float32)
+        air_temp_bins = np.array([np.nanquantile(df_bootstrap[air_temp_var], np.linspace(0,1,7))[0:-1],
+                        np.nanquantile(df_bootstrap[air_temp_var], np.linspace(0,1,7))[1:]], np.float32)
 
         # Initialize friction threshold list
         all_fric_vel_threshold = list()
 
         for c_air in range(0, len(air_temp_bins[1]) ):
 
-            # Find index of df_tmp for which air_temp_var included in the quantile bin
-            id_air_temp = ( df_tmp[air_temp_var] >= air_temp_bins[0, c_air] )\
-                & ( df_tmp[air_temp_var] < air_temp_bins[1, c_air] )
-            df_air_class = df_tmp.loc[id_air_temp]
+            # Find index of df_bootstrap for which air_temp_var included in the quantile bin
+            id_air_temp = ( df_bootstrap[air_temp_var] >= air_temp_bins[0, c_air] )\
+                & ( df_bootstrap[air_temp_var] < air_temp_bins[1, c_air] )
+            df_air_class = df_bootstrap.loc[id_air_temp]
 
             # Create the 20 equally distributed friction velocity bins
             fric_vel_bins = np.array([np.nanquantile( df_air_class['friction_velocity'], np.linspace(0,1,21)[0:-1] ),

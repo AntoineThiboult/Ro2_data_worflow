@@ -1,7 +1,7 @@
 ;EDDYPRO_PROCESSING
 [Project]
 creation_date=2015-11-23T10:05:36
-last_change_date=2020-03-17T19:05:33
+last_change_date=2020-03-24T09:57:26
 file_name=C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/Config/EddyProConfig/Ro2_Foret_est.eddypro
 run_mode=0
 run_fcc=0
@@ -33,7 +33,7 @@ col_cell_t=0
 col_diag_75=0
 col_diag_72=0
 col_diag_77=0
-col_diag_anem=7
+col_diag_anem=0
 gas_mw=-1.0000
 gas_diff=-1.00000
 col_ts=0
@@ -90,10 +90,10 @@ sa_fmax_co2=5.0000
 sa_fmax_h2o=5.0000
 sa_fmax_ch4=5.0000
 sa_fmax_gas4=5.0000
-sa_hfn_co2_fmin=5.0000
+sa_hfn_co2_fmin=2.0000
 sa_hfn_h2o_fmin=5.0000
-sa_hfn_ch4_fmin=5.0000
-sa_hfn_gas4_fmin=5.0000
+sa_hfn_ch4_fmin=2.0000
+sa_hfn_gas4_fmin=2.0000
 sa_min_st_co2=0.5000
 sa_min_st_ch4=0.0050
 sa_min_st_gas4=0.0050
@@ -222,7 +222,7 @@ out_full_cosp_w_co2=0
 out_full_cosp_w_h2o=0
 out_full_cosp_w_ch4=0
 out_full_cosp_w_n2o=0
-filter_sr=0
+filter_sr=1
 filter_al=1
 bu_corr=0
 bu_multi=0
@@ -327,7 +327,7 @@ ds_sf_h2o=2.20
 ds_sf_ch4=30.00
 ds_sf_n2o=30.00
 ds_sf_var=2.00
-despike_vm=1
+despike_vm=0
 tl_hf_lim=20.0
 tl_sf_lim=10.0
 tl_def_co2=1.5
@@ -397,6 +397,6 @@ biom_lwin=-1
 biom_ppfd=-1
 
 [RawProcess_WindDirectionFilter]
-wdf_apply=0
+wdf_apply=1
 wdf_sect_1_start=-45.0
 wdf_sect_1_end=225.0

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
-from process_micromet import gapfill_mds
+import numpy as np
+from process_micromet import bandpass_filter, detect_spikes, find_friction_vel_threshold, gapfill_mds
 
 def gap_fill(stationName,df,mergedCsvOutDir,gapfillConfig):
     """Load gap filling config file, load additional data from other station
@@ -37,7 +38,31 @@ def gap_fill(stationName,df,mergedCsvOutDir,gapfillConfig):
                                        'water_temp_0m4_Therm1','water_temp_0m4_Therm2']].mean(axis=1)
         df['delta_Tair_Teau'] = abs(df['water_temp_surface'] - df['air_temp_IRGASON107probe'])
 
+    # Loop over variable that will be gapfilled
     for iVar_to_fill in df_config.loc[~df_config['Vars_to_fill'].isna(),'Vars_to_fill']:
+
+        # Create a duplicated column of the variable
+        iVar_to_fill_trim = iVar_to_fill+'_trim'
+        df[iVar_to_fill_trim] = df[iVar_to_fill]
+
+        # Identify doubtful/missing flux that should be discarded
+        id_band = bandpass_filter(df, iVar_to_fill)
+        id_rain = df['precip_TB4'] > 0
+        id_missing_nee = df.isna()[iVar_to_fill]
+        id_low_quality = df[iVar_to_fill+'_qf'] == 2
+        id_missing_flux = id_band | id_rain | id_missing_nee | id_low_quality
+        df.loc[id_missing_flux,iVar_to_fill_trim] = np.nan
+
+        # Remove flux below the friction velocity threshold for carbon
+        if iVar_to_fill in ['CO2_flux', 'CH4_flux']:
+            id_fric_vel = find_friction_vel_threshold(df, iVar_to_fill_trim, 'air_temp_IRGASON')
+            df.loc[id_fric_vel[0],iVar_to_fill_trim] = np.nan
+
+        # Identify spikes that should be discarded
+        id_spikes = detect_spikes(df, iVar_to_fill_trim)
+        df.loc[id_spikes,iVar_to_fill_trim] = np.nan
+
+        # Perform gap filling
         print('\nStart gap filling for variable {:s} and station {:s}'.format(iVar_to_fill, stationName))
         df = gapfill_mds(df,iVar_to_fill,df_config,mergedCsvOutDir)
 
