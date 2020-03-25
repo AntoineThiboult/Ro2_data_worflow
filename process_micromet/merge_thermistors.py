@@ -56,6 +56,10 @@ def merge_thermistors(dates, rawFileDir, mergedCsvOutDir):
                 # Load data
                 df_tmp = pd.read_excel(os.path.join(rawFileDir,iFieldCampain,iDataCollection,'Excel_exported',iSensor), skiprows=[0])
 
+                # Remove 12 hours before and after data collection to avoid air contamination
+                df_tmp = df_tmp.drop(df_tmp.index[0:24])
+                df_tmp = df_tmp.drop(df_tmp.index[-26:])
+
                 # Making nice variable names
                 tmp_sensorNiceName = re.sub('\.','m',iSensor,1)[0:-5]
                 sensorNiceNameTemp = 'water_temp_' + re.split('_',tmp_sensorNiceName)[1] + '_' + re.split('_',tmp_sensorNiceName)[0]
@@ -85,5 +89,10 @@ def merge_thermistors(dates, rawFileDir, mergedCsvOutDir):
 
     df['timestamp'] = df.index
     df = df.reindex(sorted(df.columns), axis=1)
+
+    # Linear interpolation when less than two days are missing
+    df = df.interpolate(method='linear', limit=96)
+
+    # Save file
     df.to_csv(os.path.join(mergedCsvOutDir,'Thermistors.csv'), index=False)
     print('Done!')
