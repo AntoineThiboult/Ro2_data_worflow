@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import shutil
+import pandas as pd
 
 def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     """Convert Campbell Scientific binary files (.dat) to readable .csv files.
