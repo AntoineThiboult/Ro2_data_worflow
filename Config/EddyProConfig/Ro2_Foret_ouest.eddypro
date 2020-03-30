@@ -1,7 +1,7 @@
 ;EDDYPRO_PROCESSING
 [Project]
 creation_date=2015-11-23T10:05:36
-last_change_date=2020-03-24T09:57:41
+last_change_date=2020-03-30T15:17:09
 file_name=C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/Config/EddyProConfig/Ro2_Foret_ouest.eddypro
 run_mode=0
 run_fcc=0
@@ -167,7 +167,7 @@ flag10_threshold=-9999.0000000000
 flag10_upper=1
 
 [RawProcess_Settings]
-max_lack=30
+max_lack=40
 u_offset=0
 v_offset=0
 w_offset=0
@@ -284,7 +284,7 @@ sr_lim_co2=3.5
 sr_lim_h2o=3.5
 sr_lim_ch4=8.0
 sr_lim_n2o=8.0
-sr_lim_hf=1.0
+sr_lim_hf=20.0
 ar_lim=7.0
 ar_bins=100
 ar_hf_lim=70
@@ -398,5 +398,5 @@ biom_ppfd=-1
 
 [RawProcess_WindDirectionFilter]
 wdf_apply=1
-wdf_sect_1_start=145.0
-wdf_sect_1_end=405.0
+wdf_sect_1_start=20.0
+wdf_sect_1_end=160.0
