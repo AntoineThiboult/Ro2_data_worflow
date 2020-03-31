@@ -25,11 +25,15 @@ def merge_thermistors(dates, rawFileDir, mergedCsvOutDir):
 
     Parameters
     ----------
+    dates: dictionnary that contains a 'start' and 'end' key to indicates the
+        period range to EddyPro.
+        Example: dates{'start': '2018-06-01', 'end': '2020-02-01'}
     rawFileDir: path to the directory that contains the .xlsx files
     mergedCsvOutDir: path to the directory that contains final .csv files
 
     Returns
     -------
+    None.
     """
     print('Start merging thermistors data')
     df = pd.DataFrame( index=pd.date_range(start=dates['start'], end=dates['end'], freq='30min') )
