@@ -2,6 +2,7 @@
 import pandas as pd
 import numpy as np
 from process_micromet import detect_spikes
+import warnings
 
 def handle_exception(stationName, df, mergedCsvOutDir):
     """Handle exception in data processing. This function contains instructions
@@ -16,6 +17,9 @@ def handle_exception(stationName, df, mergedCsvOutDir):
     Returns
     -------
     df: pandas DataFrame"""
+
+    # Ignore warnings caused by averaging nan
+    warnings.filterwarnings("ignore")
 
     if (stationName == 'Foret_ouest') | (stationName == 'Berge'):
         df['wind_dir_05103'] = 360 - df['wind_dir_05103']
