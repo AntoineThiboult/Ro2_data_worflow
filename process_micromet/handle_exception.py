@@ -17,6 +17,8 @@ def handle_exception(stationName, df, mergedCsvOutDir):
     -------
     df: pandas DataFrame"""
 
+    if (stationName == 'Foret_ouest') | (stationName == 'Berge'):
+        df['wind_dir_05103'] = 360 - df['wind_dir_05103']
 
     if stationName == 'Foret_ouest':
         # Handle the issue with the faulty CNR1 temperature probe
