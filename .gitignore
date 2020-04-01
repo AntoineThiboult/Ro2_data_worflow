@@ -1,3 +1,4 @@
 *.csv
 *.log
-./process_micromet/__pycache__/*
+*.123
+process_micromet/__pycache__/*

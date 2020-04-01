@@ -10,9 +10,9 @@ import process_micromet as pm
 
 ### Define paths
 
-# allStations     = ["Berge","Foret_ouest","Foret_est","Foret_sol","Reservoir"]
-# eddyCovStations = ["Berge","Foret_ouest","Foret_est","Reservoir"]
-# gapfilledStation = ["Berge","Foret_ouest","Reservoir"]
+allStations     = ["Berge","Foret_ouest","Foret_est","Foret_sol","Reservoir"]
+eddyCovStations = ["Berge","Foret_ouest","Foret_est","Reservoir"]
+gapfilledStation = ["Berge","Foret_ouest","Reservoir"]
 
 rawFileDir          = "D:/E/Ro2_micromet_raw_data/Data"
 asciiOutDir         = "D:/E/Ro2_micormet_processed_data/Ascii_data/"
@@ -23,12 +23,6 @@ gapfillConfigDir    = "D:/E/Ro2_data_worflow/Config/GapFillingConfig/"
 varNameExcelTab     = "D:/E/Ro2_data_worflow/Resources/EmpreinteVariableDescription.xlsx"
 
 dates = {'start':'2018-06-01','end':'2020-02-01'}
-
-### Temporary stuff for tests
-allStations = ["Foret_ouest","Berge"]
-eddyCovStations  = ["Foret_ouest"]
-gapfilledStation = ["Foret_ouest"]
-
 
 def parallel_function_1(iStation, rawFileDir, asciiOutDir, eddyproOutDir,
                         eddyproConfigDir, mergedCsvOutDir, gapfillConfigDir,
@@ -83,8 +77,8 @@ def parallel_function_2(iStation, mergedCsvOutDir, gapfillConfigDir):
 
 ########### Process stations ############
 
-# # Merge Hobo TidBit thermistors
-# pm.merge_thermistors(dates, rawFileDir, mergedCsvOutDir)
+# Merge Hobo TidBit thermistors
+pm.merge_thermistors(dates, rawFileDir, mergedCsvOutDir)
 
 Parallel(n_jobs=len(allStations))(delayed(parallel_function_1)(
         iStation, rawFileDir, asciiOutDir, eddyproOutDir, eddyproConfigDir,
