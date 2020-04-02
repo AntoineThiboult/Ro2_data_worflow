@@ -3,7 +3,7 @@
 title=
 id=
 creation_date=2019-11-11T18:41:33
-last_change_date=2020-03-30T14:54:47
+last_change_date=2020-04-01T20:42:43
 start_date=
 end_date=
 file_name=C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/Config/EddyProConfig/Ro2_Foret_est.metadata
@@ -190,7 +190,7 @@ col_9_b_value=0.000000
 col_9_nom_timelag=0.00
 col_9_min_timelag=0.00
 col_9_max_timelag=0.00
-col_10_variable=air_p
+col_10_variable=ignore
 col_10_instrument=li7500_1
 col_10_measure_type=
 col_10_unit_in=kpa
