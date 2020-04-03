@@ -8,6 +8,8 @@ def rename_trim_vars(stationName,varNameExcelTab,df,tab):
     Parameters
     ----------
     stationName: name of the station
+    varNameExcelTab: path and name of the Excel file that contains the
+        variable description and their names
     df: pandas DataFrame that contains the variables
     tab: Excel spreadsheet table suffix that refers to the source of the data
         (either 'cs' for Campbell Scientific files, or 'eddypro' for EddyPro
