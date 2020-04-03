@@ -21,12 +21,18 @@ def handle_exception(stationName, df, mergedCsvOutDir):
     # Ignore warnings caused by averaging nan
     warnings.filterwarnings("ignore")
 
-    if (stationName == 'Foret_ouest') | (stationName == 'Berge'):
+    if stationName == 'Berge':
+        ######################################################################
+        # Handle the RMY 05103 counter clockwise wind direction reference frame
+        ######################################################################
+
         df['wind_dir_05103'] = 360 - df['wind_dir_05103']
 
     if stationName == 'Foret_ouest':
+        ######################################################################
         # Handle the issue with the faulty CNR1 temperature probe
         # Take the CSAT temperature as proxy
+        ######################################################################
 
         # Despike IRGASON temperature time series
         id_spikes = detect_spikes(df, 'air_temp_IRGASON')
@@ -44,4 +50,11 @@ def handle_exception(stationName, df, mergedCsvOutDir):
         for iVar in ['LE','H','CO2_flux']:
             df[iVar] = np.nanmean(pd.concat( [df[iVar], df_est[iVar]], axis=1), axis=1)
 
+        ######################################################################
+        # Handle the RMY 05103 counter clockwise wind direction reference
+        # frame that was introduced the 2019-06-08 10:30:00
+        ######################################################################
+
+        id_change_progr = df[df['timestamp'].str.contains('2019-06-08 10:30:00')].index.values[0]
+        df.loc[id_change_progr:,'wind_dir_05103'] = 360 - df.loc[id_change_progr:,'wind_dir_05103']
     return df
