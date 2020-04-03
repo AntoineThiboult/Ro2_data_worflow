@@ -56,5 +56,5 @@ def handle_exception(stationName, df, mergedCsvOutDir):
         ######################################################################
 
         id_change_progr = df[df['timestamp'].str.contains('2019-06-08 10:30:00')].index.values[0]
-        df.loc[id_change_progr:,'wind_dir_05103'] = 360 - df.loc[id_change_progr:,'wind_dir_05103']
+        df.loc[0:id_change_progr,'wind_dir_05103'] = 360 - df.loc[0:id_change_progr,'wind_dir_05103']
     return df
