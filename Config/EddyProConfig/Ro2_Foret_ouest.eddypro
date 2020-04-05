@@ -1,7 +1,7 @@
 ;EDDYPRO_PROCESSING
 [Project]
 creation_date=2015-11-23T10:05:36
-last_change_date=2020-04-02T17:24:14
+last_change_date=2020-04-03T12:33:56
 file_name=C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/Config/EddyProConfig/Ro2_Foret_ouest.eddypro
 run_mode=0
 run_fcc=0
@@ -398,5 +398,5 @@ biom_ppfd=-1
 
 [RawProcess_WindDirectionFilter]
 wdf_apply=1
-wdf_sect_1_start=0.0
-wdf_sect_1_end=180.0
+wdf_sect_1_start=10.0
+wdf_sect_1_end=170.0
