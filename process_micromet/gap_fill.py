@@ -59,7 +59,10 @@ def gap_fill(stationName,df,mergedCsvOutDir,gapfillConfig):
             df.loc[id_fric_vel[0],iVar_to_fill_trim] = np.nan
 
         # Identify spikes that should be discarded
-        id_spikes = detect_spikes(df, iVar_to_fill_trim)
+        if iVar_to_fill in ['CO2_flux', 'CH4_flux']:
+            id_spikes = detect_spikes(df, iVar_to_fill_trim, 624, 5, True)
+        else:
+            id_spikes = detect_spikes(df, iVar_to_fill_trim, 624, 5, False)
         df.loc[id_spikes,iVar_to_fill_trim] = np.nan
 
         # Perform gap filling
