@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
 import numpy as np
-from process_micromet import bandpass_filter, detect_spikes, find_friction_vel_threshold
 
 def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
     """
@@ -76,7 +75,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
                      abs(time_window_met.iloc[:,iVar] - current_met.iloc[iVar]) < proxy_vars_range[iVar]], axis=1)
 
             # Check that the corresponding var_to_fill is not NaN
-            index_proxy_met_bool = pd.concat([index_proxy_met_bool, ~df.loc[df.index[time_window],var_to_fill].isna()], axis=1)
+            index_proxy_met_bool = pd.concat([index_proxy_met_bool, ~df.loc[df.index[time_window],var_to_fill_trim].isna()], axis=1)
             index_proxy_met_bool = index_proxy_met_bool.all(axis=1)
             # Convert bool to index
             index_proxy_met = index_proxy_met_bool.index[index_proxy_met_bool == True]
@@ -95,7 +94,7 @@ def gapfill_mds(df,var_to_fill,df_config,mergedCsvOutDir):
             time_window = list([t_start ,t_end])
         else:
             time_window = list( range(t_start ,t_end) )
-        time_window_met = df.loc[df.index[time_window],var_to_fill]
+        time_window_met = df.loc[df.index[time_window],var_to_fill_trim]
         index_proxy_met_bool = ~time_window_met.isna()
         index_proxy_met = index_proxy_met_bool.index[index_proxy_met_bool == True]
         if index_proxy_met.size == 0:
