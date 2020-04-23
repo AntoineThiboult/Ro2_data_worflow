@@ -32,6 +32,34 @@ def handle_exception(stationName, df, mergedCsvOutDir, varNameExcelTab):
 
         df['wind_dir_05103'] = 360 - df['wind_dir_05103']
 
+
+        ######################################################################
+        # Merge all eddypro variable between berge and reservoir
+        ######################################################################
+
+        # Import Reservoir data
+        df_res = pd.read_csv(mergedCsvOutDir+'Reservoir'+'.csv', low_memory=False)
+
+        # Import EddyPro variable names that should be merged
+        xlsFile = pd.ExcelFile(varNameExcelTab)
+        column_dic = pd.read_excel(xlsFile,'Berge_eddypro')
+
+        # Lines of tab that should be averaged
+        lines_to_include = column_dic.iloc[:,0].str.contains('NA - Only stored as binary|Database variable name', regex=True)
+        column_dic = column_dic[lines_to_include == False]
+        column_dic = column_dic.iloc[:,0]
+        column_dic = column_dic[~(column_dic == 'timestamp')]
+
+        # Merge Berge and Reservoir DataFrames
+        for iVar in column_dic:
+            if iVar == 'wind_dir_sonic':
+                # Substitutes ouest NaN values by est values
+                df.loc[df[iVar].isna(), iVar] = df_res.loc[df[iVar].isna(), iVar]
+            else:
+                # Average variable
+                df[iVar] = np.nanmean(
+                    pd.concat( [df[iVar], df_res[iVar]], axis=1), axis=1)
+
     if stationName == 'Foret_ouest':
 
         ######################################################################
