@@ -42,7 +42,7 @@ def handle_exception(stationName, df, mergedCsvOutDir, varNameExcelTab):
 
         # Import EddyPro variable names that should be merged
         xlsFile = pd.ExcelFile(varNameExcelTab)
-        column_dic = pd.read_excel(xlsFile,'Berge_eddypro')
+        column_dic = pd.read_excel(xlsFile,'Reservoir_eddypro')
 
         # Lines of tab that should be averaged
         lines_to_include = column_dic.iloc[:,0].str.contains('NA - Only stored as binary|Database variable name', regex=True)
