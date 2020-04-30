@@ -13,13 +13,18 @@ import process_micromet as pm
 # eddyCovStations = ["Berge","Foret_ouest","Foret_est","Reservoir"]
 # gapfilledStation = ["Berge","Foret_ouest","Reservoir"]
 
-rawFileDir          = "D:/E/Ro2_micromet_raw_data/Data"
+rawFileDir          = "D:/E/Ro2_micromet_raw_data/Data/"
 asciiOutDir         = "D:/E/Ro2_micormet_processed_data/Ascii_data/"
 eddyproOutDir       = "D:/E/Ro2_micormet_processed_data/Eddypro_data/"
 eddyproConfigDir    = "D:/E/Ro2_data_worflow/Config/EddyProConfig/"
 mergedCsvOutDir     = "D:/E/Ro2_micormet_processed_data/Merged_csv/"
 gapfillConfigDir    = "D:/E/Ro2_data_worflow/Config/GapFillingConfig/"
 varNameExcelTab     = "D:/E/Ro2_data_worflow/Resources/EmpreinteVariableDescription.xlsx"
+externalDataDir     = "D:/E/Ro2_micromet_raw_data/Data/External_data/"
+
+varNameExcelTab     = "./Resources/EmpreinteVariableDescription.xlsx"
+mergedCsvOutDir     = "C:/Users/anthi182/Documents/Python/Explore_mds_gf/Data/"
+gapfillConfigDir    = "./Config/GapFillingConfig/"
 
 # allStations     = ["Berge","Reservoir","Foret_ouest","Foret_est"]
 # eddyCovStations = ["Berge","Reservoir","Foret_ouest","Foret_est"]
@@ -27,7 +32,7 @@ varNameExcelTab     = "D:/E/Ro2_data_worflow/Resources/EmpreinteVariableDescript
 
 allStations     = ["Berge","Foret_ouest","Foret_est","Foret_sol","Reservoir"]
 eddyCovStations = ["Berge","Foret_ouest","Foret_est","Reservoir"]
-gapfilledStation = ["Berge","Foret_ouest","Reservoir"]
+gapfilledStation = ["Foret_ouest"]
 
 # allStations = ["Berge"]
 # eddyCovStations  = ["Berge"]
@@ -37,8 +42,17 @@ dates = {'start':'2018-06-01','end':'2020-02-01'}
 
 # # # Process stations
 
-# Merge Hobo TidBit thermistors
+# # Merge Hobo TidBit thermistors
 # pm.merge_thermistors(dates, rawFileDir, mergedCsvOutDir)
+
+# Make Natashquan data
+pm.merge_natashquan(dates, externalDataDir, mergedCsvOutDir)
+
+# # Merge data relative to reservoir provided by HQ
+# pm.merge_hq_reservoir(dates, externalDataDir, mergedCsvOutDir)
+
+# # Extract data from the HQ weather station
+# pm.merge_hq_meteo_station(dates, externalDataDir, mergedCsvOutDir)
 
 # for iStation in allStations:
 
@@ -74,15 +88,16 @@ dates = {'start':'2018-06-01','end':'2020-02-01'}
 #         slow_df.to_csv(mergedCsvOutDir+iStation+'.csv', index=False)
 
 
-for iStation in gapfilledStation:
+# for iStation in gapfilledStation:
 
-    df = pd.read_csv(mergedCsvOutDir+iStation+'.csv', low_memory=False)
+#     df = pd.read_csv(mergedCsvOutDir+iStation+'.csv', low_memory=False)
 
-    # Handle special cases and errors
-    df = pm.handle_exception(iStation, df,mergedCsvOutDir)
+#     # Handle special cases and errors
+#     df = pm.handle_exception(iStation, df,mergedCsvOutDir, varNameExcelTab)
 
-    # # Perform gap filling
-    # df = pm.gap_fill(iStation,df,mergedCsvOutDir,gapfillConfigDir)
+#     # # Perform gap filling
+#     df = pm.gap_fill(iStation,df,mergedCsvOutDir,gapfillConfigDir)
 
-    # # Save to csv
-    # df.to_csv(mergedCsvOutDir+iStation+'_gf.csv')
+#     # # Save to csv
+#     df.to_csv(mergedCsvOutDir+iStation+'_gf.csv')
+
