@@ -2,11 +2,10 @@ import pandas as pd
 from joblib import Parallel, delayed
 import process_micromet as pm
 
-# TODO deal with start/end dates
 # TODO add a row for units
-# TODO 360-wind_sonic_dir for berge
-# TODO clean all data
-# TODO clean doc
+# TODO add a fluxnet name format
+# TODO handle fusion and separation of berge/reservoir & foret_est/foret_ouest
+# TODO parallelization of parallel_function_0
 
 ### Define paths
 
@@ -20,9 +19,25 @@ eddyproOutDir       = "D:/E/Ro2_micormet_processed_data/Eddypro_data/"
 eddyproConfigDir    = "D:/E/Ro2_data_worflow/Config/EddyProConfig/"
 mergedCsvOutDir     = "D:/E/Ro2_micormet_processed_data/Merged_csv/"
 gapfillConfigDir    = "D:/E/Ro2_data_worflow/Config/GapFillingConfig/"
+externalDataDir     = "D:/E/Ro2_micromet_raw_data/Data/External_data/"
 varNameExcelTab     = "D:/E/Ro2_data_worflow/Resources/EmpreinteVariableDescription.xlsx"
 
-dates = {'start':'2018-06-01','end':'2020-02-01'}
+
+dates = {'start':'2018-06-22','end':'2020-02-01'}
+
+def parallel_function_0(dates, rawFileDir, externalDataDir, mergedCsvOutDir):
+    # Merge Hobo TidBit thermistors
+    pm.merge_thermistors(dates, rawFileDir, mergedCsvOutDir)
+
+    # Make Natashquan data
+    pm.merge_natashquan(dates, externalDataDir, mergedCsvOutDir)
+
+    # Merge data relative to reservoir provided by HQ
+    pm.merge_hq_reservoir(dates, externalDataDir, mergedCsvOutDir)
+
+    # Extract data from the HQ weather station
+    pm.merge_hq_meteo_station(dates, externalDataDir, mergedCsvOutDir)
+
 
 def parallel_function_1(iStation, rawFileDir, asciiOutDir, eddyproOutDir,
                         eddyproConfigDir, mergedCsvOutDir, gapfillConfigDir,
@@ -65,10 +80,10 @@ def parallel_function_2(iStation, mergedCsvOutDir, gapfillConfigDir):
     df = pd.read_csv(mergedCsvOutDir+iStation+'.csv', low_memory=False)
 
     # Handle special cases and errors
-    df = pm.handle_exception(iStation, df,mergedCsvOutDir)
+    df = pm.handle_exception(iStation, df, mergedCsvOutDir, varNameExcelTab)
 
     # Perform gap filling
-    df = pm.gap_fill(iStation,df,mergedCsvOutDir,gapfillConfigDir)
+    df = pm.gap_fill(iStation, df, mergedCsvOutDir, gapfillConfigDir)
 
     # Save to csv
     df.to_csv(mergedCsvOutDir+iStation+'_gf.csv')
@@ -77,8 +92,7 @@ def parallel_function_2(iStation, mergedCsvOutDir, gapfillConfigDir):
 
 ########### Process stations ############
 
-# Merge Hobo TidBit thermistors
-pm.merge_thermistors(dates, rawFileDir, mergedCsvOutDir)
+parallel_function_0(dates, rawFileDir, externalDataDir, mergedCsvOutDir)
 
 Parallel(n_jobs=len(allStations))(delayed(parallel_function_1)(
         iStation, rawFileDir, asciiOutDir, eddyproOutDir, eddyproConfigDir,

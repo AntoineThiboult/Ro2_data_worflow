@@ -2,3 +2,5 @@
 *.log
 *.123
 process_micromet/__pycache__/*
+*.132
+launch_workflow_debuging.py
