@@ -4,12 +4,13 @@ import process_micromet as pm
 # TODO add a row for units
 # TODO add a fluxnet name format
 # TODO handle fusion and separation of berge/reservoir & foret_est/foret_ouest
+# TODO consider stockage effects between instruments and ground
 
 ### Define paths
 
 allStations     = ["Berge","Foret_ouest","Foret_est","Foret_sol","Reservoir"]
 eddyCovStations = ["Berge","Foret_ouest","Foret_est","Reservoir"]
-gapfilledStation = ["Berge","Foret_ouest","Reservoir"]
+gapfilledStation = ["Berge","Foret_ouest","Foret_est","Reservoir","Water_stations","Forest_stations"]
 
 rawFileDir          = "D:/E/Ro2_micromet_raw_data/Data/"
 asciiOutDir         = "D:/E/Ro2_micormet_processed_data/Ascii_data/"
@@ -74,7 +75,8 @@ for iStation in allStations:
 
 for iStation in gapfilledStation:
 
-    df = pd.read_csv(mergedCsvOutDir+iStation+'.csv', low_memory=False)
+    # Merge the eddy covariance together (water/forest), or simply load data
+    df = pm.merge_eddycov_stations(iStation, mergedCsvOutDir, varNameExcelTab)
 
     # Handle special cases and errors
     df = pm.handle_exception(iStation, df,mergedCsvOutDir, varNameExcelTab)

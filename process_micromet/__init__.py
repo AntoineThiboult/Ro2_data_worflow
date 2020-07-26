@@ -16,3 +16,4 @@ from .rename_trim_vars import rename_trim_vars
 from .merge_natashquan import merge_natashquan
 from .merge_hq_reservoir import merge_hq_reservoir
 from .merge_hq_meteo_station import merge_hq_meteo_station
+from .merge_eddycov_stations import merge_eddycov_stations

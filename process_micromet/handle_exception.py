@@ -24,71 +24,27 @@ def handle_exception(stationName, df, mergedCsvOutDir, varNameExcelTab):
     # Ignore warnings caused by averaging nan
     warnings.filterwarnings("ignore")
 
-    if stationName == 'Berge':
+    if stationName in ['Berge', 'Water_stations']:
 
-        ######################################################################
-        # Handle the RMY 05103 counter clockwise wind direction reference frame
-        ######################################################################
+        #############################################################################
+        ### Handle the RMY 05103 counter clockwise wind direction reference frame ###
+        #############################################################################
 
         df['wind_dir_05103'] = 360 - df['wind_dir_05103']
 
 
-        ######################################################################
-        # Merge all eddypro variable between berge and reservoir
-        ######################################################################
-
-        # Import Reservoir data
-        df_res = pd.read_csv(mergedCsvOutDir+'Reservoir'+'.csv', low_memory=False)
-
-        # Import EddyPro variable names that should be merged
-        xlsFile = pd.ExcelFile(varNameExcelTab)
-        column_dic = pd.read_excel(xlsFile,'Reservoir_eddypro')
-
-        # Lines of tab that should be averaged
-        lines_to_include = column_dic.iloc[:,0].str.contains('NA - Only stored as binary|Database variable name', regex=True)
-        column_dic = column_dic[lines_to_include == False]
-        column_dic = column_dic.iloc[:,0]
-        column_dic = column_dic[~(column_dic == 'timestamp')]
-
-        # Merge Berge and Reservoir DataFrames
-        for iVar in column_dic:
-            if iVar == 'wind_dir_sonic':
-                # Substitutes ouest NaN values by est values
-                df.loc[df[iVar].isna(), iVar] = df_res.loc[df[iVar].isna(), iVar]
-            else:
-                # Average variable
-                df[iVar] = np.nanmean(
-                    pd.concat( [df[iVar], df_res[iVar]], axis=1), axis=1)
-
-    if stationName == 'Foret_ouest':
+    if stationName in ['Foret_ouest', 'Forest_stations']:
 
         ######################################################################
-        # Merge all eddypro variable between foret est and ouest
+        # Handle the RMY 05103 counter clockwise wind direction reference
+        # frame that was introduced the 2019-06-08 10:30:00
         ######################################################################
 
-        # Import Foret_est data
-        df_est = pd.read_csv(mergedCsvOutDir+'Foret_est'+'.csv', low_memory=False)
+        id_change_progr = df[df['timestamp'].str.contains('2019-06-08 10:30:00')].index.values[0]
+        df.loc[0:id_change_progr,'wind_dir_05103'] = 360 - df.loc[0:id_change_progr,'wind_dir_05103']
 
-        # Import EddyPro variable names that should be merged
-        xlsFile = pd.ExcelFile(varNameExcelTab)
-        column_dic = pd.read_excel(xlsFile,'Foret_ouest_eddypro')
 
-        # Lines of tab that should be averaged
-        lines_to_include = column_dic.iloc[:,0].str.contains('NA - Only stored as binary|Database variable name', regex=True)
-        column_dic = column_dic[lines_to_include == False]
-        column_dic = column_dic.iloc[:,0]
-        column_dic = column_dic[~(column_dic == 'timestamp')]
-
-        # Merge foret ouest and est DataFrames
-        for iVar in column_dic:
-            if iVar == 'wind_dir_sonic':
-                # Substitutes ouest NaN values by est values
-                df.loc[df[iVar].isna(), iVar] = df_est.loc[df[iVar].isna(), iVar]
-            else:
-                # Average variable
-                df[iVar] = np.nanmean(
-                    pd.concat( [df[iVar], df_est[iVar]], axis=1), axis=1)
-
+    if stationName in ['Forest_stations']:
 
         ######################################################################
         # Handle the issue with the faulty CNR1 temperature probe
@@ -105,14 +61,5 @@ def handle_exception(stationName, df, mergedCsvOutDir, varNameExcelTab):
         # Correct longwave radiation for blackbody radiation
         df['rad_longwave_down_CNR4'] = df['rad_longwave_down_CNR4'] + (5.67e-8*T_proxy**4)
         df['rad_longwave_up_CNR4'] = df['rad_longwave_up_CNR4'] + (5.67e-8*T_proxy**4)
-
-
-        ######################################################################
-        # Handle the RMY 05103 counter clockwise wind direction reference
-        # frame that was introduced the 2019-06-08 10:30:00
-        ######################################################################
-
-        id_change_progr = df[df['timestamp'].str.contains('2019-06-08 10:30:00')].index.values[0]
-        df.loc[0:id_change_progr,'wind_dir_05103'] = 360 - df.loc[0:id_change_progr,'wind_dir_05103']
 
     return df

@@ -20,7 +20,7 @@ def gap_fill(stationName,df,mergedCsvOutDir,gapfillConfig):
     -------
     """
     # load gap filling config file
-    xlsFile = pd.ExcelFile('./Config/GapFillingConfig/gapfilling_configuration.xlsx')
+    xlsFile = pd.ExcelFile(gapfillConfig+'gapfilling_configuration.xlsx')
     df_config = pd.read_excel(xlsFile,stationName+'_MDS')
 
     # Check that all proxy vars are available for gap filling
@@ -33,7 +33,7 @@ def gap_fill(stationName,df,mergedCsvOutDir,gapfillConfig):
             df = df.merge(df_altStation, on='timestamp', how='left')
 
     # Handle special case of berge and reservoir
-    if stationName in ['Berge', 'Reservoir']:
+    if stationName in ['Berge', 'Reservoir', 'Water_stations']:
         df['water_temp_surface'] = df[['water_temp_0m0_Therm1','water_temp_0m0_Therm2',
                                        'water_temp_0m4_Therm1','water_temp_0m4_Therm2']].mean(axis=1)
         df['delta_Tair_Teau'] = abs(df['water_temp_surface'] - df['air_temp_IRGASON107probe'])
