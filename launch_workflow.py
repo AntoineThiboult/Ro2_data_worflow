@@ -3,8 +3,13 @@ import process_micromet as pm
 
 # TODO add a row for units
 # TODO add a fluxnet name format
-# TODO handle fusion and separation of berge/reservoir & foret_est/foret_ouest
-# TODO consider stockage effects between instruments and ground
+# TODO consider storage effects between instruments and ground
+# TODO deal with the periods where turbulent fluxes largely violated the energy budget (i.e., H+λE > 5Rn) were discarded
+# TODO Cap shortwave downwelling radiation with maximum theoretical values calculated following -- Whiteman and Allwine (1986).
+# TODO Cap humidity values using temperature-dependent relations
+# TODO Account for energy storage in soil above flux plates to include it in G
+# TODO Acconut for LE and H storage between ground and flux instrument ? How without several temperature sensors ?
+# TODO implement energy balance correction
 
 ### Define paths
 

@@ -4,10 +4,10 @@ import numpy as np
 
 def merge_eddycov_stations(stationName, mergedCsvOutDir, varNameExcelTab):
     """Merge :
-        - the Berge and Reservoir stations together. The station reservoir is
-          "prioritary", meaning that if some data is available on both stations,
-          the data from reservoir is kept, while the one from Berge are discarded.
-          However, the following variables from Berge are prioritary:
+        - the Berge and Reservoir stations together. The station reservoir has
+          "priority", meaning that if some data is available on both stations,
+          the data from reservoir is kept, while the one from Berge is discarded.
+          However, the following variables from Berge have priority:
               - rad_longwave_down_CNR4
               - rad_longwave_up_CNR4
               - rad_net_CNR4
@@ -15,7 +15,7 @@ def merge_eddycov_stations(stationName, mergedCsvOutDir, varNameExcelTab):
               - rad_shortwave_up_CNR4'
         - the Foret_ouest and Foret_est stations together. Data from both stations
           are mutually exclusive in approx 99.85% of the cases. In the case data
-          is available from both station, the average of the value is kept,
+          is available from both stations, the average of the value is kept,
           except for the following variables where foret_ouest data is kept:
               - wind_dir_sonic
 
