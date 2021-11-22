@@ -17,3 +17,4 @@ from .merge_natashquan import merge_natashquan
 from .merge_hq_reservoir import merge_hq_reservoir
 from .merge_hq_meteo_station import merge_hq_meteo_station
 from .merge_eddycov_stations import merge_eddycov_stations
+from .rotate_wind import rotate_wind
