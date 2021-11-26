@@ -36,16 +36,16 @@ def rotate_wind(stationName,asciiOutDir):
 
         var_dtypes = {
             'TIMESTAMP':              np.object0,
-            'RECORD':                 np.int64,
+            'RECORD':                 np.float64,
             'Ux':                     np.float64,
             'Uy':                     np.float64,
             'Uz':                     np.float64,
             'T_SONIC':                np.float64,
-            'diag_sonic':             np.int64,
+            'diag_sonic':             np.float64,
             'CO2_density':            np.float64,
             'CO2_density_fast_tmpr':  np.float64,
             'H2O_density':            np.float64,
-            'diag_irga':              np.int64,
+            'diag_irga':              np.float64,
             'T_SONIC_corr':           np.float64,
             'TA_1_1_1':               np.float64,
             'PA':                     np.float64,
@@ -60,7 +60,9 @@ def rotate_wind(stationName,asciiOutDir):
             'roll':                   np.float64,
             'pitch':                  np.float64,
             'yaw':                    np.float64,
-            'imu_ahrs_checksum_f':    np.int64}
+            'imu_ahrs_checksum_f':    np.float64}
+        # Note that some variables are int but must be treated as float since
+        # numpy doesn't handle NaN in int, but does for floats.
 
         accel_vars = ['roll', 'pitch', 'yaw',
                       'accel_x', 'accel_y', 'accel_z',
@@ -111,35 +113,64 @@ def rotate_wind(stationName,asciiOutDir):
                         for i_line in header:
                             fp.write(i_line)
 
-                    ##########################
-                    ### Pre transformation ###
-                    ##########################
-
-                    # Because the accelerometer is mounted upside down, roll values
-                    # are around +/- 2pi. This creates discontinuities with
-                    # detect_spikes. Hence, everything it set back around -2*pi
-                    df.loc[df['roll']>0,'roll'] = df['roll'] - 2*np.pi
-
-                    # IRGASON and accelerometer not in the same referential frame
-                    # Transform wind speeds into accelerometer frame
+                    # Pre transformation. IRGASON and accelerometer not in the
+                    # same referential frame. Transform wind speeds into
+                    # accelerometer frame
                     df['Ux'] = -df['Ux']
                     df['Uy'] = -df['Uy']
 
-                    # Clean data and do linear interpolation (max over 0.5s)
+                    #######################################
+                    ### Data cleaning and interpolation ###
+                    #######################################
+
                     for iVar in accel_vars:
+
+                        # Filtering
+                        if iVar in ['roll', 'pitch', 'yaw']:
+                            # Nonsensical values
+                            id_rm = df[iVar].abs() > 2.01*np.pi
+                            df.loc[id_rm,iVar] = np.nan
+                        elif iVar in ['accel_x', 'accel_y', 'accel_z',
+                                      'ang_rate_x', 'ang_rate_y', 'ang_rate_z']:
+                            # Values that are suspicious (violent mouvement)
+                            id_rm = df[iVar].abs() > 2
+                            df.loc[id_rm,iVar] = np.nan
+
+                        if iVar == 'roll':
+                            # Because the accelerometer is mounted upside down, roll values
+                            # are around +/- 2pi. This creates discontinuities with
+                            # detect_spikes. Hence, everything it set back around -2*pi
+                            df.loc[df['roll']>0,'roll'] = df['roll'] - 2*np.pi
+
+                        if iVar == ['roll', 'pitch']:
+                            # Values that are suspicious (too far away from horizontal)
+                            id_rm = np.array([np.abs(np.mod(df[iVar],np.pi)),
+                                          np.abs(np.mod(df[iVar],np.pi)-np.pi)]).min(axis=0) > 0.5
+                            df.loc[id_rm,iVar] = np.nan
+
+                        # Spiker removal
                         id_rm = detect_spikes(df, iVar, 10, 7)
                         df.loc[id_rm,iVar] = np.nan
-                        if iVar in ['roll', 'pitch', 'yaw']:
-                            df[iVar] = df[iVar].interpolate(
-                                method='linear', limit=20)
-                        else:
-                            df[iVar] = df[iVar].interpolate(
-                                method='linear', limit=600)
 
-                        # Replace accelerometer NaN values with zeros
-                        # (avoid discarding valid Irga data)
-                        df.loc[df[iVar].isna(),iVar] = 0
+                        # Interpolation
+                        df[iVar] = df[iVar].interpolate(method='linear', limit=2)
 
+                    # Nullify all accel var if one is missing
+                    id_rm = df[accel_vars].isna().any(axis=1)
+                    df.loc[id_rm, accel_vars] = np.nan
+
+                    # Replace remaining accelerometer NaN values with
+                    # 30min average if at least 5 min is available
+                    df.loc[id_rm, accel_vars] = df[accel_vars].rolling(
+                        window=30*60*10, min_periods=5*60*10,
+                        center=True).mean()
+
+                    # Replace remaining accelerometer NaN values with
+                    # theoretical resting values
+                    id_rm = df[accel_vars].isna().any(axis=1)
+                    df.loc[id_rm,accel_vars] = 0
+                    df.loc[id_rm,'accel_z'] = 1
+                    df.loc[id_rm,'roll'] = -np.pi
 
                     ######################
                     ### Initialization ###
