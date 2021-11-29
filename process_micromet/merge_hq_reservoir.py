@@ -79,7 +79,7 @@ def merge_hq_reservoir(dates, extDataDir, mergedCsvOutDir):
     df.loc[idDates_RefInRec,'level'] = df_level.loc[idDates_RecInRef,'level']
 
     # Fill missing steps
-    df = df.interpolate(method='linear')
+    df = df.loc[:, df.columns != 'timestamp'].interpolate(method='linear')
     df['timestamp'] = df.index
 
     # Save file

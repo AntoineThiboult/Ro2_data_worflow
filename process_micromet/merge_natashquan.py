@@ -72,7 +72,7 @@ def merge_natashquan(dates, extDataDir, mergedCsvOutDir):
     df['wind_dir_EC'] = df['wind_dir_EC']*10
 
     # Linear interpolation
-    df = df.interpolate(method='linear', axis=0)
+    df = df.loc[:, df.columns != 'timestamp'].interpolate(method='linear', axis=0)
 
 
     ####################################
