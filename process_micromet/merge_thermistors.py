@@ -2,6 +2,7 @@
 import os
 import pandas as pd
 import re
+import warnings
 
 def merge_thermistors(dates, rawFileDir, mergedCsvOutDir):
     """Merge data collected by the thermistors (TidBit and U20 sensors).
@@ -35,6 +36,7 @@ def merge_thermistors(dates, rawFileDir, mergedCsvOutDir):
     -------
     None.
     """
+
     print('Start merging thermistors data')
     df = pd.DataFrame( index=pd.date_range(start=dates['start'], end=dates['end'], freq='30min') )
 
@@ -53,12 +55,14 @@ def merge_thermistors(dates, rawFileDir, mergedCsvOutDir):
             #Find all thermistor files in folder
             thermNameRegex = r'^' + 'Therm' + r'[1-2].*xlsx$'
             listThermSensors = [f for f in os.listdir(os.path.join(rawFileDir,iFieldCampain,iDataCollection,'Excel_exported')) if re.match(thermNameRegex, f)]
+            counterSensor = 0
 
-            counter = 0
             for iSensor in listThermSensors:
 
-                # Load data
-                df_tmp = pd.read_excel(os.path.join(rawFileDir,iFieldCampain,iDataCollection,'Excel_exported',iSensor), skiprows=[0])
+                # Load data and handle annoying warning message
+                with warnings.catch_warnings(record=True):
+                    warnings.simplefilter("always")
+                    df_tmp = pd.read_excel(os.path.join(rawFileDir,iFieldCampain,iDataCollection,'Excel_exported',iSensor), skiprows=[0], engine=('openpyxl'))
 
                 # Remove 12 hours before and after data collection to avoid air contamination
                 df_tmp = df_tmp.drop(df_tmp.index[0:24])
@@ -88,14 +92,17 @@ def merge_thermistors(dates, rawFileDir, mergedCsvOutDir):
                     df.loc[idDates_RefInRec,sensorNiceNameTemp] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[2]]
                     df.loc[idDates_RefInRec,sensorNiceNamePress] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[1]]
 
-                print("\rMerging thermistors for dataset {:s}, progress {:2.1%} ".format(iFieldCampain, counter/len(listThermSensors)), end='\r')
-                counter += 1
+                print("\rMerging thermistors for dataset {:s}. Total progress {:2.1%} ".format(
+                    iFieldCampain, 1/len(listFieldCampains)*counterField +
+                    1/len(listFieldCampains)*counterSensor/len(listThermSensors)), end='\r')
+                counterSensor += 1
+        counterField += 1
 
     df['timestamp'] = df.index
     df = df.reindex(sorted(df.columns), axis=1)
 
     # Linear interpolation when less than two days are missing
-    df = df.interpolate(method='linear', limit=96)
+    df = df.loc[:, df.columns != 'timestamp'].interpolate(method='linear', limit=96)
 
     # Save file
     df.to_csv(os.path.join(mergedCsvOutDir,'Thermistors.csv'), index=False)
