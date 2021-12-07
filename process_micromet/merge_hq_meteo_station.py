@@ -32,7 +32,7 @@ def merge_hq_meteo_station(dates, extDataDir, mergedCsvOutDir):
     xlsFile = pd.ExcelFile(extDataDir + 'HQ_station_météo.xlsx')
 
     # Excel tabs of interest and corresponding database name
-    sheet_list = ['Humidité_relative', 'Pression atm._077', 'Pre_cum_br_611', 'Neige_617',
+    sheet_list = ['Humidité_relative_080', 'Pression atm._077', 'Pre_cum_br_611', 'Neige_617',
                   'Temp. Air_078', 'DirVent.Moy60min2m_190', 'DirVent.Moy60min10m_182',
                   'VitVent.Moy60min2m_193', 'VitVent.Moy60min10m_185']
 
