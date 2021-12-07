@@ -102,8 +102,9 @@ def merge_thermistors(dates, rawFileDir, mergedCsvOutDir):
     df = df.reindex(sorted(df.columns), axis=1)
 
     # Linear interpolation when less than two days are missing
-    df = df.loc[:, df.columns != 'timestamp'].interpolate(method='linear', limit=96)
+    df.loc[:, df.columns != 'timestamp'] = \
+        df.loc[:, df.columns != 'timestamp'].interpolate(method='linear', limit=96)
 
     # Save file
     df.to_csv(os.path.join(mergedCsvOutDir,'Thermistors.csv'), index=False)
-    print('Done!')
+    print('\nDone!')
