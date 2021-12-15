@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-def merge_slow_csv_and_eddypro(stationName,slow_df,eddy_df, mergedCsvOutDir):
+def merge_slow_csv_and_eddypro(stationName,slow_df,eddy_df):
     """Merge slow data and EddyPro data DataFrames
 
     Parameters
@@ -10,7 +10,6 @@ def merge_slow_csv_and_eddypro(stationName,slow_df,eddy_df, mergedCsvOutDir):
         measurement period
     eddy_df: pandas DataFrame that contains all eddy covariance variables
         processed by EddyPro for the entire measurement period
-    mergedCsvOutDir: path to the directory that contains the final .csv files
 
     Returns
     -------
