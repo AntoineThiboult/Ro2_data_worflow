@@ -5,6 +5,7 @@ from .batch_process_eddypro import batch_process_eddypro
 from .convert_CSbinary_to_csv import convert_CSbinary_to_csv
 from .detect_spikes import detect_spikes
 from .find_friction_vel_threshold import find_friction_vel_threshold
+from .filter_data import filter_data
 from .gapfill_mds import gapfill_mds
 from .gap_fill import gap_fill
 from .handle_netcdf import handle_netcdf
