@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-import pandas as pd
-import numpy as np
-from process_micromet import detect_spikes
 import warnings
+import numpy as np
+import pandas as pd
+from process_micromet import detect_spikes
 
-def handle_exception(stationName, df, mergedCsvOutDir, varNameExcelTab):
+
+def handle_exception(stationName, df):
     """Handle exception in data processing. This function contains instructions
     for special cases, such as replacements of measurements data from one
     instrument to another.
@@ -13,9 +14,6 @@ def handle_exception(stationName, df, mergedCsvOutDir, varNameExcelTab):
     ----------
     stationName: name of the station where modifications should be applied
     df: pandas DataFrame
-    mergedCsvOutDir: path to the directory that contains the final .csv files
-    varNameExcelTab: path and name of the Excel file that contains the
-        variable description and their names
 
     Returns
     -------
@@ -24,7 +22,7 @@ def handle_exception(stationName, df, mergedCsvOutDir, varNameExcelTab):
     # Ignore warnings caused by averaging nan
     warnings.filterwarnings("ignore")
 
-    if stationName in ['Berge', 'Water_stations']:
+    if stationName in ['Berge']:
 
         #############################################################################
         ### Handle the RMY 05103 counter clockwise wind direction reference frame ###
@@ -33,33 +31,48 @@ def handle_exception(stationName, df, mergedCsvOutDir, varNameExcelTab):
         df['wind_dir_05103'] = 360 - df['wind_dir_05103']
 
 
-    if stationName in ['Foret_ouest', 'Forest_stations']:
+    if stationName in ['Foret_ouest']:
 
         ######################################################################
         # Handle the RMY 05103 counter clockwise wind direction reference
         # frame that was introduced the 2019-06-08 10:30:00
         ######################################################################
 
-        id_change_progr = df[df['timestamp'].str.contains('2019-06-08 10:30:00')].index.values[0]
+        try:
+            id_change_progr = df[df['timestamp']==pd.to_datetime(
+                '2019-06-08 10:30:00')].index.values[0]
+        except IndexError:
+            id_change_progr = df.shape[0]
         df.loc[0:id_change_progr,'wind_dir_05103'] = 360 - df.loc[0:id_change_progr,'wind_dir_05103']
 
 
-    if stationName in ['Forest_stations']:
+    if stationName in ['Foret_ouest']:
 
         ######################################################################
-        # Handle the issue with the faulty CNR1 temperature probe
+        # Handle the issue with the faulty CNR1 temperature probe that was
+        # replaced the 2021-06-11 14:30:00 by working CNR4
         # Take the CSAT temperature as proxy
         ######################################################################
 
         # Despike IRGASON temperature time series
+        id_dissim = np.abs(df['air_temp_IRGASON'] - df['air_temp_CR3000']) > 10
+        df.loc[id_dissim, 'air_temp_IRGASON'] = np.nan
         id_spikes = detect_spikes(df, 'air_temp_IRGASON')
-        T_proxy = df['air_temp_IRGASON'].copy()
-        T_proxy[(T_proxy<-35) | (T_proxy>35)] = np.nan
-        T_proxy[id_spikes] = np.nan
-        T_proxy = T_proxy.interpolate() + 273.15
+        df.loc[id_spikes,'air_temp_IRGASON'] = np.nan
+        T_proxy = df['air_temp_IRGASON'].interpolate() + 273.15
 
         # Correct longwave radiation for blackbody radiation
-        df['rad_longwave_down_CNR4'] = df['rad_longwave_down_CNR4'] + (5.67e-8*T_proxy**4)
-        df['rad_longwave_up_CNR4'] = df['rad_longwave_up_CNR4'] + (5.67e-8*T_proxy**4)
+        try:
+            id_change_progr = df[df['timestamp']==pd.to_datetime(
+                '2021-06-11 14:00:00')].index.values[0]
+        except IndexError:
+            id_change_progr = df.shape[0]
+
+        df.loc[0:id_change_progr,'rad_longwave_down_CNR4'] = \
+            df.loc[0:id_change_progr,'rad_longwave_down_CNR4'] \
+                + (5.67e-8*T_proxy[0:id_change_progr]**4)
+        df.loc[0:id_change_progr,'rad_longwave_up_CNR4'] = \
+            df.loc[0:id_change_progr,'rad_longwave_up_CNR4'] \
+                + (5.67e-8*T_proxy[0:id_change_progr]**4)
 
     return df
