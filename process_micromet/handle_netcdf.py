@@ -79,6 +79,9 @@ def handle_netcdf(dates, data_folder, dest_folder):
     None. Inputs are saved as .csv file in dest_folder
 
     """
+
+    print('Start handling ERA5 netcdf files...')
+
     variables = {
         ### Instantaneous vars ###
 
@@ -162,17 +165,28 @@ def handle_netcdf(dates, data_folder, dest_folder):
         datelist = pd.date_range(start=dates['start'], end=dates['end'], freq='M')
 
         for iDate in datelist:
-            if os.path.isfile(os.path.join(
-                    data_folder,'ERA5','ERA5L_{}.nc'.format(iDate.strftime('%Y%m')))):
+
+            isFilePresent = \
+                (os.path.isfile(os.path.join(
+                    data_folder,'ERA5','ERA5L_{}.nc'.format(
+                        iDate.strftime('%Y%m')))))
+            isFileComplete = \
+                (os.path.getsize(os.path.join(
+                    data_folder,'ERA5','ERA5L_{}.nc'.format(
+                        iDate.strftime('%Y%m')))) > 1e6)
+
+            if isFilePresent & isFileComplete:
 
                 # Open netcdf file
                 rootgrp = ncdf.Dataset(os.path.join(
-                    data_folder,'ERA5','ERA5L_{}.nc'.format(iDate.strftime('%Y%m'))), "r")
+                    data_folder,'ERA5','ERA5L_{}.nc'.format(
+                        iDate.strftime('%Y%m'))), "r")
 
                 # Retrieve dates and find matching entries in reference Dataframe
                 ncdf_time = rootgrp['time']
                 f_date = ncdf.num2date(ncdf_time, ncdf_time.units,
-                                       ncdf_time.calendar, only_use_cftime_datetimes=False)
+                                       ncdf_time.calendar,
+                                       only_use_cftime_datetimes=False)
 
                 # Initialize temporary dataframe that will contain netcdf data
                 f_date = pd.to_datetime(f_date)
@@ -192,6 +206,7 @@ def handle_netcdf(dates, data_folder, dest_folder):
             else:
                 print('ERA5L_{}.nc not available yet'.format(iDate.strftime('%Y%m')))
 
+
         # Convert units / decumulate / (interpolate for cumulated vars)
         for iConv in variables:
             df[iConv] = variables[iConv]['unit_conv'](df[iConv])
@@ -203,6 +218,12 @@ def handle_netcdf(dates, data_folder, dest_folder):
         df['wind_speed'] = np.sqrt(df['10m_u_component_of_wind']**2 +
                                    df['10m_v_component_of_wind']**2)
 
-        # Save
+        # Change timezone (from UTC to UTC-5)
         df.insert(0, 'timestamp', df.index)
+        df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
+        df['timestamp'].dt.tz_convert('EST')
+
+        # Save
         df.to_csv(os.path.join(dest_folder,'ERA5_'+iStation+'.csv'), index=False)
+
+        print('Done!\n')
