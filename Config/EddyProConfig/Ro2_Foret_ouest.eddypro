@@ -1,7 +1,7 @@
 ;EDDYPRO_PROCESSING
 [Project]
 creation_date=2015-11-23T10:05:36
-last_change_date=2021-11-29T15:30:39
+last_change_date=2021-12-20T17:39:04
 file_name=C:/Users/anthi182/Documents/GitHub/Ro2_data_worflow/Config/EddyProConfig/Ro2_Foret_ouest.eddypro
 run_mode=0
 run_fcc=0
@@ -22,7 +22,7 @@ binary_little_end=-1
 master_sonic=csat3_1
 col_co2=8
 col_h2o=9
-col_ch4=0
+col_ch4=12
 col_n2o=0
 col_int_t_1=0
 col_int_t_2=0
