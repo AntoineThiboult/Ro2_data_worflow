@@ -67,6 +67,7 @@ def retrieve_ERA5land(dates, dest_folder):
                          'area':   bounding_rectangle,
                          'format': 'netcdf'}, export_name
                         )
+    print('Start extracting ERA5 data...')
 
     cds = cdsapi.Client()
 
@@ -108,3 +109,5 @@ def retrieve_ERA5land(dates, dest_folder):
     # Process to retrieval
     with concurrent.futures.ThreadPoolExecutor(max_workers = 10) as executor:
         [executor.submit(retrieve_routine, variables, dest_folder, bounding_rectangle, ymd, delay) for delay, ymd in enumerate(datelist)]
+
+    print('Done!\n')
