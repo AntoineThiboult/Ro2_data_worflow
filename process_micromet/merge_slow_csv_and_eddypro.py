@@ -19,7 +19,7 @@ def merge_slow_csv_and_eddypro(stationName,slow_df,eddy_df):
     print('Start merging slow and Eddy Pro data for station:', stationName, '...', end='\r')
 
     # Merge and save
-    merged_df = eddy_df.merge(slow_df, on='timestamp', how='left')
+    merged_df = slow_df.merge(eddy_df, on='timestamp', how='left')
 
     print('Done!')
 
