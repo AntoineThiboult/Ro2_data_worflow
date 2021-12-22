@@ -40,6 +40,7 @@ def filter_data(stationName,df,finalOutDir):
         Contains filtered slow and eddy covariance data.
 
     """
+    print('Start filtering data...')
 
     station_infos = {'Water_stations':  {
                          'lon':-63.2494011,
@@ -70,7 +71,13 @@ def filter_data(stationName,df,finalOutDir):
                          'lon':-63.4051018,
                          'lat':50.9020996,
                          'proxy':['Foret_ouest','Berge','Reservoir'],
-                         'flux_vars': ['LE','H','CO2_flux']}
+                         'flux_vars': ['LE','H','CO2_flux']},
+                     'Foret_sol':       {
+                         'lon':-63.4051018,
+                         'lat':50.9020996,
+                         'proxy':['Foret_ouest','Berge','Reservoir'],
+                         'flux_vars': ['soil_heatflux_HFP01SC_1',
+                                       'soil_heatflux_HFP01SC_2']}
                      }
 
     ##################
@@ -110,6 +117,16 @@ def filter_data(stationName,df,finalOutDir):
             df.loc[id_daylight,'rad_shortwave_up_CNR4'] \
                 / df.loc[id_daylight,'rad_shortwave_down_CNR4']
 
+    #####################
+    ### Ground fluxes ###
+    #####################
+
+    if stationName == 'Foret_sol':
+        for iVar in df.columns:
+            if iVar != 'timestamp':
+                # Very permissive dispiking
+                id_spikes = detect_spikes(df, iVar, 48, 250, False)
+                df.loc[id_spikes,iVar] = np.nan
 
     for iVar in station_infos[stationName]['flux_vars']:
 
@@ -160,8 +177,8 @@ def filter_data(stationName,df,finalOutDir):
                         - df_proxy['rad_longwave_up_CNR4'] \
                             - df_proxy['rad_shortwave_up_CNR4']
                 id_balance = \
-                    (np.abs(df['H'] + df['LE']) > np.abs(5 * df['rad_net'])) \
-                        & (df['rad_net'] > 50)
+                    (np.abs(df['H'] + df['LE']) > np.abs(5 * df_proxy['rad_net'])) \
+                        & (df_proxy['rad_net'] > 50)
             df.loc[id_balance,iVar] = np.nan
 
         # Remove flux below the friction velocity threshold for carbon
@@ -176,5 +193,7 @@ def filter_data(stationName,df,finalOutDir):
         else:
             id_spikes = detect_spikes(df, iVar, 624, 5, False)
         df.loc[id_spikes,iVar] = np.nan
+
+    print('Done!\n')
 
     return df
