@@ -76,9 +76,10 @@ def filter_data(stationName,df,finalOutDir):
                          'lon':-63.4051018,
                          'lat':50.9020996,
                          'proxy':['Foret_ouest','Berge','Reservoir'],
-                         'flux_vars': ['soil_heatflux_HFP01SC_1',
-                                       'soil_heatflux_HFP01SC_2']}
+                         'flux_vars': []}
                      }
+
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
 
     ##################
     ### Radiations ###
