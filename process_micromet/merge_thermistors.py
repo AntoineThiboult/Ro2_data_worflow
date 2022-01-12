@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 import os
 import pandas as pd
+import numpy as np
 import re
 import warnings
+from sklearn import linear_model
 
 def merge_thermistors(dates, rawFileDir, mergedCsvOutDir):
     """Merge data collected by the thermistors (TidBit and U20 sensors).
+    Extrapolate surface temperature based on first meter temperature with
+    multidimensional linear regression.
     Because HOBOware does not disclose their binary format, this function does
     not provide any conversion from .hobo to a broadly readable format. Thus,
     one needs to first convert .hobo to .xlxs with HOBOware.
@@ -98,12 +102,61 @@ def merge_thermistors(dates, rawFileDir, mergedCsvOutDir):
                 counterSensor += 1
         counterField += 1
 
+    # Filter remaining spikes related to sensor malfunction or manipulation
+    for iVar in df.columns:
+        if 'temp' in iVar:
+            index = df.index[
+                ( df[iVar].rolling(
+                    window=96,center=True,min_periods=1).median() \
+                        - df[iVar] ).abs() > 5]
+            df.loc[index,iVar] = np.nan
+        elif 'height' in iVar:
+            index = df.index[
+                ( df[iVar].rolling(
+                    window=96,center=True,min_periods=1).median() \
+                        - df[iVar] ).abs() > 100]
+            df.loc[index,iVar] = np.nan
+
     df['timestamp'] = df.index
     df = df.reindex(sorted(df.columns), axis=1)
 
     # Linear interpolation when less than two days are missing
     df.loc[:, df.columns != 'timestamp'] = \
         df.loc[:, df.columns != 'timestamp'].interpolate(method='linear', limit=96)
+
+    #################################
+    ### Perform linear regression ###
+    #################################
+
+    # Average both chain
+    df_avg = pd.DataFrame()
+    listVarReg = [
+        'water_temp_0m0_Therm',
+        'water_temp_0m4_Therm',
+        'water_temp_0m6_Therm',
+        'water_temp_0m8_Therm',
+        'water_temp_1m0_Therm'
+        ]
+    listVarReg1 = [f+'1' for f in listVarReg]
+    listVarReg2 = [f+'2' for f in listVarReg]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        df_avg[listVarReg] = np.nanmean(
+            [df[listVarReg1],df[listVarReg2]],axis=0)
+
+    # Data preprocessing
+    mask = ~df_avg[listVarReg].isna().any(axis=1)
+    X = df_avg.loc[mask,listVarReg[1:]].values
+    y = df_avg.loc[mask,listVarReg[0]].values
+
+    # Perform regression
+    reg =  linear_model.LinearRegression()
+    reg.fit(X,y)
+
+    # Predict
+    mask = ~df_avg[listVarReg[1:]].isna().any(axis=1)
+    df.loc[mask,'sfc_temp'] = reg.predict(
+        df_avg.loc[mask,listVarReg[1:]].values)
 
     # Save file
     df.to_csv(os.path.join(mergedCsvOutDir,'Thermistors.csv'), index=False)
