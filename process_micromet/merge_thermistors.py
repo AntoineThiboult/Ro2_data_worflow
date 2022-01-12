@@ -155,7 +155,7 @@ def merge_thermistors(dates, rawFileDir, mergedCsvOutDir):
 
     # Predict
     mask = ~df_avg[listVarReg[1:]].isna().any(axis=1)
-    df.loc[mask,'sfc_temp'] = reg.predict(
+    df.loc[df.index[mask],'sfc_temp'] = reg.predict(
         df_avg.loc[mask,listVarReg[1:]].values)
 
     # Save file
