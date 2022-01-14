@@ -22,6 +22,8 @@ def handle_exception(stationName, df):
     # Ignore warnings caused by averaging nan
     warnings.filterwarnings("ignore")
 
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+
     if stationName in ['Berge']:
 
         #############################################################################
@@ -34,13 +36,13 @@ def handle_exception(stationName, df):
     if stationName in ['Foret_ouest']:
 
         ######################################################################
-        # Handle the RMY 05103 counter clockwise wind direction reference
-        # frame that was introduced the 2019-06-08 10:30:00
+        # Handle the RMY 05103 counter clockwise wind direction reference    #
+        # frame that was introduced the 2019-06-08 10:30:00                  #
         ######################################################################
 
         try:
             id_change_progr = df[df['timestamp']==pd.to_datetime(
-                '2019-06-08 10:30:00')].index.values[0]
+                '2019-06-08 10:30:00')].index[0]
         except IndexError:
             id_change_progr = df.shape[0]
         df.loc[0:id_change_progr,'wind_dir_05103'] = 360 - df.loc[0:id_change_progr,'wind_dir_05103']
@@ -49,9 +51,9 @@ def handle_exception(stationName, df):
     if stationName in ['Foret_ouest']:
 
         ######################################################################
-        # Handle the issue with the faulty CNR1 temperature probe that was
-        # replaced the 2021-06-11 14:30:00 by working CNR4
-        # Take the CSAT temperature as proxy
+        # Handle the issue with the faulty CNR1 temperature probe that was   #
+        # replaced the 2021-06-11 14:30:00 by working CNR4                   #
+        # Take the CSAT temperature as proxy                                 #
         ######################################################################
 
         # Despike IRGASON temperature time series
@@ -63,16 +65,17 @@ def handle_exception(stationName, df):
 
         # Correct longwave radiation for blackbody radiation
         try:
-            id_change_progr = df[df['timestamp']==pd.to_datetime(
-                '2021-06-11 14:00:00')].index.values[0]
+            id_change_CNR4 = df[df['timestamp']==pd.to_datetime(
+                '2021-06-11 14:00:00')].index[0]
         except IndexError:
-            id_change_progr = df.shape[0]
+            id_change_CNR4 = df.shape[0]
 
-        df.loc[0:id_change_progr,'rad_longwave_down_CNR4'] = \
-            df.loc[0:id_change_progr,'rad_longwave_down_CNR4'] \
-                + (5.67e-8*T_proxy[0:id_change_progr]**4)
-        df.loc[0:id_change_progr,'rad_longwave_up_CNR4'] = \
-            df.loc[0:id_change_progr,'rad_longwave_up_CNR4'] \
-                + (5.67e-8*T_proxy[0:id_change_progr]**4)
+        df.loc[0:id_change_CNR4,'rad_longwave_down_CNR4'] = \
+            df.loc[0:id_change_CNR4,'rad_longwave_down_CNR4'] \
+                + (5.67e-8*T_proxy[0:id_change_CNR4]**4)
+        df.loc[0:id_change_CNR4,'rad_longwave_up_CNR4'] = \
+            df.loc[0:id_change_CNR4,'rad_longwave_up_CNR4'] \
+                + (5.67e-8*T_proxy[0:id_change_CNR4]**4)
+        df.loc[0:id_change_CNR4,'air_temp_CNR4'] = T_proxy[0:id_change_CNR4]
 
     return df
