@@ -102,19 +102,23 @@ def merge_thermistors(dates, rawFileDir, mergedCsvOutDir):
                 counterSensor += 1
         counterField += 1
 
+    # Filter cases where the chain is not straight
+    for iChain in ['Therm1', 'Therm2']:
+        chain_vars = [s for s in df.columns if iChain in s]
+        chain_depth_var = [s for s in chain_vars if 'height' in s]
+        index = df.index[
+            ( df[chain_depth_var[0]].rolling(
+                window=96,center=True,min_periods=1).median() \
+                    - df[chain_depth_var[0]] ).abs() > 5]
+        df.loc[index,chain_vars] = np.nan
+
     # Filter remaining spikes related to sensor malfunction or manipulation
     for iVar in df.columns:
         if 'temp' in iVar:
             index = df.index[
                 ( df[iVar].rolling(
-                    window=96,center=True,min_periods=1).median() \
-                        - df[iVar] ).abs() > 5]
-            df.loc[index,iVar] = np.nan
-        elif 'height' in iVar:
-            index = df.index[
-                ( df[iVar].rolling(
-                    window=96,center=True,min_periods=1).median() \
-                        - df[iVar] ).abs() > 100]
+                    window=12,center=True,min_periods=1).median() \
+                        - df[iVar] ).abs() > 2]
             df.loc[index,iVar] = np.nan
 
     df['timestamp'] = df.index
