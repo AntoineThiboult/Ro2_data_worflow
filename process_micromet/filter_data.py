@@ -46,32 +46,44 @@ def filter_data(stationName,df,finalOutDir):
                          'lon':-63.2494011,
                          'lat':50.6889992,
                          'proxy':[],
-                         'flux_vars': ['LE','H','CO2_flux','CH4_flux']},
+                         'flux_vars':
+                             ['LE','H','CO2_flux','CH4_flux',
+                              'LE_strg','H_strg','CO2_strg','CH4_strg']},
                      'Forest_station':  {
                          'lon':-63.4051018,
                          'lat':50.9020996,
                          'proxy':[],
-                         'flux_vars': ['LE','H','CO2_flux','CH4_flux']},
+                         'flux_vars':
+                             ['LE','H','CO2_flux','CH4_flux',
+                              'LE_strg','H_strg','CO2_strg','CH4_strg']},
                      'Berge':           {
                          'lon':-63.2594986,
                          'lat':50.6538010,
                          'proxy':['Reservoir','Foret_ouest','Foret_est'],
-                         'flux_vars': ['LE','H','CO2_flux','CH4_flux']},
+                         'flux_vars':
+                             ['LE','H','CO2_flux','CH4_flux',
+                              'LE_strg','H_strg','CO2_strg','CH4_strg']},
                      'Reservoir':       {
                          'lon':-63.2494011,
                          'lat':50.6889992,
                          'proxy':['Berge','Foret_ouest','Foret_est'],
-                         'flux_vars': ['LE','H','CO2_flux']},
+                         'flux_vars':
+                             ['LE','H','CO2_flux',
+                              'LE_strg','H_strg','CO2_strg']},
                      'Foret_ouest':     {
                          'lon':-63.4051018,
                          'lat':50.9020996,
                          'proxy':['Foret_est','Berge','Reservoir'],
-                         'flux_vars': ['LE','H','CO2_flux','CH4_flux']},
+                         'flux_vars':
+                             ['LE','H','CO2_flux','CH4_flux',
+                              'LE_strg','H_strg','CO2_strg','CH4_strg']},
                      'Foret_est':       {
                          'lon':-63.4051018,
                          'lat':50.9020996,
                          'proxy':['Foret_ouest','Berge','Reservoir'],
-                         'flux_vars': ['LE','H','CO2_flux']},
+                         'flux_vars':
+                             ['LE','H','CO2_flux',
+                              'LE_strg','H_strg','CO2_strg']},
                      'Foret_sol':       {
                          'lon':-63.4051018,
                          'lat':50.9020996,
@@ -118,6 +130,11 @@ def filter_data(stationName,df,finalOutDir):
             df.loc[id_daylight,'rad_shortwave_up_CNR4'] \
                 / df.loc[id_daylight,'rad_shortwave_down_CNR4']
 
+        # Recompute net radiation
+        df['rad_net_CNR4'] = \
+            df['rad_shortwave_down_CNR4'] + df['rad_longwave_down_CNR4'] \
+                - df['rad_shortwave_up_CNR4'] - df['rad_longwave_up_CNR4']
+
     #####################
     ### Ground fluxes ###
     #####################
@@ -152,34 +169,27 @@ def filter_data(stationName,df,finalOutDir):
             id_rain = df_proxy['precip_TB4'] > 0
         df.loc[id_rain,iVar] = np.nan
 
-        # Remove low quality time step (Mauder et Folken 2004)
-        id_low_quality = df[iVar+'_qf'] == 2
-        df.loc[id_low_quality,iVar] = np.nan
+        if 'strg' not in iVar:
+            # Remove low quality time step (Mauder et Folken 2004)
+            id_low_quality = df[iVar+'_qf'] == 2
+            df.loc[id_low_quality,iVar] = np.nan
 
         # Energy balance violation (i.e., H+λE > 5Rn). Only for forested stations
         if stationName in ['Foret_ouest','Foret_est']:
-            if 'rad_shortwave_down_CNR4' in df.columns:
-                df['rad_net'] = df['rad_longwave_down_CNR4'] \
-                    + df['rad_shortwave_down_CNR4'] \
-                        - df['rad_longwave_up_CNR4'] \
-                            - df['rad_shortwave_up_CNR4']
+            if 'rad_net_CNR4' in df.columns:
                 id_balance = \
-                    (np.abs(df['H'] + df['LE']) > np.abs(5 * df['rad_net'])) \
-                        & (df['rad_net'] > 50)
+                    (np.abs(df['H'] + df['LE']) > np.abs(5 * df['rad_net_CNR4'])) \
+                        & (df['rad_net_CNR4'] > 50)
             else:
                 # Load proxy files until it contains radiation information
                 for iProx in station_infos[stationName]['proxy']:
                     df_proxy = pd.read_csv(
                         finalOutDir + iProx + '.csv', low_memory=False)
-                    if 'rad_shortwave_down_CNR4' in df_proxy.columns:
+                    if 'rad_net_CNR4' in df_proxy.columns:
                         break
-                df_proxy['rad_net'] = df_proxy['rad_longwave_down_CNR4'] \
-                    + df_proxy['rad_shortwave_down_CNR4'] \
-                        - df_proxy['rad_longwave_up_CNR4'] \
-                            - df_proxy['rad_shortwave_up_CNR4']
                 id_balance = \
-                    (np.abs(df['H'] + df['LE']) > np.abs(5 * df_proxy['rad_net'])) \
-                        & (df_proxy['rad_net'] > 50)
+                    (np.abs(df['H'] + df['LE']) > np.abs(5 * df_proxy['rad_net_CNR4'])) \
+                        & (df_proxy['rad_net_CNR4'] > 50)
             df.loc[id_balance,iVar] = np.nan
 
         # Remove flux below the friction velocity threshold for carbon
