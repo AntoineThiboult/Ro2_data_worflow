@@ -4,7 +4,7 @@ import numpy as np
 import warnings
 
 def merge_eddycov_stations(stationName, rawFileDir,
-                           mergedCsvOutDir, varNameExcelTab):
+                           intermediateOutDir, varNameExcelTab):
     """Merge :
         - the Berge and Reservoir stations together. The station reservoir has
           "priority", meaning that if some data is available on both stations,
@@ -24,7 +24,7 @@ def merge_eddycov_stations(stationName, rawFileDir,
     Parameters
     ----------
     stationName: name of the station where modifications should be applied
-    mergedCsvOutDir: path to the directory that contains the final .csv files
+    intermediateOutDir: path to the directory that contains the final .csv files
     varNameExcelTab: path and name of the Excel file that contains the
         variable description and their names
 
@@ -39,26 +39,31 @@ def merge_eddycov_stations(stationName, rawFileDir,
         ##############################################################
 
         # Import Reservoir data
-        df = pd.read_csv(mergedCsvOutDir+'Berge'+'.csv',
+        df = pd.read_csv(intermediateOutDir+'Berge'+'.csv',
                          low_memory=False)
         df['timestamp'] = pd.to_datetime(df['timestamp'])
 
-        df_res = pd.read_csv(mergedCsvOutDir+'Reservoir'+'.csv',
+        df_res = pd.read_csv(intermediateOutDir+'Reservoir'+'.csv',
                              low_memory=False)
-        df_therm = pd.read_csv(mergedCsvOutDir+'Thermistors'+'.csv',
+        df_therm = pd.read_csv(intermediateOutDir+'Thermistors'+'.csv',
                                low_memory=False)
         df_freeze = pd.read_csv(rawFileDir+'External_data_and_misc/'+
                                 'Reservoir_freezup_and_melt'+'.csv',
                                 low_memory=False, delimiter=';',header=1)
 
         # Add resservoir freeze up / ice melt information
-        df['frozen_sfc'] = np.zeros((df.shape[0]))
+        df['water_frozen_sfc'] = np.zeros((df.shape[0]))
         for index_df in df_freeze.index:
             s = pd.to_datetime(df_freeze.loc[index_df,'Freezeup'])
             index_s = df.index[df['timestamp'] == s][0]
             e = pd.to_datetime(df_freeze.loc[index_df,'Icemelt'])
             index_e = df.index[df['timestamp'] == e][0]
-            df.loc[index_s:index_e,'frozen_sfc'] = 1
+            df.loc[index_s:index_e,'water_frozen_sfc'] = 1
+
+        # Add thermistors informations to dataframe
+        for iVar in df_therm.columns:
+            if iVar not in df.columns:
+                df[iVar] = df_therm[iVar]
 
         # Import EddyPro variable names that should be merged
         xlsFile = pd.ExcelFile(varNameExcelTab)
@@ -77,33 +82,26 @@ def merge_eddycov_stations(stationName, rawFileDir,
         column_dic = column_dic.iloc[:,0]
         column_dic = column_dic[~(column_dic == 'timestamp')]
 
-        # Move rad_net in last position to be sure that all components
-        # have been processed beforehand
-        old_cols = df.columns
-        new_cols = [col for col in df.columns if col != 'rad_net_CNR4'] + ['rad_net_CNR4']
-        df = df[new_cols]
 
-        # Merge Berge and Reservoir DataFrames
-        for iVar in column_dic:
-            if iVar not in ['rad_longwave_up_CNR4',
-                            'rad_shortwave_up_CNR4',
-                            'rad_net_CNR4']:
-                # Substitutes Berge values with reservoir when available
-                id_substitute = ~df_res[iVar].isna()
-                df.loc[id_substitute, iVar] = df_res.loc[id_substitute, iVar]
+        # Merge radiations
+        rad_vars = ['rad_shortwave_up_CNR4', 'rad_longwave_up_CNR4',
+                    'rad_shortwave_down_CNR4', 'rad_longwave_down_CNR4',
+                    'albedo_CNR4','rad_net_CNR4']
 
-            elif iVar == 'rad_longwave_up_CNR4':
+        for iVar in rad_vars:
+
+            if iVar == 'rad_longwave_up_CNR4':
                 # Substitutes Berge values with reservoir when available or
                 # with theoretical black body radiation calculated with water
                 # surface temperature when reservoir not frozen
                 id_res_avail = ~df_res[iVar].isna()
-                id_frozen_res = df['frozen_sfc'] == 1
+                id_frozen_res = df['water_frozen_sfc'] == 1
                 id_snow_gnd = df['albedo_CNR4'].rolling(
                     window=48*4,min_periods=20).mean() > 0.6
 
                 # Theoretical black body radiation
                 rad_longwave_up_BB = 0.995*5.67e-8* \
-                    (df_therm['sfc_temp'].interpolate()+273.15)**4
+                    (df['water_temp_sfc'].interpolate()+273.15)**4
 
                 rad_longwave_up_merged = rad_longwave_up_BB.copy()
 
@@ -125,7 +123,7 @@ def merge_eddycov_stations(stationName, rawFileDir,
                 # reservoir mean albedo when not frozen. When frozen, take
                 # radiation as Berge.
                 id_res_avail = ~df_res[iVar].isna()
-                id_frozen_res = df['frozen_sfc'] == 1
+                id_frozen_res = df['water_frozen_sfc'] == 1
                 id_snow_gnd = df['albedo_CNR4'].rolling(
                     window=48*4,min_periods=20).mean() > 0.6
 
@@ -144,11 +142,45 @@ def merge_eddycov_stations(stationName, rawFileDir,
                     0.05 * df.loc[~id_res_avail & ~id_frozen_res,
                                   'rad_shortwave_down_CNR4']
 
-            else:
-                warnings.warn(f'Unknown variable: {iVar}')
+            elif iVar == 'albedo_CNR4':
+                # Recompute albedo
+                df['albedo_CNR4'] = df['rad_shortwave_down_CNR4'] \
+                    / df['rad_shortwave_down_CNR4']
+                    #TODO vérifier que pas albedo < 50 W/m²
 
-        # Move columns back to normal position
-        df = df[old_cols]
+            elif iVar == 'rad_net_CNR4':
+                df['rad_net_CNR4'] = df['rad_shortwave_down_CNR4'] \
+                    + df['rad_longwave_down_CNR4'] \
+                        - df['rad_shortwave_up_CNR4'] \
+                            - df['rad_longwave_up_CNR4']
+
+
+        # Merge fluxes
+        flux_vars = ['LE','H','CO2_flux']
+
+        for iVar in flux_vars:
+            # Replace fluxes when reservoir quality is better
+            id_sub = df_res[iVar+'_qf'] < df[iVar+'_qf']
+            df.loc[id_sub,iVar] = df_res.loc[id_sub,iVar]
+            df.loc[id_sub,iVar+'_qf'] = df_res.loc[id_sub,iVar+'_qf']
+
+            # Average flux when similar quality
+            id_avg = df_res[iVar+'_qf'] == df[iVar+'_qf']
+            df.loc[id_avg,iVar] = np.mean(
+                [df_res.loc[id_avg,iVar], df.loc[id_avg,iVar]], axis=0)
+
+
+        # Merge Berge and Reservoir DataFrames for remaining variables
+        for iVar in column_dic:
+            if not ( (iVar in rad_vars) or (iVar in flux_vars) ):
+                try:
+                    # Substitutes Berge values with reservoir when available
+                    id_substitute = ~df_res[iVar].isna()
+                    df.loc[id_substitute, iVar] = df_res.loc[
+                        id_substitute, iVar]
+                except:
+                    warnings.warn(f'Unknown variable: {iVar}')
+
 
     elif stationName == 'Forest_stations':
 
@@ -157,10 +189,10 @@ def merge_eddycov_stations(stationName, rawFileDir,
         ###################################################################
 
         # Import Foret data
-        df = pd.read_csv(mergedCsvOutDir+'Foret_ouest'+'.csv', low_memory=False)
+        df = pd.read_csv(intermediateOutDir+'Foret_ouest'+'.csv', low_memory=False)
 
         # Foret Est
-        df_foret_est = pd.read_csv(mergedCsvOutDir+'Foret_est'+'.csv', low_memory=False)
+        df_foret_est = pd.read_csv(intermediateOutDir+'Foret_est'+'.csv', low_memory=False)
 
         # Import EddyPro variable names that should be merged
         xlsFile = pd.ExcelFile(varNameExcelTab)
@@ -180,17 +212,20 @@ def merge_eddycov_stations(stationName, rawFileDir,
             if iVar == 'wind_dir_sonic':
                 # Substitutes ouest NaN values by est values
                 df.loc[df[iVar].isna(), iVar] = df_foret_est.loc[df[iVar].isna(), iVar]
-            else:
+            elif iVar in df.columns:
                 # Average variable
                 df[iVar] = np.nanmean(
                     pd.concat( [df[iVar], df_foret_est[iVar]], axis=1), axis=1)
+            else:
+                # Add variable from foret est to foret ouest
+                df[iVar] = df_foret_est[iVar]
 
         # Import Foret sol
-        df_foret_sol = pd.read_csv(mergedCsvOutDir+'Foret_sol'+'.csv', low_memory=False)
+        df_foret_sol = pd.read_csv(intermediateOutDir+'Foret_sol'+'.csv', low_memory=False)
 
         # Import EddyPro variable names that should be merged
         xlsFile = pd.ExcelFile(varNameExcelTab)
-        column_dic = pd.read_excel(xlsFile,'Foret_sol')
+        column_dic = pd.read_excel(xlsFile,'Foret_sol_cs')
 
         # Lines of tab that should be averaged
         lines_to_include = column_dic.iloc[:,0].str.contains(

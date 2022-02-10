@@ -212,7 +212,7 @@ def compute_storage_flux(stationName,df):
         therm_depths_names_T2 = ['water_temp_{:d}m{:d}_Therm2'.format(
             int(f), int(np.round((f-np.fix(f))*10))) for f in therm_depths ]
 
-        therm_depths_names = ['water_temp_{:d}m{:d}_Therm'.format(
+        therm_depths_names = ['water_temp_{:d}m{:d}_Therm_avg'.format(
             int(f), int(np.round((f-np.fix(f))*10))) for f in therm_depths ]
 
         # Construct mean temperature dataset
