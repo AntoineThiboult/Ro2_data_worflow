@@ -56,7 +56,7 @@ def daily_decumulate(x):
         x_arr[i_row, nans]= np.interp(f(nans), f(~nans), x_arr[i_row, ~nans])
 
     # Convert back the array to its original shape (n_time_step,)
-    x[:] = np.reshape(np.diff(x_arr,axis=1), x.shape)
+    x[:] = np.reshape(np.diff(x_arr,axis=1), x.shape) * 2
 
     return x
 
