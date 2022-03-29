@@ -107,13 +107,22 @@ def handle_netcdf(dates, data_folder, dest_folder):
         '10m_v_component_of_wind':
             {'short_name': 'v10', 'db_name': 'wind_speed_v', 'unit_conv': lambda x : x },
         '2m_temperature':
-            {'short_name': 't2m', 'db_name': 'air_temp', 'unit_conv': lambda x : x - 273.15},
+            {'short_name': 't2m', 'db_name': 'air_temp_HMP45C', 'unit_conv': lambda x : x - 273.15},
         'soil_temperature_level_1':
-            {'short_name': 'stl1', 'db_name': 'soil_temp_surface', 'unit_conv': lambda x : x - 273.15},
+            {'short_name': 'stl1', 'db_name': 'soil_temp_CS650_1', 'unit_conv': lambda x : x - 273.15},
         'soil_temperature_level_2':
-            {'short_name': 'stl2', 'db_name': 'soil_temp_20cm', 'unit_conv': lambda x : x - 273.15},
+            {'short_name': 'stl2', 'db_name': 'soil_temp_CS650_2', 'unit_conv': lambda x : x - 273.15},
+        'volumetric_soil_water_layer_1':
+            {'short_name': 'stl1', 'db_name': 'soil_watercontent_CS650_1', 'unit_conv': lambda x : x - 273.15},
+        'volumetric_soil_water_layer_2':
+            {'short_name': 'stl2', 'db_name': 'soil_watercontent_CS650_2', 'unit_conv': lambda x : x - 273.15},
         'surface_pressure':
-            {'short_name': 'sp', 'db_name': 'air_press', 'unit_conv': lambda x : x / 1000},
+            {'short_name': 'sp', 'db_name': 'air_press_CS106', 'unit_conv': lambda x : x / 1000},
+        'relative_humidity':
+            {'short_name': 'r', 'db_name': 'air_relativeHumidity', 'unit_conv': lambda x : x / 1000},
+        'specific_humidity':
+            {'short_name': 'q', 'db_name': 'air_specificHumidity', 'unit_conv': lambda x : x / 1000},
+
 
         ### Cumulated vars ###
 
@@ -123,13 +132,13 @@ def handle_netcdf(dates, data_folder, dest_folder):
 
         # Radiation variables
         'surface_solar_radiation_downwards':
-            {'short_name': 'ssrd', 'db_name': 'rad_shortwave_down', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
+            {'short_name': 'ssrd', 'db_name': 'rad_shortwave_down_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
         'surface_thermal_radiation_downwards':
-            {'short_name': 'strd', 'db_name': 'rad_longwave_down', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
+            {'short_name': 'strd', 'db_name': 'rad_longwave_down_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
         'surface_net_solar_radiation':
-            {'short_name': 'ssr', 'db_name': 'rad_short_net', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
+            {'short_name': 'ssr', 'db_name': 'rad_short_net_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
         'surface_net_thermal_radiation':
-            {'short_name': 'str', 'db_name': 'rad_long_net', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
+            {'short_name': 'str', 'db_name': 'rad_long_net_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
 
         # Precipitation
         'total_precipitation':
@@ -151,7 +160,7 @@ def handle_netcdf(dates, data_folder, dest_folder):
               }
 
     station_coord = {'Water_stations': [-63.2494011, 50.6889992],
-                     'Forest_station': [-63.4051018, 50.9020996]}
+                     'Forest_stations': [-63.4051018, 50.9020996]}
 
 
     for iStation in station_coord:
@@ -170,10 +179,15 @@ def handle_netcdf(dates, data_folder, dest_folder):
                 (os.path.isfile(os.path.join(
                     data_folder,'ERA5','ERA5L_{}.nc'.format(
                         iDate.strftime('%Y%m')))))
-            isFileComplete = \
-                (os.path.getsize(os.path.join(
-                    data_folder,'ERA5','ERA5L_{}.nc'.format(
-                        iDate.strftime('%Y%m')))) > 1e6)
+
+            if isFilePresent :
+                isFileComplete = \
+                    (os.path.getsize(os.path.join(
+                        data_folder,'ERA5','ERA5L_{}.nc'.format(
+                            iDate.strftime('%Y%m')))) > 1e6)
+            else:
+                isFileComplete = False
+
 
             if isFilePresent & isFileComplete:
 
@@ -200,8 +214,11 @@ def handle_netcdf(dates, data_folder, dest_folder):
                     (rootgrp['latitude'][:] - station_coord[iStation][1]) ) )
 
                 for iVar in variables:
-                    df.loc[id_df_in_tmp, iVar] = rootgrp[
-                        variables[iVar]['short_name']][id_tmp_in_df,id_lat,id_long]
+                    try:
+                        df.loc[id_df_in_tmp, variables[iVar]['db_name']] = rootgrp[
+                            variables[iVar]['short_name']][id_tmp_in_df,id_lat,id_long]
+                    except:
+                        print(f"{iVar} not found in file ERA5L_{iDate.strftime('%Y%m')}.nc")
 
             else:
                 print('ERA5L_{}.nc not available yet'.format(iDate.strftime('%Y%m')))
@@ -209,19 +226,25 @@ def handle_netcdf(dates, data_folder, dest_folder):
 
         # Convert units / decumulate / (interpolate for cumulated vars)
         for iConv in variables:
-            df[iConv] = variables[iConv]['unit_conv'](df[iConv])
+            df[variables[iVar]['db_name']] = \
+                variables[iConv]['unit_conv'](df[variables[iVar]['db_name']])
 
         # Interpolate for remaining variables
         df = df.interpolate(method='linear', limit=1)
 
         # Compute wind speed
-        df['wind_speed'] = np.sqrt(df['10m_u_component_of_wind']**2 +
-                                   df['10m_v_component_of_wind']**2)
+        df['wind_speed_05103'] = np.sqrt(df['wind_speed_u']**2 +
+                                   df['wind_speed_v']**2)
+
+        # Compute wind direction
+        df['wind_dir_05103'] = np.rad2deg(np.arctan2(
+            df['wind_speed_v'],df['wind_speed_u']))
 
         # Change timezone (from UTC to UTC-5)
         df.insert(0, 'timestamp', df.index)
         df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
-        df['timestamp'].dt.tz_convert('EST')
+        df['timestamp'] = df['timestamp'].dt.tz_convert('EST')
+        df['timestamp'] = df['timestamp'].dt.tz_localize(None)
 
         # Save
         df.to_csv(os.path.join(dest_folder,'ERA5_'+iStation+'.csv'), index=False)
