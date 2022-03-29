@@ -162,6 +162,7 @@ def handle_netcdf(dates, data_folder, dest_folder):
     station_coord = {'Water_stations': [-63.2494011, 50.6889992],
                      'Forest_stations': [-63.4051018, 50.9020996]}
 
+    logf = open(os.path.join('.','Logs','handle_netcdf.log'), "w")
 
     for iStation in station_coord:
 
@@ -218,16 +219,20 @@ def handle_netcdf(dates, data_folder, dest_folder):
                         df.loc[id_df_in_tmp, variables[iVar]['db_name']] = rootgrp[
                             variables[iVar]['short_name']][id_tmp_in_df,id_lat,id_long]
                     except:
-                        print(f"{iVar} not found in file ERA5L_{iDate.strftime('%Y%m')}.nc")
+                        logf.write(f'{iVar} not found in file ERA5L_{iDate.strftime("%Y%m")}.nc\n')
 
             else:
-                print('ERA5L_{}.nc not available yet'.format(iDate.strftime('%Y%m')))
+                logf.write(f'ERA5L_{iDate.strftime("%Y%m")}.nc not available yet\n')
 
 
         # Convert units / decumulate / (interpolate for cumulated vars)
         for iConv in variables:
-            df[variables[iVar]['db_name']] = \
-                variables[iConv]['unit_conv'](df[variables[iVar]['db_name']])
+            try:
+                df[variables[iConv]['db_name']] = \
+                    variables[iConv]['unit_conv'](df[variables[iConv]['db_name']])
+            except:
+                logf.write(f'Could not convert {iConv}\n')
+
 
         # Interpolate for remaining variables
         df = df.interpolate(method='linear', limit=1)
@@ -249,4 +254,7 @@ def handle_netcdf(dates, data_folder, dest_folder):
         # Save
         df.to_csv(os.path.join(dest_folder,'ERA5_'+iStation+'.csv'), index=False)
 
-        print('Done!\n')
+    print('Done!\n')
+
+    # Close error log file
+    logf.close()
