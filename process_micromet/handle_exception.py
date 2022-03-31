@@ -42,7 +42,10 @@ def handle_exception(stationName, df):
                 '2019-08-30 15:00:00')].index[0]
         except IndexError:
             id_change_HMP = df.shape[0]
-        df.loc[0:id_change_HMP,'air_temp_HMP45C'] = np.nan
+        df.loc[0:id_change_HMP,
+               ['air_temp_HMP45C',
+                'air_temp_max_HMP45C',
+                'air_temp_min_HMP45C']] = np.nan
 
 
     if stationName in ['Foret_ouest']:
