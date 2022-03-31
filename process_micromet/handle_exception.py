@@ -32,6 +32,18 @@ def handle_exception(stationName, df):
 
         df['wind_dir_05103'] = 360 - df['wind_dir_05103']
 
+    if stationName in ['Foret_ouest']:
+
+        ###############################################################
+        # Handle the faulty HMP45C replaced the 2019-08-30 15:00:00 ###
+        ###############################################################
+        try:
+            id_change_HMP = df[df['timestamp']==pd.to_datetime(
+                '2019-08-30 15:00:00')].index[0]
+        except IndexError:
+            id_change_HMP = df.shape[0]
+        df.loc[0:id_change_HMP,'air_temp_HMP45C'] = np.nan
+
 
     if stationName in ['Foret_ouest']:
 
