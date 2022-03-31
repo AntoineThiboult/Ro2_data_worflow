@@ -113,11 +113,11 @@ def handle_netcdf(dates, data_folder, dest_folder):
         'soil_temperature_level_2':
             {'short_name': 'stl2', 'db_name': 'soil_temp_CS650_2', 'unit_conv': lambda x : x - 273.15},
         'volumetric_soil_water_layer_1':
-            {'short_name': 'stl1', 'db_name': 'soil_watercontent_CS650_1', 'unit_conv': lambda x : x - 273.15},
+            {'short_name': 'swvl1', 'db_name': 'soil_watercontent_CS650_1', 'unit_conv': lambda x : x},
         'volumetric_soil_water_layer_2':
-            {'short_name': 'stl2', 'db_name': 'soil_watercontent_CS650_2', 'unit_conv': lambda x : x - 273.15},
+            {'short_name': 'swvl2', 'db_name': 'soil_watercontent_CS650_2', 'unit_conv': lambda x : x},
         'surface_pressure':
-            {'short_name': 'sp', 'db_name': 'air_press_CS106', 'unit_conv': lambda x : x / 1000},
+            {'short_name': 'sp', 'db_name': 'air_press_CS106', 'unit_conv': lambda x : x / 100},
         'relative_humidity':
             {'short_name': 'r', 'db_name': 'air_relativeHumidity', 'unit_conv': lambda x : x / 1000},
         'specific_humidity':
@@ -243,7 +243,7 @@ def handle_netcdf(dates, data_folder, dest_folder):
 
         # Compute wind direction
         df['wind_dir_05103'] = np.rad2deg(np.arctan2(
-            df['wind_speed_v'],df['wind_speed_u']))
+            df['wind_speed_v'],df['wind_speed_u'])) + 180
 
         # Change timezone (from UTC to UTC-5)
         df.insert(0, 'timestamp', df.index)
