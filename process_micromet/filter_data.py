@@ -111,17 +111,23 @@ def filter_data(stationName,df,finalOutDir):
             rad_short_down_max[counter] = max_rad
 
         # Filter unplausible downward short wave solar radiations
-        id_sub = (df['rad_shortwave_down_CNR4'] > rad_short_down_max) | \
-            (df['rad_shortwave_down_CNR4'] < 0)
+        id_sub = df['rad_shortwave_down_CNR4'] > rad_short_down_max
         df.loc[id_sub,'rad_shortwave_down_CNR4'] = rad_short_down_max[id_sub]
+        id_sub = df['rad_shortwave_down_CNR4'] < 0
+        df.loc[id_sub,'rad_shortwave_down_CNR4'] = 0
 
         # Filter upward short wave solar radiations
         id_sub = df['rad_shortwave_up_CNR4'] < 0
         df.loc[id_sub,'rad_shortwave_up_CNR4'] = 0
         id_sub = df['rad_shortwave_down_CNR4'] == 0
         df.loc[id_sub,'rad_shortwave_up_CNR4'] = 0
-        id_sub = df['rad_shortwave_up_CNR4'] > (0.95 * df['rad_shortwave_down_CNR4'])
-        df.loc[id_sub,'rad_shortwave_up_CNR4'] = np.nan
+
+        # Filter downward radiation for snow obstruction
+        id_sub = (df['rad_shortwave_up_CNR4'] >
+                  (0.85 * df['rad_shortwave_down_CNR4'])) \
+                  & (df['rad_shortwave_up_CNR4'] > 50)
+        df.loc[id_sub,'rad_shortwave_down_CNR4'] = np.nan
+        df.loc[id_sub,'rad_longwave_down_CNR4'] = np.nan
 
         # Recompute albedo
         id_daylight = df['rad_shortwave_down_CNR4'] > 50
