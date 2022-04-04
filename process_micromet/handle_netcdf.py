@@ -136,9 +136,9 @@ def handle_netcdf(dates, data_folder, dest_folder):
         'surface_thermal_radiation_downwards':
             {'short_name': 'strd', 'db_name': 'rad_longwave_down_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
         'surface_net_solar_radiation':
-            {'short_name': 'ssr', 'db_name': 'rad_short_net_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
+            {'short_name': 'ssr', 'db_name': 'rad_shortwave_net_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
         'surface_net_thermal_radiation':
-            {'short_name': 'str', 'db_name': 'rad_long_net_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
+            {'short_name': 'str', 'db_name': 'rad_longwave_net_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
 
         # Precipitation
         'total_precipitation':
@@ -166,9 +166,12 @@ def handle_netcdf(dates, data_folder, dest_folder):
 
     for iStation in station_coord:
 
-        # Initialize reference dataframe
-        d_start = pd.to_datetime(dates['start']).strftime('%Y-%m-%d') + ' 00:30:00'
-        d_end = pd.to_datetime(dates['end']).strftime('%Y-%m-%d')
+        # Initialize reference ERA5 dataframe. Substract 1 day to incorporate
+        # data despite UTC-EST timeshift. Add 30 min for decumulation.
+        d_start = (pd.to_datetime(dates['start'])
+                   - pd.DateOffset(days = 1)
+                   + pd.DateOffset(minutes = 30)).strftime('%Y-%m-%d %H:%M:%S')
+        d_end = pd.to_datetime(dates['end']).strftime('%Y-%m-%d %H:%M:%S')
         df = pd.DataFrame( index=pd.date_range(start=d_start, end=d_end, freq='30min') )
 
         # Expected list of ERA5 land files (dates)
@@ -245,14 +248,35 @@ def handle_netcdf(dates, data_folder, dest_folder):
         df['wind_dir_05103'] = np.rad2deg(np.arctan2(
             df['wind_speed_v'],df['wind_speed_u'])) + 180
 
+        # Compute albedo and outward radiations
+        df['rad_shortwave_up_CNR4'] = \
+            df['rad_shortwave_down_CNR4'] - df['rad_shortwave_net_CNR4']
+
+        df['albedo_CNR4'] = np.nan
+        id_daylight = df['rad_shortwave_down_CNR4'] > 50
+        df.loc[id_daylight, 'albedo_CNR4'] = \
+            df.loc[id_daylight,'rad_shortwave_up_CNR4'] \
+                / df.loc[id_daylight,'rad_shortwave_down_CNR4']
+
+        df['rad_longwave_up_CNR4'] = \
+            df['rad_longwave_down_CNR4'] - df['rad_longwave_net_CNR4']
+
         # Change timezone (from UTC to UTC-5)
         df.insert(0, 'timestamp', df.index)
         df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
         df['timestamp'] = df['timestamp'].dt.tz_convert('EST')
         df['timestamp'] = df['timestamp'].dt.tz_localize(None)
+        df.index = df['timestamp']
+
+        # Realign dates on reference dataframe
+        d_start = pd.to_datetime(dates['start']).strftime('%Y-%m-%d')
+        d_end = pd.to_datetime(dates['end']).strftime('%Y-%m-%d')
+        df_ref = pd.DataFrame( index=pd.date_range(start=d_start, end=d_end, freq='30min') )
+        df_ref = df_ref.join(df)
+        df_ref['timestamp'] = df_ref.index
 
         # Save
-        df.to_csv(os.path.join(dest_folder,'ERA5_'+iStation+'.csv'), index=False)
+        df_ref.to_csv(os.path.join(dest_folder,'ERA5_'+iStation+'.csv'), index=False)
 
     print('Done!\n')
 
