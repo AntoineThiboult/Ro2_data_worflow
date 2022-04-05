@@ -166,16 +166,19 @@ def handle_netcdf(dates, data_folder, dest_folder):
 
     for iStation in station_coord:
 
-        # Initialize reference ERA5 dataframe. Substract 1 day to incorporate
-        # data despite UTC-EST timeshift. Add 30 min for decumulation.
+        # Initialize reference ERA5 dataframe. Floor the start month and add
+        # 30 min for decumulation. Ceil the end month.
         d_start = (pd.to_datetime(dates['start'])
-                   - pd.DateOffset(days = 1)
+                   + pd.DateOffset(day = 1)
                    + pd.DateOffset(minutes = 30)).strftime('%Y-%m-%d %H:%M:%S')
-        d_end = pd.to_datetime(dates['end']).strftime('%Y-%m-%d %H:%M:%S')
+        d_end = (pd.to_datetime(dates['end'])
+                 + pd.DateOffset(months = 1)
+                 + pd.DateOffset(day = 1)
+                 + pd.DateOffset(minute = 0)).strftime('%Y-%m-%d %H:%M:%S')
         df = pd.DataFrame( index=pd.date_range(start=d_start, end=d_end, freq='30min') )
 
         # Expected list of ERA5 land files (dates)
-        datelist = pd.date_range(start=dates['start'], end=dates['end'], freq='M')
+        datelist = pd.date_range(start=d_start, end=d_end, freq='MS')
 
         for iDate in datelist:
 
