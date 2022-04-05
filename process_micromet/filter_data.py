@@ -156,27 +156,29 @@ def filter_data(stationName,df,finalOutDir):
     ### Air temperature ###
     #######################
 
-    temperature_vars = [var for var in df.columns if 'air_temp' in var]
-    temperature_logger_vars = [var for var in df.columns if 'air_temp_CR' in var]
-    no_filtering_vars = ['air_temp_spikes', 'air_temp_dewPoint'] + temperature_logger_vars
-    kelvin_vars = [var for var in temperature_vars if df[var].median() > 100]
+    if stationName in ['Berge','Foret_ouest','Foret_est','Reservoir']:
 
-    median_temperature = np.nanmedian(
-        np.concatenate(
-            [np.expand_dims(df['air_temp'].values-273.15, axis=1),
-            df[temperature_logger_vars].values], axis=1), axis=1)
+        temperature_vars = [var for var in df.columns if 'air_temp' in var]
+        temperature_logger_vars = [var for var in df.columns if 'air_temp_CR' in var]
+        no_filtering_vars = ['air_temp_spikes', 'air_temp_dewPoint'] + temperature_logger_vars
+        kelvin_vars = [var for var in temperature_vars if df[var].median() > 100]
 
-    for i_temp_var in temperature_vars:
-        if i_temp_var in no_filtering_vars:
-            continue
-        else:
-            if i_temp_var in kelvin_vars:
-                id_outlier = np.abs(
-                    median_temperature - df[i_temp_var] + 273.15)  > 10
+        median_temperature = np.nanmedian(
+            np.concatenate(
+                [np.expand_dims(df['air_temp'].values-273.15, axis=1),
+                df[temperature_logger_vars].values], axis=1), axis=1)
+
+        for i_temp_var in temperature_vars:
+            if i_temp_var in no_filtering_vars:
+                continue
             else:
-                id_outlier = np.abs(
-                    median_temperature - df[i_temp_var])  > 10
-            df.loc[id_outlier,i_temp_var] = np.nan
+                if i_temp_var in kelvin_vars:
+                    id_outlier = np.abs(
+                        median_temperature - df[i_temp_var] + 273.15)  > 10
+                else:
+                    id_outlier = np.abs(
+                        median_temperature - df[i_temp_var])  > 10
+                df.loc[id_outlier,i_temp_var] = np.nan
 
     ########################
     ### Turbulent Fluxes ###
