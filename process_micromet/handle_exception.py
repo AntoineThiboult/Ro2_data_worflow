@@ -68,6 +68,22 @@ def handle_exception(stationName, df):
                 'air_relhum_HMP45C']] = np.nan
 
 
+        ###############################################################
+        # Handle the faulty CS106 between 2020-10-23 and 2021-04-01 ###
+        ###############################################################
+
+        try:
+            id_change_CS106_start = df[df['timestamp']==pd.to_datetime(
+                '2020-10-23 00:00:00')].index[0]
+            id_change_CS106_end = df[df['timestamp']==pd.to_datetime(
+                '2021-04-01 00:00:00')].index[0]
+            id_change_CS106 = np.arange(
+                id_change_CS106_start,id_change_CS106_end)
+        except IndexError:
+            id_change_CS106 = []
+        df.loc[id_change_CS106,'air_press_CS106'] = np.nan
+
+
         ######################################################################
         # Handle the RMY 05103 counter clockwise wind direction reference    #
         # frame that was introduced the 2019-06-08 10:30:00                  #
