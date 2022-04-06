@@ -190,9 +190,11 @@ def merge_eddycov_stations(stationName, rawFileDir,
 
         # Import Foret data
         df = pd.read_csv(intermediateOutDir+'Foret_ouest'+'.csv', low_memory=False)
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
 
         # Foret Est
         df_foret_est = pd.read_csv(intermediateOutDir+'Foret_est'+'.csv', low_memory=False)
+        df_foret_est['timestamp'] = pd.to_datetime(df_foret_est['timestamp'])
 
         # Import EddyPro variable names that should be merged
         xlsFile = pd.ExcelFile(varNameExcelTab)
