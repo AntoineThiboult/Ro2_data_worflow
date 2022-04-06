@@ -271,6 +271,10 @@ def handle_netcdf(dates, data_folder, dest_folder):
         df['timestamp'] = df['timestamp'].dt.tz_localize(None)
         df.index = df['timestamp']
 
+        # Set to nan artefacts created by decumulation
+        df.loc[df['air_temp_HMP45C'].last_valid_index():,
+               df.columns != 'timestamp'] = np.nan
+
         # Realign dates on reference dataframe
         d_start = pd.to_datetime(dates['start']).strftime('%Y-%m-%d')
         d_end = pd.to_datetime(dates['end']).strftime('%Y-%m-%d')
