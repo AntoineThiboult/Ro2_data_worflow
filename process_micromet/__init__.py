@@ -7,8 +7,9 @@ from .convert_CSbinary_to_csv import convert_CSbinary_to_csv
 from .detect_spikes import detect_spikes
 from .find_friction_vel_threshold import find_friction_vel_threshold
 from .filter_data import filter_data
-from .gapfill_mds import gapfill_mds
-from .gap_fill import gap_fill
+from .gap_fill_flux import gap_fill_flux
+from .gap_fill_mds import gap_fill_mds
+from .gap_fill_slow_data import gap_fill_slow_data
 from .handle_netcdf import handle_netcdf
 from .handle_exception import handle_exception
 from .load_eddypro_file import load_eddypro_file

@@ -65,6 +65,9 @@ def merge_eddycov_stations(stationName, rawFileDir,
             if iVar not in df.columns:
                 df[iVar] = df_therm[iVar]
 
+        # Add variable for gap filling
+        df['delta_temp_air_eau'] = df['air_temp_HMP45C'] - df['water_temp_sfc']
+
         # Import EddyPro variable names that should be merged
         xlsFile = pd.ExcelFile(varNameExcelTab)
         column_dic_res_ep = pd.read_excel(
