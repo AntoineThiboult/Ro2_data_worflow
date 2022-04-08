@@ -128,7 +128,8 @@ def gap_fill_slow_data(station_name, df, dataFileDir):
                   'soil_temp_CS650_1':48,
                   'soil_temp_CS650_2':48,
                   'soil_watercontent_CS650_1':96,
-                  'soil_watercontent_CS650_2':96}}
+                  'soil_watercontent_CS650_2':96,
+                  'soil_heatflux_HFP01SC_1': 96}}
 
                      }
 
@@ -178,6 +179,9 @@ def gap_fill_slow_data(station_name, df, dataFileDir):
 
                 # Prediction
                 y_pred =  predict_rf(scalerX, scalery, regr, input_ml_vars)
+                if i_var in ['soil_temp_CS650_1','soil_temp_CS650_2']:
+                    y_pred =  pd.Series(y_pred).rolling(
+                        window=6, min_periods=1).mean().values
                 id_na = df[i_var].isna()
                 df.loc[id_na,i_var] = y_pred[id_na]
 
@@ -194,5 +198,10 @@ def gap_fill_slow_data(station_name, df, dataFileDir):
     df['rad_net_CNR4'] = \
         df['rad_shortwave_down_CNR4'] - df['rad_shortwave_up_CNR4'] \
         + df['rad_longwave_down_CNR4'] - df['rad_longwave_up_CNR4']
+
+    if station_name == 'Forest_stations':
+        # TODO find better way to hand missing soil_heatflux_HFP01SC_1
+        id_na = df['soil_heatflux_HFP01SC_1'].isna()
+        df.loc[id_na,'soil_heatflux_HFP01SC_1'] = 0
 
     return df
