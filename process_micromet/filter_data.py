@@ -207,6 +207,8 @@ def filter_data(stationName,df,finalOutDir):
             # Remove low quality time step (Mauder et Folken 2004)
             id_low_quality = df[iVar+'_qf'] == 2
             df.loc[id_low_quality,iVar] = np.nan
+            strg_var = iVar.split('_')[0]
+            df.loc[id_low_quality,strg_var+'_strg'] = np.nan
 
         # Energy balance violation (i.e., H+λE > 5Rn). Only for forested stations
         if stationName in ['Foret_ouest','Foret_est']:
@@ -231,6 +233,8 @@ def filter_data(stationName,df,finalOutDir):
             id_fric_vel = find_friction_vel_threshold(
                 df, iVar, 'air_temp_IRGASON')
             df.loc[id_fric_vel[0],iVar] = np.nan
+            strg_var = iVar.split('_')[0]
+            df.loc[id_fric_vel[0],strg_var+'_strg'] = np.nan
 
         # Identify spikes that should be discarded
         if (iVar in ['CO2_flux', 'CH4_flux']) | (stationName in ['Foret_ouest','Foret_est']):
