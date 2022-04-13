@@ -1,94 +1,92 @@
-import pandas as pd
 import process_micromet as pm
-
-# TODO add a row for units
-# TODO add a fluxnet name format
-# TODO consider storage effects between instruments and ground
-# TODO deal with the periods where turbulent fluxes largely violated the energy budget (i.e., H+λE > 5Rn) were discarded
-# TODO Cap shortwave downwelling radiation with maximum theoretical values calculated following -- Whiteman and Allwine (1986).
-# TODO Cap humidity values using temperature-dependent relations
-# TODO Account for energy storage in soil above flux plates to include it in G
-# TODO Acconut for LE and H storage between ground and flux instrument ? How without several temperature sensors ?
-# TODO implement energy balance correction
+import pandas as pd
 
 ### Define paths
 
-allStations     = ["Berge","Foret_ouest","Foret_est","Foret_sol","Reservoir"]
-eddyCovStations = ["Berge","Foret_ouest","Foret_est","Reservoir"]
-gapfilledStation = ["Berge","Foret_ouest","Foret_est","Reservoir","Water_stations","Forest_stations"]
+CampbellStations =  ["Berge","Foret_ouest","Foret_est","Foret_sol","Reservoir"]
+eddyCovStations =   ["Berge","Foret_ouest","Foret_est","Reservoir"]
+gapfilledStation =  ["Water_stations","Forest_stations"]
 
-rawFileDir          = "D:/E/Ro2_micromet_raw_data/Data/"
-asciiOutDir         = "D:/E/Ro2_micormet_processed_data/Ascii_data/"
-eddyproOutDir       = "D:/E/Ro2_micormet_processed_data/Eddypro_data/"
-eddyproConfigDir    = "D:/E/Ro2_data_worflow/Config/EddyProConfig/"
-externalDataDir     = "D:/E/Ro2_micromet_raw_data/Data/External_data/"
-varNameExcelTab     = "./Resources/EmpreinteVariableDescription.xlsx"
-mergedCsvOutDir     = "C:/Users/anthi182/Documents/Python/Explore_mds_gf/Data/"
+rawFileDir          = "F:/Ro2_micromet_raw_data/Data/"
+asciiOutDir         = "F:/Ro2_micormet_processed_data/Ascii_data/"
+eddyproOutDir       = "F:/Ro2_micormet_processed_data/Eddypro_data/"
+externalDataDir     = "F:/Ro2_micromet_raw_data/Data/External_data_and_misc/"
+intermediateOutDir  = "F:/Ro2_micormet_processed_data/Intermediate_output/"
+finalOutDir         = "F:/Ro2_micormet_processed_data/Final_output/"
+varNameExcelSheet   = "./Resources/Variable_description_full.xlsx"
+eddyproConfigDir    = "./Config/EddyProConfig/"
 gapfillConfigDir    = "./Config/GapFillingConfig/"
 
-dates = {'start':'2018-06-22','end':'2020-02-01'}
+dates = {'start':'2018-06-25','end':'2021-10-01'}
 
-### Process external data
 
 # Merge Hobo TidBit thermistors
-pm.merge_thermistors(dates, rawFileDir, mergedCsvOutDir)
-
+pm.merge_thermistors(dates,rawFileDir,finalOutDir)
 # Make Natashquan data
-pm.merge_natashquan(dates, externalDataDir, mergedCsvOutDir)
-
+pm.merge_natashquan(dates,externalDataDir,finalOutDir)
 # Merge data relative to reservoir provided by HQ
-pm.merge_hq_reservoir(dates, externalDataDir, mergedCsvOutDir)
-
+pm.merge_hq_reservoir(dates,externalDataDir,finalOutDir)
 # Extract data from the HQ weather station
-pm.merge_hq_meteo_station(dates, externalDataDir, mergedCsvOutDir)
+pm.merge_hq_meteo_station(dates,externalDataDir,finalOutDir)
+# Perform ERA5 extraction and handling
+pm.retrieve_ERA5land(dates,rawFileDir)
+pm.handle_netcdf(dates,rawFileDir,intermediateOutDir)
 
 
-### Process eddy covariance stations
-for iStation in allStations:
+for iStation in CampbellStations:
 
     # Binary to ascii
     pm.convert_CSbinary_to_csv(iStation,rawFileDir,asciiOutDir)
-
     # Merge slow data
-    slow_df = pm.merge_slow_csv(iStation,asciiOutDir)
-
+    slow_df = pm.merge_slow_csv(dates,iStation,asciiOutDir)
     # Rename and trim slow variables
-    slow_df = pm.rename_trim_vars(iStation,varNameExcelTab,slow_df,'cs')
+    slow_df = pm.rename_trim_vars(iStation,varNameExcelSheet,slow_df,'cs')
 
     if iStation in eddyCovStations:
-
         # Ascii to eddypro
-        pm.batch_process_eddypro(iStation,asciiOutDir,eddyproConfigDir,eddyproOutDir,dates)
-
+        pm.batch_process_eddypro(iStation,asciiOutDir,eddyproConfigDir,
+                                 eddyproOutDir,dates)
         # Load eddypro file
         eddy_df = pm.load_eddypro_file(iStation,eddyproOutDir)
-
         # Rename and trim eddy variables
-        eddy_df = pm.rename_trim_vars(iStation,varNameExcelTab,eddy_df,'eddypro')
-
+        eddy_df = pm.rename_trim_vars(iStation,varNameExcelSheet,
+                                      eddy_df,'eddypro')
         # Merge slow and eddy data
-        df = pm.merge_slow_csv_and_eddypro(iStation, slow_df, eddy_df, mergedCsvOutDir)
-
-        # Save to csv
-        df.to_csv(mergedCsvOutDir+iStation+'.csv', index=False)
+        df = pm.merge_slow_csv_and_eddypro(iStation,slow_df,eddy_df)
 
     else:
+        # Rename Dataframe
+        df = slow_df
 
-        # Save to csv
-        slow_df.to_csv(mergedCsvOutDir+iStation+'.csv', index=False)
+    # Save to csv
+    df.to_csv(intermediateOutDir+iStation+'.csv',index=False)
+
+
+for iStation in CampbellStations:
+    # Load csv
+    df = pd.read_csv(intermediateOutDir+iStation+'.csv')
+    # Handle exceptions
+    df = pm.handle_exception(iStation,df)
+    # Filter data
+    df = pm.filter_data(iStation,df,intermediateOutDir)
+    # Save to csv
+    df.to_csv(finalOutDir+iStation+'.csv',index=False)
 
 
 for iStation in gapfilledStation:
+    # Merge the eddy covariance together (water/forest)
+    df = pm.merge_eddycov_stations(iStation,rawFileDir,
+                                    finalOutDir,varNameExcelSheet)
 
-    # Merge the eddy covariance together (water/forest), or simply load data
-    df = pm.merge_eddycov_stations(iStation, mergedCsvOutDir, varNameExcelTab)
+    # Perform gap filling
+    df = pm.gap_fill_slow_data(iStation,df,intermediateOutDir)
+    df = pm.gap_fill_flux(iStation,df,finalOutDir,gapfillConfigDir)
 
-    # Handle special cases and errors
-    df = pm.handle_exception(iStation, df,mergedCsvOutDir, varNameExcelTab)
+    # Compute storage terms
+    df = pm.compute_storage_flux(iStation,df)
 
-    # # Perform gap filling
-    df = pm.gap_fill(iStation,df,mergedCsvOutDir,gapfillConfigDir)
+    # Correct for energy balance
+    df = pm.correct_energy_balance(df)
 
-    # # Save to csv
-    df.to_csv(mergedCsvOutDir+iStation+'_gf.csv')
-
+    # Save to csv
+    df.to_csv(finalOutDir+iStation+'.csv',index=False)
