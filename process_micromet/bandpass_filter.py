@@ -17,7 +17,7 @@ def bandpass_filter(df, spiky_var):
     elif spiky_var == 'H':
         id_bandpass = ( df[spiky_var] < -100 ) | ( df[spiky_var] > 400 )    # in [W+1m-2]
     elif spiky_var == 'CO2_flux':
-        id_bandpass = ( df[spiky_var] < -10 ) | ( df[spiky_var] > 20 )      # in [µmol+1s-1m-2]
+        id_bandpass = ( df[spiky_var] < -20 ) | ( df[spiky_var] > 20 )      # in [µmol+1s-1m-2]
     elif spiky_var == 'CH4_flux':
         id_bandpass = ( df[spiky_var] < -0.1 ) | ( df[spiky_var] > 0.25 )   # in [µmol+1s-1m-2]
     elif spiky_var == 'LE_strg':
