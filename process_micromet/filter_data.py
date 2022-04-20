@@ -10,7 +10,7 @@ import numpy as np
 import pysolar # conda install -c conda-forge pysolar
 from process_micromet import bandpass_filter, detect_spikes, find_friction_vel_threshold
 
-def filter_data(stationName,df,finalOutDir):
+def filter_data(stationName,df,finalOutDir=None):
     """Perform tests on fluxes and radiations data and remove suspicious data
     Radiations:
         - computes maximal theoretical incomming shortwave radiations
@@ -47,15 +47,13 @@ def filter_data(stationName,df,finalOutDir):
                          'lat':50.6889992,
                          'proxy':[],
                          'flux_vars':
-                             ['LE','H','CO2_flux','CH4_flux',
-                              'LE_strg','H_strg','CO2_strg','CH4_strg']},
-                     'Forest_station':  {
+                             ['LE_corr','H_corr']},
+                     'Forest_stations':  {
                          'lon':-63.4051018,
                          'lat':50.9020996,
                          'proxy':[],
                          'flux_vars':
-                             ['LE','H','CO2_flux','CH4_flux',
-                              'LE_strg','H_strg','CO2_strg','CH4_strg']},
+                             ['LE_corr','H_corr']},
                      'Berge':           {
                          'lon':-63.2594986,
                          'lat':50.6538010,
@@ -97,7 +95,7 @@ def filter_data(stationName,df,finalOutDir):
     ### Radiations ###
     ##################
 
-    if 'rad_shortwave_down_CNR4' in df.columns:
+    if stationName in ['Berge', 'Reservoir', 'Foret_ouest']:
         # Computes max theorethical downward shortwave values
         rad_short_down_max = np.zeros((df.shape[0],))
         dates = df['timestamp'].dt.tz_localize('Etc/GMT+5').dt.to_pydatetime()
@@ -190,51 +188,53 @@ def filter_data(stationName,df,finalOutDir):
         id_band = bandpass_filter(df, iVar)
         df.loc[id_band,iVar] = np.nan
 
-        # Remove timestep where rain is measured
-        if 'precip_TB4' in df.columns:
-            id_rain = df['precip_TB4'] > 0
-        else:
-            # Load proxy files until it contains rain information
-            for iProx in station_infos[stationName]['proxy']:
-                df_proxy = pd.read_csv(
-                    finalOutDir + iProx + '.csv', low_memory=False)
-                if 'precip_TB4' in df_proxy.columns:
-                    break
-            id_rain = df_proxy['precip_TB4'] > 0
-        df.loc[id_rain,iVar] = np.nan
+        if stationName in ['Berge','Foret_ouest','Foret_est','Reservoir']:
 
-        if 'strg' not in iVar:
-            # Remove low quality time step (Mauder et Folken 2004)
-            id_low_quality = df[iVar+'_qf'] == 2
-            df.loc[id_low_quality,iVar] = np.nan
-            strg_var = iVar.split('_')[0]
-            df.loc[id_low_quality,strg_var+'_strg'] = np.nan
-
-        # Energy balance violation (i.e., H+λE > 5Rn). Only for forested stations
-        if stationName in ['Foret_ouest','Foret_est']:
-            if 'rad_net_CNR4' in df.columns:
-                id_balance = \
-                    (np.abs(df['H'] + df['LE']) > np.abs(5 * df['rad_net_CNR4'])) \
-                        & (df['rad_net_CNR4'] > 50)
+            # Remove timestep where rain is measured
+            if 'precip_TB4' in df.columns:
+                id_rain = df['precip_TB4'] > 0
             else:
-                # Load proxy files until it contains radiation information
+                # Load proxy files until it contains rain information
                 for iProx in station_infos[stationName]['proxy']:
                     df_proxy = pd.read_csv(
                         finalOutDir + iProx + '.csv', low_memory=False)
-                    if 'rad_net_CNR4' in df_proxy.columns:
+                    if 'precip_TB4' in df_proxy.columns:
                         break
-                id_balance = \
-                    (np.abs(df['H'] + df['LE']) > np.abs(5 * df_proxy['rad_net_CNR4'])) \
-                        & (df_proxy['rad_net_CNR4'] > 50)
-            df.loc[id_balance,iVar] = np.nan
+                id_rain = df_proxy['precip_TB4'] > 0
+            df.loc[id_rain,iVar] = np.nan
 
-        # Remove flux below the friction velocity threshold for carbon
-        if iVar in ['CO2_flux', 'CH4_flux']:
-            id_fric_vel = find_friction_vel_threshold(
-                df, iVar, 'air_temp_IRGASON')
-            df.loc[id_fric_vel[0],iVar] = np.nan
-            strg_var = iVar.split('_')[0]
-            df.loc[id_fric_vel[0],strg_var+'_strg'] = np.nan
+            if 'strg' not in iVar:
+                # Remove low quality time step (Mauder et Folken 2004)
+                id_low_quality = df[iVar+'_qf'] == 2
+                df.loc[id_low_quality,iVar] = np.nan
+                strg_var = iVar.split('_')[0]
+                df.loc[id_low_quality,strg_var+'_strg'] = np.nan
+
+            # Energy balance violation (i.e., H+λE > 5Rn). Only for forested stations
+            if stationName in ['Foret_ouest','Foret_est']:
+                if 'rad_net_CNR4' in df.columns:
+                    id_balance = \
+                        (np.abs(df['H'] + df['LE']) > np.abs(5 * df['rad_net_CNR4'])) \
+                            & (df['rad_net_CNR4'] > 50)
+                else:
+                    # Load proxy files until it contains radiation information
+                    for iProx in station_infos[stationName]['proxy']:
+                        df_proxy = pd.read_csv(
+                            finalOutDir + iProx + '.csv', low_memory=False)
+                        if 'rad_net_CNR4' in df_proxy.columns:
+                            break
+                    id_balance = \
+                        (np.abs(df['H'] + df['LE']) > np.abs(5 * df_proxy['rad_net_CNR4'])) \
+                            & (df_proxy['rad_net_CNR4'] > 50)
+                df.loc[id_balance,iVar] = np.nan
+
+            # Remove flux below the friction velocity threshold for carbon
+            if iVar in ['CO2_flux', 'CH4_flux']:
+                id_fric_vel = find_friction_vel_threshold(
+                    df, iVar, 'air_temp_IRGASON')
+                df.loc[id_fric_vel[0],iVar] = np.nan
+                strg_var = iVar.split('_')[0]
+                df.loc[id_fric_vel[0],strg_var+'_strg'] = np.nan
 
         # Identify spikes that should be discarded
         if (iVar in ['CO2_flux', 'CH4_flux']) | (stationName in ['Foret_ouest','Foret_est']):

@@ -95,6 +95,12 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir,
     # Correct for energy balance
     df = pm.correct_energy_balance(df)
 
+    # Filter data
+    df = pm.filter_data(iStation,df)
+
+    # Perform gap filling
+    df = pm.gap_fill_flux(iStation,df,finalOutDir,gapfillConfigDir)
+
     # Save to csv
     df.to_csv(finalOutDir+iStation+'.csv',index=False)
 

@@ -26,10 +26,11 @@ def gap_fill_flux(station_name,df,out_dir,gap_fill_config):
     var_to_fill = df_config.loc[~df_config['Vars_to_fill'].isna(),'Vars_to_fill']
 
     for iVar_to_fill in var_to_fill:
+        if iVar_to_fill in df.columns:
 
-        # Perform gap filling
-        print('\nStart gap filling for variable {:s} and station {:s}'.format(iVar_to_fill, station_name))
-        df = gap_fill_mds(df,iVar_to_fill,df_config,out_dir)
+            # Perform gap filling
+            print('\nStart gap filling for variable {:s} and station {:s}'.format(iVar_to_fill, station_name))
+            df = gap_fill_mds(df,iVar_to_fill,df_config,out_dir)
 
     # Fill missing storage variable with zeros
     strg_vars = [var for var in df.columns if '_strg' in var]

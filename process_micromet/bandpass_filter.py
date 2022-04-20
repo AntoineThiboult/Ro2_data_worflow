@@ -12,9 +12,9 @@ def bandpass_filter(df, spiky_var):
     -------
     id_outlier: index of outliers"""
 
-    if spiky_var == 'LE':
+    if (spiky_var == 'LE') | (spiky_var == 'LE_corr'):
         id_bandpass = ( df[spiky_var] < -35 ) | ( df[spiky_var] > 300 )     # in [W+1m-2]
-    elif spiky_var == 'H':
+    elif (spiky_var == 'H') | (spiky_var == 'H_corr'):
         id_bandpass = ( df[spiky_var] < -150 ) | ( df[spiky_var] > 500 )    # in [W+1m-2]
     elif spiky_var == 'CO2_flux':
         id_bandpass = ( df[spiky_var] < -20 ) | ( df[spiky_var] > 20 )      # in [µmol+1s-1m-2]
