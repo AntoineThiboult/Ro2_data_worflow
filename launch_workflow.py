@@ -7,17 +7,17 @@ CampbellStations =  ["Berge","Foret_ouest","Foret_est","Foret_sol","Reservoir"]
 eddyCovStations =   ["Berge","Foret_ouest","Foret_est","Reservoir"]
 gapfilledStation =  ["Water_stations","Forest_stations"]
 
-rawFileDir          = "F:/Ro2_micromet_raw_data/Data/"
-asciiOutDir         = "F:/Ro2_micormet_processed_data/Ascii_data/"
-eddyproOutDir       = "F:/Ro2_micormet_processed_data/Eddypro_data/"
-externalDataDir     = "F:/Ro2_micromet_raw_data/Data/External_data_and_misc/"
-intermediateOutDir  = "F:/Ro2_micormet_processed_data/Intermediate_output/"
-finalOutDir         = "F:/Ro2_micormet_processed_data/Final_output/"
+rawFileDir          = "D:/E/Ro2_micromet_raw_data/Data/"
+asciiOutDir         = "D:/E/Ro2_micormet_processed_data/Ascii_data/"
+eddyproOutDir       = "D:/E/Ro2_micormet_processed_data/Eddypro_data/"
+externalDataDir     = "D:/E/Ro2_micromet_raw_data/Data/External_data_and_misc/"
+intermediateOutDir  = "D:/E/Ro2_micormet_processed_data/Intermediate_output/"
+finalOutDir         = "D:/E/Ro2_micormet_processed_data/Final_output/"
 varNameExcelSheet   = "./Resources/Variable_description_full.xlsx"
 eddyproConfigDir    = "./Config/EddyProConfig/"
 gapfillConfigDir    = "./Config/GapFillingConfig/"
 
-dates = {'start':'2018-06-25','end':'2021-10-01'}
+dates = {'start':'2018-06-25','end':'2022-03-01'}
 
 
 # Merge Hobo TidBit thermistors
@@ -85,14 +85,15 @@ for iStation in gapfilledStation:
     # Compute storage terms
     df = pm.compute_storage_flux(iStation,df)
 
-    # Correct for energy balance
-    df = pm.correct_energy_balance(df)
+    if iStation == 'Water_stations':
+        # Correct for energy balance
+        df = pm.correct_energy_balance(df)
 
-    # Filter data
-    df = pm.filter_data(iStation,df)
+        # Filter data
+        df = pm.filter_data(iStation,df)
 
-    # Perform gap filling
-    df = pm.gap_fill_flux(iStation,df,finalOutDir,gapfillConfigDir)
+        # Perform gap filling
+        df = pm.gap_fill_flux(iStation,df,finalOutDir,gapfillConfigDir)
 
     # Save to csv
     df.to_csv(finalOutDir+iStation+'.csv',index=False)

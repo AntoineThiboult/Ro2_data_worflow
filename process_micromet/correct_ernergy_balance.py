@@ -38,13 +38,17 @@ def correct_energy_balance(df):
     df['LE_corr'] = df['LE_gf_mds']
     df['H_corr'] = df['H_gf_mds']
 
-    for i in range(0,df.shape[0],48):
-        idx_bol = df.loc[i:i+48,'daytime'] == 1
-        if not (sum(idx_bol) == 0):
+    id_start = (df['timestamp'].dt.hour == 0).first_valid_index()
+    id_end = (df['timestamp'].dt.hour == 0).last_valid_index()
+
+    for i in range(id_start,id_end,48):
+        idx_bol = df.loc[i:i+47,'rad_net_CNR4'] >20
+        if any(idx_bol):
             idx = idx_bol[idx_bol].index
             C = (df.loc[idx,'H_gf_mds'].sum() + df.loc[idx,'LE_gf_mds'].sum()) / \
-                (df.loc[idx,'rad_net_CNR4'].sum() + df.loc[idx,'G'].sum() + df.loc[idx,'LE_strg'] + df.loc[idx,'H_strg'])
-            df.loc[idx,'LE_corr'] = df.loc[idx,'LE_corr'] * 1/C
-            df.loc[idx,'H_corr']  = df.loc[idx,'H_corr'] * 1/C
+                (-df.loc[idx,'rad_net_CNR4'].sum() + df.loc[idx,'G'].sum()
+                 + df.loc[idx,'LE_strg'].sum() + df.loc[idx,'H_strg'].sum())
+            df.loc[idx,'LE_corr'] = df.loc[idx,'LE_corr'] * -1/C
+            df.loc[idx,'H_corr']  = df.loc[idx,'H_corr'] * -1/C
 
     return df

@@ -223,23 +223,11 @@ def compute_water_column_heat_flux(df):
     Cp_water = 4.184e6
 
     # Rolling window for noise reduction
-    roll_window = 48*30
+    roll_window = 1
 
     # Names of temperature variables
-    therm_depths_names_T1 = ['water_temp_{:d}m{:d}_Therm1'.format(
+    therm_depths_names = ['water_temp_{:d}m{:d}_avg'.format(
         int(f), int(np.round((f-np.fix(f))*10))) for f in therm_depths ]
-
-    therm_depths_names_T2 = ['water_temp_{:d}m{:d}_Therm2'.format(
-        int(f), int(np.round((f-np.fix(f))*10))) for f in therm_depths ]
-
-    therm_depths_names = ['water_temp_{:d}m{:d}_Therm_avg'.format(
-        int(f), int(np.round((f-np.fix(f))*10))) for f in therm_depths ]
-
-    # Construct mean temperature dataset
-    for count, iVar in enumerate(therm_depths_names):
-        df[iVar] = df[[
-            therm_depths_names_T1[count],therm_depths_names_T2[count]
-            ]].mean(axis=1)
 
     # Rolling mean
     df[therm_depths_names] = \
