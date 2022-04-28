@@ -223,7 +223,7 @@ def compute_water_column_heat_flux(df):
     Cp_water = 4.184e6
 
     # Rolling window for noise reduction
-    roll_window = 1
+    roll_window = 48*15
 
     # Names of temperature variables
     therm_depths_names = ['water_temp_{:d}m{:d}_avg'.format(

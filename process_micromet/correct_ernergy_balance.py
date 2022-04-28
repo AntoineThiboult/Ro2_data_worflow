@@ -4,6 +4,7 @@ Created on Fri Apr  8 12:00:48 2022
 
 @author: ANTHI182
 """
+import numpy as np
 
 def correct_energy_balance(df):
     """ Correct latent and sensible heat flux according to Mauder 2017
@@ -42,12 +43,14 @@ def correct_energy_balance(df):
     id_end = (df['timestamp'].dt.hour == 0).last_valid_index()
 
     for i in range(id_start,id_end,48):
-        idx_bol = df.loc[i:i+47,'rad_net_CNR4'] >20
+        idx_bol = df.loc[i:i+47,'rad_shortwave_down_CNR4'] > 20
         if any(idx_bol):
             idx = idx_bol[idx_bol].index
             C = (df.loc[idx,'H_gf_mds'].sum() + df.loc[idx,'LE_gf_mds'].sum()) / \
                 (-df.loc[idx,'rad_net_CNR4'].sum() + df.loc[idx,'G'].sum()
                  + df.loc[idx,'LE_strg'].sum() + df.loc[idx,'H_strg'].sum())
+            if abs(C) < 0.2:
+                C = np.nan
             df.loc[idx,'LE_corr'] = df.loc[idx,'LE_corr'] * -1/C
             df.loc[idx,'H_corr']  = df.loc[idx,'H_corr'] * -1/C
 
