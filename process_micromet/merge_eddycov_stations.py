@@ -172,6 +172,10 @@ def merge_eddycov_stations(stationName, rawFileDir,
             df.loc[id_avg,iVar] = np.mean(
                 [df_res.loc[id_avg,iVar], df.loc[id_avg,iVar]], axis=0)
 
+            # Replace remaining fluxes
+            id_sub = df[iVar].isna()
+            df.loc[id_sub,iVar] = df_res.loc[id_sub,iVar]
+
 
         # Merge Berge and Reservoir DataFrames for remaining variables
         for iVar in column_dic:

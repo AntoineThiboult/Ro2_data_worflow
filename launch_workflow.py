@@ -85,7 +85,7 @@ for iStation in gapfilledStation:
     # Compute storage terms
     df = pm.compute_storage_flux(iStation,df)
 
-    if iStation == 'Water_stations':
+    if iStation == 'Forest_stations':
         # Correct for energy balance
         df = pm.correct_energy_balance(df)
 
