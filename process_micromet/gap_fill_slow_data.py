@@ -194,6 +194,9 @@ def gap_fill_water_temp(df):
     ### Replacement with yearly averaged data corrected for shift ###
     #################################################################
 
+    # Add surface temperature to the depth list
+    therm_depths_names = therm_depths_names + ['water_temp_sfc']
+
     for iVar in therm_depths_names:
 
         if df[iVar].isna().sum() == 0:

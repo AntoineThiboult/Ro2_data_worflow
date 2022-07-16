@@ -104,7 +104,7 @@ def merge_eddycov_stations(stationName, rawFileDir,
 
                 # Theoretical black body radiation
                 rad_longwave_up_BB = 0.995*5.67e-8* \
-                    (df['water_temp_sfc'].interpolate()+273.15)**4
+                    (df['water_temp_sfc']+273.15)**4
 
                 rad_longwave_up_merged = rad_longwave_up_BB.copy()
 
