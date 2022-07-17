@@ -125,4 +125,23 @@ def handle_exception(stationName, df):
                 + (5.67e-8*T_proxy[0:id_change_CNR4]**4)
         df.loc[0:id_change_CNR4,'air_temp_CNR4'] = T_proxy[0:id_change_CNR4]
 
+    if stationName in ['Reservoir']:
+
+        ######################################################
+        # Remove first and last days of each yearly campaign #
+        ######################################################
+
+        years=df['timestamp'].dt.year.unique()
+        col_rm = df.columns.drop('timestamp')
+        for iyear in years:
+            id_year = df['timestamp'].dt.year == iyear
+            id_start = df.loc[id_year,'air_temp_CR6'].first_valid_index()
+            id_end = df.loc[id_year,'air_temp_CR6'].last_valid_index()
+            if (id_start is not None) & (id_end is not None):
+                if iyear == 2019: # raft stayed longer out of water
+                    df.loc[id_start:id_start+48*3,col_rm] = np.nan
+                else:
+                    df.loc[id_start:id_start+48,col_rm] = np.nan
+                df.loc[id_end-48:id_end,col_rm] = np.nan
+
     return df
