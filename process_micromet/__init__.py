@@ -16,7 +16,7 @@ from .handle_exception import handle_exception
 from .load_eddypro_file import load_eddypro_file
 from .merge_slow_csv import merge_slow_csv
 from .merge_slow_csv_and_eddypro import merge_slow_csv_and_eddypro
-from .merge_thermistors import merge_thermistors
+from . import thermistors
 from .rename_trim_vars import rename_trim_vars
 from .merge_natashquan import merge_natashquan
 from .merge_hq_reservoir import merge_hq_reservoir
