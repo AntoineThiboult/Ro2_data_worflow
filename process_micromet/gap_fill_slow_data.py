@@ -206,11 +206,4 @@ def gap_fill_slow_data(station_name, df, dataFileDir):
         id_na = df['soil_heatflux_HFP01SC_1'].isna()
         df.loc[id_na,'soil_heatflux_HFP01SC_1'] = 0
 
-    #########################
-    ### Water temperature ###
-    #########################
-
-    if station_name == 'Water_stations':
-        df = gap_fill_water_temp(df)
-
     return df

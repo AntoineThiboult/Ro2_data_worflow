@@ -3,8 +3,35 @@ import pandas as pd
 import numpy as np
 import warnings
 
+def compute_water_albedo(solar_angle):
+    """
+    Compute theorectical albedo based on solar angle
+
+    Parameters
+    ----------
+    solar_angle: incident solar angle in degrees from horizon
+
+    Returns
+    -------
+    water albedo
+    """
+
+    # Indices of refraction
+    n_air = 1
+    n_water = 4/3
+
+    # Angles
+    inc_angle = np.deg2rad(90-solar_angle)
+    trans_angle = np.arcsin(n_air/n_water*np.sin(inc_angle))
+
+    r_s = (np.sin(inc_angle-trans_angle) / np.sin(inc_angle+trans_angle))**2
+    r_p = (np.tan(inc_angle-trans_angle) / np.tan(inc_angle+trans_angle))**2
+    albedo = (r_s+r_p)/2
+
+    return albedo
+
 def merge_eddycov_stations(stationName, rawFileDir,
-                           intermediateOutDir, varNameExcelTab):
+                           finalOutDir, varNameExcelTab):
     """Merge :
         - the Berge and Reservoir stations together. The station reservoir has
           "priority", meaning that if some data is available on both stations,
@@ -24,7 +51,7 @@ def merge_eddycov_stations(stationName, rawFileDir,
     Parameters
     ----------
     stationName: name of the station where modifications should be applied
-    intermediateOutDir: path to the directory that contains the final .csv files
+    finalOutDir: path to the directory that contains the final .csv files
     varNameExcelTab: path and name of the Excel file that contains the
         variable description and their names
 
@@ -39,13 +66,13 @@ def merge_eddycov_stations(stationName, rawFileDir,
         ##############################################################
 
         # Import Reservoir data
-        df = pd.read_csv(intermediateOutDir+'Berge'+'.csv',
+        df = pd.read_csv(finalOutDir+'Berge'+'.csv',
                          low_memory=False)
         df['timestamp'] = pd.to_datetime(df['timestamp'])
 
-        df_res = pd.read_csv(intermediateOutDir+'Reservoir'+'.csv',
+        df_res = pd.read_csv(finalOutDir+'Reservoir'+'.csv',
                              low_memory=False)
-        df_therm = pd.read_csv(intermediateOutDir+'Thermistors'+'.csv',
+        df_therm = pd.read_csv(finalOutDir+'Thermistors'+'.csv',
                                low_memory=False)
         df_freeze = pd.read_csv(rawFileDir+'External_data_and_misc/'+
                                 'Reservoir_freezup_and_melt'+'.csv',
@@ -87,38 +114,17 @@ def merge_eddycov_stations(stationName, rawFileDir,
 
 
         # Merge radiations
-        rad_vars = ['rad_shortwave_up_CNR4', 'rad_longwave_up_CNR4',
-                    'rad_shortwave_down_CNR4', 'rad_longwave_down_CNR4',
+        rad_vars = ['rad_shortwave_down_CNR4','rad_longwave_down_CNR4',
+                    'rad_shortwave_up_CNR4', 'rad_longwave_up_CNR4',
                     'albedo_CNR4','rad_net_CNR4']
 
         for iVar in rad_vars:
 
-            if iVar == 'rad_longwave_up_CNR4':
-                # Substitutes Berge values with reservoir when available or
-                # with theoretical black body radiation calculated with water
-                # surface temperature when reservoir not frozen
+            if iVar == 'rad_shortwave_down_CNR4':
+                # Substitute Berge values with reservoir when available
                 id_res_avail = ~df_res[iVar].isna()
-                id_frozen_res = df['water_frozen_sfc'] == 1
-                id_snow_gnd = df['albedo_CNR4'].rolling(
-                    window=48*4,min_periods=20).mean() > 0.6
-
-                # Theoretical black body radiation
-                rad_longwave_up_BB = 0.995*5.67e-8* \
-                    (df['water_temp_sfc']+273.15)**4
-
-                rad_longwave_up_merged = rad_longwave_up_BB.copy()
-
-                rad_longwave_up_merged[id_frozen_res & id_snow_gnd] = df.loc[
-                    id_frozen_res, 'rad_longwave_up_CNR4']
-                rad_longwave_up_merged[id_res_avail] = df_res.loc[
-                    id_res_avail,'rad_longwave_up_CNR4']
-
-                id_malfunc = (rad_longwave_up_merged - rad_longwave_up_BB) > 35
-                rad_longwave_up_merged[id_malfunc] = \
-                    rad_longwave_up_BB[id_malfunc]
-
-                df['rad_longwave_up_CNR4'] = rad_longwave_up_merged
-
+                df.loc[id_res_avail,iVar] = df_res.loc[
+                    id_res_avail,iVar]
 
             elif iVar == 'rad_shortwave_up_CNR4':
                 # Substitutes Berge values with reservoir when available or
@@ -128,30 +134,61 @@ def merge_eddycov_stations(stationName, rawFileDir,
                 id_res_avail = ~df_res[iVar].isna()
                 id_frozen_res = df['water_frozen_sfc'] == 1
                 id_snow_gnd = df['albedo_CNR4'].rolling(
-                    window=48*4,min_periods=20).mean() > 0.6
+                    window=48*10,min_periods=6,center=True).mean() > 0.4
 
-                rad_shortwave_up_merged = np.zeros((df.shape[0]))
+                # Compute theretical water albedo based on solar angle
+                albedo_computed = compute_water_albedo(df['solar_angle'])
 
-                rad_shortwave_up_merged[id_frozen_res & id_snow_gnd] = df.loc[
-                    id_frozen_res & id_snow_gnd, 'rad_shortwave_up_CNR4']
-                rad_shortwave_up_merged[id_res_avail] = df_res.loc[
-                    id_res_avail, 'rad_shortwave_up_CNR4']
-                rad_shortwave_up_merged[
-                    ~id_res_avail & id_frozen_res & ~id_snow_gnd] = \
-                    0.76 * df.loc[~id_res_avail & id_frozen_res & ~id_snow_gnd,
-                                  'rad_shortwave_down_CNR4']
-                rad_shortwave_up_merged[
-                    ~id_res_avail & ~id_frozen_res] = \
-                    0.05 * df.loc[~id_res_avail & ~id_frozen_res,
-                                  'rad_shortwave_down_CNR4']
+                # Replace with raft data
+                df.loc[id_res_avail,iVar] = df_res.loc[id_res_avail,iVar]
+
+                # Replace with computed shortwave up from water albedo and Berge shortwave down
+                # when raft no available, and reservoir not frozen
+                id_replace = ~id_res_avail & ~id_frozen_res
+                df.loc[id_replace,iVar] = df.loc[id_replace,'rad_shortwave_down_CNR4'] * \
+                    albedo_computed[id_replace]
+
+                # Replace with computed shortwave up from default melting snow albedo and
+                # Berge shortwave down when raft no available, frozen reservoir but no snow on Berge
+                id_replace = ~id_res_avail & id_frozen_res & ~id_snow_gnd
+                df.loc[id_replace,iVar] = df.loc[id_replace,'rad_shortwave_down_CNR4'] * 0.4
+
+                # Cap shortwave up with shortwave down
+                id_replace =  (df[iVar]-df['rad_shortwave_down_CNR4']) > 0
+                df.loc[id_replace,iVar] = df.loc[id_replace,'rad_shortwave_down_CNR4'] * \
+                    albedo_computed[id_replace]
+
+            elif iVar == 'rad_longwave_up_CNR4':
+                # Substitutes Berge values with reservoir when available or
+                # with theoretical black body radiation calculated with water
+                # surface temperature when reservoir not frozen
+                id_res_avail = ~df_res[iVar].isna()
+                id_frozen_res = df['water_frozen_sfc'] == 1
+                id_snow_gnd = df['albedo_CNR4'].rolling(
+                    window=48*7,min_periods=10).mean() > 0.3
+
+                # Theoretical black body radiation
+                rad_longwave_up_BB = 0.995*5.67e-8* \
+                    (df['water_temp_sfc']+273.15)**4
+
+                # Replace berge data with blackbody rad when reservoir not frozen
+                df.loc[~id_frozen_res,iVar] = \
+                    rad_longwave_up_BB[~id_frozen_res]
+
+                # Replace blackbody/Berge radiation with reservoir CNR4 when available
+                df.loc[id_res_avail,iVar] = df_res.loc[
+                    id_res_avail,iVar]
 
             elif iVar == 'albedo_CNR4':
                 # Recompute albedo
-                df['albedo_CNR4'] = df['rad_shortwave_down_CNR4'] \
-                    / df['rad_shortwave_down_CNR4']
-                    #TODO vérifier que pas albedo < 50 W/m²
+                id_daylight = df['rad_shortwave_down_CNR4'] > 25
+                df['albedo_CNR4'] = np.nan
+                df.loc[id_daylight, 'albedo_CNR4'] = \
+                    df.loc[id_daylight,'rad_shortwave_up_CNR4'] \
+                        / df.loc[id_daylight,'rad_shortwave_down_CNR4']
 
             elif iVar == 'rad_net_CNR4':
+                # Recompute net radiation
                 df['rad_net_CNR4'] = df['rad_shortwave_down_CNR4'] \
                     + df['rad_longwave_down_CNR4'] \
                         - df['rad_shortwave_up_CNR4'] \
@@ -196,11 +233,11 @@ def merge_eddycov_stations(stationName, rawFileDir,
         ###################################################################
 
         # Import Foret data
-        df = pd.read_csv(intermediateOutDir+'Foret_ouest'+'.csv', low_memory=False)
+        df = pd.read_csv(finalOutDir+'Foret_ouest'+'.csv', low_memory=False)
         df['timestamp'] = pd.to_datetime(df['timestamp'])
 
         # Foret Est
-        df_foret_est = pd.read_csv(intermediateOutDir+'Foret_est'+'.csv', low_memory=False)
+        df_foret_est = pd.read_csv(finalOutDir+'Foret_est'+'.csv', low_memory=False)
         df_foret_est['timestamp'] = pd.to_datetime(df_foret_est['timestamp'])
 
         # Import EddyPro variable names that should be merged
@@ -230,7 +267,7 @@ def merge_eddycov_stations(stationName, rawFileDir,
                 df[iVar] = df_foret_est[iVar]
 
         # Import Foret sol
-        df_foret_sol = pd.read_csv(intermediateOutDir+'Foret_sol'+'.csv', low_memory=False)
+        df_foret_sol = pd.read_csv(finalOutDir+'Foret_sol'+'.csv', low_memory=False)
 
         # Import EddyPro variable names that should be merged
         xlsFile = pd.ExcelFile(varNameExcelTab)

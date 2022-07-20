@@ -40,7 +40,7 @@ def filter_data(stationName,df,finalOutDir=None):
         Contains filtered slow and eddy covariance data.
 
     """
-    print('Start filtering data...')
+    print(f'Start filtering data for {stationName}')
 
     station_infos = {'Water_stations':  {
                          'lon':-63.2494011,
@@ -96,7 +96,8 @@ def filter_data(stationName,df,finalOutDir=None):
     ##################
 
     if stationName in ['Berge', 'Reservoir', 'Foret_ouest']:
-        # Computes max theorethical downward shortwave values
+        # Computes sun angle and max theorethical downward shortwave values
+        df['solar_angle'] = np.nan
         rad_short_down_max = np.zeros((df.shape[0],))
         dates = df['timestamp'].dt.tz_localize('Etc/GMT+5').dt.to_pydatetime()
         for counter, iDate in enumerate(dates):
@@ -105,6 +106,7 @@ def filter_data(stationName,df,finalOutDir=None):
                 station_infos[stationName]['lon'],
                 iDate)
             altitude_deg = max(0, altitude_deg)
+            df.loc[counter,'solar_angle'] = altitude_deg
             max_rad = 1370 * np.sin(np.deg2rad(altitude_deg))
             rad_short_down_max[counter] = max_rad
 
@@ -120,15 +122,30 @@ def filter_data(stationName,df,finalOutDir=None):
         id_sub = df['rad_shortwave_down_CNR4'] == 0
         df.loc[id_sub,'rad_shortwave_up_CNR4'] = 0
 
-        # Filter downward radiation for snow obstruction
+        # Filter downward radiation for snow obstruction during daytime
         id_sub = (df['rad_shortwave_up_CNR4'] >
                   (0.85 * df['rad_shortwave_down_CNR4'])) \
-                  & (df['rad_shortwave_up_CNR4'] > 50)
+                  & (df['rad_shortwave_up_CNR4'] > 25*0.85)
         df.loc[id_sub,'rad_shortwave_down_CNR4'] = np.nan
         df.loc[id_sub,'rad_longwave_down_CNR4'] = np.nan
 
+        # Cap upward shortwave outliers according to a median rolling albedo
+        id_albedo = (df['rad_shortwave_down_CNR4'] > 25) & \
+            (df['rad_shortwave_down_CNR4'] > df['rad_shortwave_up_CNR4'])
+        rolling_albedo = (
+            df.loc[id_albedo,'rad_shortwave_up_CNR4'].rolling(
+                window=48*2,min_periods=12).median() \
+                / df.loc[id_albedo,'rad_shortwave_down_CNR4'].rolling(
+                    window=48*2,min_periods=12).median()
+                ).interpolate()
+        id_sub = (df['rad_shortwave_up_CNR4'] >
+                  (0.85 * df['rad_shortwave_down_CNR4']))
+        df.loc[id_sub,'rad_shortwave_up_CNR4'] = \
+            df.loc[id_sub,'rad_shortwave_down_CNR4'] * \
+                rolling_albedo[id_sub]
+
         # Recompute albedo
-        id_daylight = df['rad_shortwave_down_CNR4'] > 50
+        id_daylight = df['rad_shortwave_down_CNR4'] > 25
         df['albedo_CNR4'] = np.nan
         df.loc[id_daylight, 'albedo_CNR4'] = \
             df.loc[id_daylight,'rad_shortwave_up_CNR4'] \
