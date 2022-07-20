@@ -165,7 +165,7 @@ def merge_eddycov_stations(stationName, rawFileDir,
                 id_res_avail = ~df_res[iVar].isna()
                 id_frozen_res = df['water_frozen_sfc'] == 1
                 id_snow_gnd = df['albedo_CNR4'].rolling(
-                    window=48*7,min_periods=10).mean() > 0.3
+                    window=48*10,min_periods=6,center=True).mean() > 0.4
 
                 # Theoretical black body radiation
                 rad_longwave_up_BB = 0.995*5.67e-8* \
