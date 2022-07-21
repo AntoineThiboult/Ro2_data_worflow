@@ -37,7 +37,7 @@ def train_rf(target_var, input_vars):
     X = scalerX.transform(X_unscaled)
     y = scalery.transform(y_unscaled)
 
-    regr = RandomForestRegressor(n_estimators=50,random_state=42)
+    regr = RandomForestRegressor(n_estimators=25,random_state=42)
     regr.fit(X, y.flatten())
 
     return scalerX, scalery, regr
@@ -77,7 +77,7 @@ def predict_rf(scalerX, scalery, regr, input_vars):
 
 
 
-def gap_fill_slow_data(station_name, df, dataFileDir):
+def gap_fill_meteo(station_name, df, dataFileDir):
     """ Gap fill essential data. Linear interpolation is first used with a
     limit window that depends on the variable. The remaining gaps are filled
     with the ERA5 reanalysis data. The reanalysis is corrected with in situ
@@ -104,10 +104,6 @@ def gap_fill_slow_data(station_name, df, dataFileDir):
                  os.path.join(dataFileDir,'ERA5_Water_stations'),
             'var_to_fill':
                 {'air_temp_HMP45C':6,
-                 'rad_longwave_down_CNR4':6,
-                 'rad_longwave_up_CNR4':6,
-                 'rad_shortwave_down_CNR4':4,
-                 'rad_shortwave_up_CNR4':4,
                  'wind_speed_05103':6,
                  'wind_dir_05103':6,
                  'air_specificHumidity':12,
@@ -115,13 +111,9 @@ def gap_fill_slow_data(station_name, df, dataFileDir):
 
         'Forest_stations':  {
             'proxy':
-                 os.path.join(dataFileDir,'ERA5_Water_stations'),
+                 os.path.join(dataFileDir,'ERA5_Forest_stations'),
              'var_to_fill':
                  {'air_temp_HMP45C':6,
-                  'rad_longwave_down_CNR4':6,
-                  'rad_longwave_up_CNR4':6,
-                  'rad_shortwave_down_CNR4':4,
-                  'rad_shortwave_up_CNR4':4,
                   'wind_speed_05103':6,
                   'wind_dir_05103':6,
                   'air_specificHumidity':12,
@@ -190,9 +182,131 @@ def gap_fill_slow_data(station_name, df, dataFileDir):
         else:
             print(f'{i_var} not available in the ERA5 database')
 
+    if station_name == 'Forest_stations':
+        # TODO find better way to hand missing soil_heatflux_HFP01SC_1
+        id_na = df['soil_heatflux_HFP01SC_1'].isna()
+        df.loc[id_na,'soil_heatflux_HFP01SC_1'] = 0
+
+    return df
+
+
+def gap_fill_radiation(station_name, df, dataFileDir):
+    """ Gap fill radiation data. Gaps are filled with the ERA5 reanalysis data.
+    The reanalysis is corrected with in situ measurements via a random forest
+    regressor.
+
+    Parameters
+    ----------
+    df : pandas DataFrame
+        DataFrame that contains the relevant variables
+    station_name : string
+        Name of the station
+
+    Returns
+    -------
+    None.
+
+    """
+
+    # Declaration of variables and  maximum window length for linear interpolation
+    station_infos = {
+        'Water_stations':  {
+            'proxy':
+                 os.path.join(dataFileDir,'ERA5_Water_stations'),
+            'var_to_fill':
+                ['rad_longwave_down_CNR4',
+                 'rad_shortwave_down_CNR4',
+                 'rad_longwave_up_CNR4',
+                 'rad_shortwave_up_CNR4']},
+
+        'Forest_stations':  {
+            'proxy':
+                 os.path.join(dataFileDir,'ERA5_Forest_stations'),
+             'var_to_fill':
+                 ['rad_longwave_down_CNR4',
+                  'rad_shortwave_down_CNR4',
+                  'rad_longwave_up_CNR4',
+                  'rad_shortwave_up_CNR4']},
+                     }
+
+    ########################
+    ### Machine learning ###
+    ########################
+
+    # Create variables suitable for ML
+    df['doy_t'] = np.cos(df['timestamp'].dt.dayofyear/366*2*np.pi)
+    df['hour_t'] = np.cos(df['timestamp'].dt.hour/24*2*np.pi)
+
+    # Load meteorological reanalysis
+    df_era = pd.read_csv(station_infos[station_name]['proxy']
+                           + '.csv')
+
+
+    for i_var in station_infos[station_name]['var_to_fill']:
+
+        if i_var in df_era.columns:
+
+            if df[i_var].isna().sum() != 0:
+
+                # Target variable
+                target_ml_var = df[i_var].values
+
+                # Input variable
+                if i_var in ['rad_longwave_down_CNR4','rad_shortwave_down_CNR4']:
+                    input_ml_vars = np.column_stack(
+                        (df[['doy_t','hour_t','air_temp_HMP45C']].values,
+                         df_era[i_var].values))
+                elif i_var == 'rad_longwave_up_CNR4':
+                    input_ml_vars = np.column_stack(
+                        (df[['doy_t','hour_t','air_temp_HMP45C']].values,
+                         df['rad_longwave_down_CNR4'].values))
+                    if station_name == 'Water_stations':
+                        input_ml_vars = np.column_stack(
+                            (input_ml_vars,df['water_frozen_sfc'].values))
+                elif i_var == 'rad_shortwave_up_CNR4':
+                    input_ml_vars = np.column_stack(
+                        (df[['doy_t','hour_t']].values,
+                         df['rad_shortwave_down_CNR4'].values))
+                    if station_name == 'Water_stations':
+                        input_ml_vars = np.column_stack(
+                            (input_ml_vars,df['water_frozen_sfc'].values))
+
+                # Training
+                scalerX, scalery, regr = train_rf(target_ml_var, input_ml_vars)
+
+                # Prediction
+                y_pred =  predict_rf(scalerX, scalery, regr, input_ml_vars)
+                id_na = df[i_var].isna()
+                df.loc[id_na,i_var] = y_pred[id_na]
+
+
     # Recompute albedo and rad_net
     df['albedo_CNR4'] = np.nan
-    id_daylight = df['rad_shortwave_down_CNR4'] > 50
+    id_daylight = df['rad_shortwave_down_CNR4'] > 25
+    df.loc[id_daylight, 'albedo_CNR4'] = \
+        df.loc[id_daylight,'rad_shortwave_up_CNR4'] \
+            / df.loc[id_daylight,'rad_shortwave_down_CNR4']
+
+    # Filter erroneous albedo
+    id_albedo = (df['rad_shortwave_down_CNR4'] > 25) & \
+        (df['rad_shortwave_down_CNR4'] > df['rad_shortwave_up_CNR4'])
+
+    df.loc[id_albedo,'rolling_albedo'] = \
+        df.loc[id_albedo,'rad_shortwave_up_CNR4'].rolling(
+            window=48*2,min_periods=12,center=True).median() \
+            / df.loc[id_albedo,'rad_shortwave_down_CNR4'].rolling(
+                window=48*2,min_periods=12,center=True).median()
+    df['rolling_albedo'] = df['rolling_albedo'].interpolate()
+    id_sub = (df['rad_shortwave_up_CNR4'] >
+              (0.90 * df['rad_shortwave_down_CNR4']))
+    df.loc[id_sub,'rad_shortwave_up_CNR4'] = \
+        df.loc[id_sub,'rad_shortwave_down_CNR4'] * \
+            df.loc[id_sub,'rolling_albedo']
+    df=df.drop(columns=['rolling_albedo'])
+
+    # Recompute albedo and rad_net
+    df['albedo_CNR4'] = np.nan
+    id_daylight = df['rad_shortwave_down_CNR4'] > 25
     df.loc[id_daylight, 'albedo_CNR4'] = \
         df.loc[id_daylight,'rad_shortwave_up_CNR4'] \
             / df.loc[id_daylight,'rad_shortwave_down_CNR4']
@@ -200,10 +314,5 @@ def gap_fill_slow_data(station_name, df, dataFileDir):
     df['rad_net_CNR4'] = \
         df['rad_shortwave_down_CNR4'] - df['rad_shortwave_up_CNR4'] \
         + df['rad_longwave_down_CNR4'] - df['rad_longwave_up_CNR4']
-
-    if station_name == 'Forest_stations':
-        # TODO find better way to hand missing soil_heatflux_HFP01SC_1
-        id_na = df['soil_heatflux_HFP01SC_1'].isna()
-        df.loc[id_na,'soil_heatflux_HFP01SC_1'] = 0
 
     return df

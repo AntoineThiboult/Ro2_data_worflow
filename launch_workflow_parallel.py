@@ -88,7 +88,8 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir,
                                     finalOutDir,varNameExcelSheet)
 
     # Perform gap filling
-    df = pm.gap_fill_slow_data(iStation,df,intermediateOutDir)
+    df = pm.gap_fill_slow_data.gap_fill_meteo(iStation,df,intermediateOutDir)
+    df = pm.gap_fill_slow_data.gap_fill_radiation(iStation,df,intermediateOutDir)
     df = pm.gap_fill_flux(iStation,df,finalOutDir,gapfillConfigDir)
 
     # Compute storage terms

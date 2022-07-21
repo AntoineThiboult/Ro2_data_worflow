@@ -129,20 +129,22 @@ def filter_data(stationName,df,finalOutDir=None):
         df.loc[id_sub,'rad_shortwave_down_CNR4'] = np.nan
         df.loc[id_sub,'rad_longwave_down_CNR4'] = np.nan
 
-        # Cap upward shortwave outliers according to a median rolling albedo
+        # Filter erroneous albedo
         id_albedo = (df['rad_shortwave_down_CNR4'] > 25) & \
             (df['rad_shortwave_down_CNR4'] > df['rad_shortwave_up_CNR4'])
-        rolling_albedo = (
+
+        df.loc[id_albedo,'rolling_albedo'] = \
             df.loc[id_albedo,'rad_shortwave_up_CNR4'].rolling(
-                window=48*2,min_periods=12).median() \
+                window=48*2,min_periods=12,center=True).median() \
                 / df.loc[id_albedo,'rad_shortwave_down_CNR4'].rolling(
-                    window=48*2,min_periods=12).median()
-                ).interpolate()
+                    window=48*2,min_periods=12,center=True).median()
+        df['rolling_albedo'] = df['rolling_albedo'].interpolate()
         id_sub = (df['rad_shortwave_up_CNR4'] >
-                  (0.85 * df['rad_shortwave_down_CNR4']))
+                  (0.90 * df['rad_shortwave_down_CNR4']))
         df.loc[id_sub,'rad_shortwave_up_CNR4'] = \
             df.loc[id_sub,'rad_shortwave_down_CNR4'] * \
-                rolling_albedo[id_sub]
+                df.loc[id_sub,'rolling_albedo']
+        df=df.drop(columns=['rolling_albedo'])
 
         # Recompute albedo
         id_daylight = df['rad_shortwave_down_CNR4'] > 25
