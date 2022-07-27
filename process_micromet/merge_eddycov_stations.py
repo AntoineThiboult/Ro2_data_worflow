@@ -120,13 +120,7 @@ def merge_eddycov_stations(stationName, rawFileDir,
 
         for iVar in rad_vars:
 
-            if iVar == 'rad_shortwave_down_CNR4':
-                # Substitute Berge values with reservoir when available
-                id_res_avail = ~df_res[iVar].isna()
-                df.loc[id_res_avail,iVar] = df_res.loc[
-                    id_res_avail,iVar]
-
-            elif iVar == 'rad_shortwave_up_CNR4':
+            if iVar == 'rad_shortwave_up_CNR4':
                 # Substitutes Berge values with reservoir when available or
                 # with radiation computed from Berge incoming rad and
                 # reservoir mean albedo when not frozen. When frozen, take
@@ -174,6 +168,11 @@ def merge_eddycov_stations(stationName, rawFileDir,
                 # Replace berge data with blackbody rad when reservoir not frozen
                 df.loc[~id_frozen_res,iVar] = \
                     rad_longwave_up_BB[~id_frozen_res]
+
+                # Filter abnormal values related to Berge partial melt in spring
+                df.loc[id_frozen_res,iVar] = np.min([
+                    rad_longwave_up_BB[id_frozen_res],
+                    df.loc[id_frozen_res,iVar]], axis=0)
 
                 # Replace blackbody/Berge radiation with reservoir CNR4 when available
                 df.loc[id_res_avail,iVar] = df_res.loc[
