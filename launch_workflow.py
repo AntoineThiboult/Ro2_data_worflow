@@ -44,10 +44,10 @@ for iStation in CampbellStations:
 
     if iStation in eddyCovStations:
         # Ascii to eddypro
-        pm.batch_process_eddypro(iStation,asciiOutDir,eddyproConfigDir,
+        pm.eddypro.run(iStation,asciiOutDir,eddyproConfigDir,
                                  eddyproOutDir,dates)
         # Load eddypro file
-        eddy_df = pm.load_eddypro_file(iStation,eddyproOutDir)
+        eddy_df = pm.eddypro.merge(iStation,eddyproOutDir,dates)
         # Rename and trim eddy variables
         eddy_df = pm.rename_trim_vars(iStation,varNameExcelSheet,
                                       eddy_df,'eddypro')

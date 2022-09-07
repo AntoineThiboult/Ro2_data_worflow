@@ -3,6 +3,11 @@ import os
 import pandas as pd
 import re
 
+#TODO: check error message
+# C:\Users\anthi182\Documents\GitHub\Ro2_data_worflow\process_micromet\merge_slow_csv.py:35:
+# PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+# slow_df.loc[id_slow_df_in_tmp_df,iVar] = \
+
 def merge_slow_csv(dates,stationName,asciiOutDir):
     """Merge slow csv data. Create a new column if the variable does not exist
     yet, or append if it does.

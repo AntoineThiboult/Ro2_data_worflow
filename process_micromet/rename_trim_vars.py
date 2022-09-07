@@ -26,7 +26,8 @@ def rename_trim_vars(stationName,varNameExcelTab,df,tab):
     column_dic = pd.read_excel(xlsFile,stationName+'_'+tab)
 
     # Make translation dictionary from CS vars to DB vars
-    lines_to_include = column_dic.iloc[:,0].str.contains('NA - Only stored as binary|Database variable name', regex=True)
+    lines_to_include = column_dic.iloc[:,0].str.contains(
+        'NA - Only stored as binary|Database variable name', regex=True)
     column_dic = column_dic[lines_to_include == False]
     column_dic = column_dic.iloc[:,[0,1]]
     column_dic.columns = ['db_name','cs_name']
