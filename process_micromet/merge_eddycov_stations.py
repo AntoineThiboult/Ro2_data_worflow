@@ -123,7 +123,7 @@ def merge_eddycov_stations(stationName, rawFileDir,
             if iVar == 'rad_shortwave_up_CNR4':
                 # Substitutes Berge values with reservoir when available or
                 # with radiation computed from Berge incoming rad and
-                # reservoir mean albedo when not frozen. When frozen, take
+                # reservoir computed albedo when not frozen. When frozen, take
                 # radiation as Berge.
                 id_res_avail = ~df_res[iVar].isna()
                 id_frozen_res = df['water_frozen_sfc'] == 1

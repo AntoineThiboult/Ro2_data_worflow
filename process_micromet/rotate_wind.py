@@ -69,7 +69,7 @@ def rotate_wind(stationName,asciiOutDir):
                       'ang_rate_x', 'ang_rate_y', 'ang_rate_z']
 
         # Distance between accelerometer and IRGASON
-        irga_acc_dist = np.array([0.81, -0.07, 0.07])
+        irga_acc_dist = np.array([0.85, -0.1, 0.1])
 
         # Gravitational constant
         g = 9.80665
