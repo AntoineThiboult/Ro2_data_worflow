@@ -91,15 +91,45 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
                         process=os.path.join(".\Bin","raw2ascii","csidft_convert.exe")
                         subprocess.call([process, inFile, outFile, 'ToA5'])
 
-                        # Rename file according to date
-                        fileContent=pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3], nrows=1)
-                        try:
-                            fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S")    # TIMESTAMP format for _alert.csv, _radiation.csv, and _met30min.csv
-                        except:
-                            fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S.%f") # TIMESTAMP format for _eddy.csv file
+                        if extension == "_eddy.csv":
+                            
+                            # Save the header to respect TOA5 format
+                            with open(outFile) as f:
+                                header = [next(f) for x in range(4)]
+                            
+                            # Load file
+                            df = pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3])
+                            df['TIMESTAMP'] = pd.to_datetime(df['TIMESTAMP'])
+                            
+                            # Split the file into 30 minutes files
+                            index = df.index[
+                                ( (df['TIMESTAMP'].dt.minute == 0) | (df['TIMESTAMP'].dt.minute == 30) ) & \
+                                (df['TIMESTAMP'].dt.second == 0) & \
+                                (df['TIMESTAMP'].dt.microsecond == 0)]
+                            index = index.insert(0,-1)
+                            index = zip(index[0:-1],index[1:])                                
+                            
+                            # Write splitted files
+                            for i in index:
+                                file_name = os.path.join(
+                                    asciiOutDir,stationName,
+                                    df.loc[i[0]+1,'TIMESTAMP'].strftime(
+                                    '%Y%m%d_%H%M') + extension)
+                                # Write header
+                                with open(file_name,'w') as f:
+                                    for h in header:
+                                        f.write(h)        
+                                df.loc[i[0]+1:i[1],:].to_csv(
+                                    file_name, mode='a', header=False, index=False)
+                            os.remove(outFile)
 
-                        newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
-                        shutil.move(outFile,os.path.join(asciiOutDir,stationName,newFileName))
+                        else:
+                            # Rename file according to date
+                            fileContent=pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3], nrows=1)
+                            fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S")    # TIMESTAMP format for _alert.csv, _radiation.csv, and _met30min.csv                        
+                            newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
+                            shutil.move(outFile,os.path.join(asciiOutDir,stationName,newFileName))
+                            
                     except Exception as e:
                         print(str(e))
                         logf.write("Failed to convert {0} from bin to csv: {1} \n".format(inFile, str(e)))
