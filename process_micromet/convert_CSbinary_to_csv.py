@@ -111,20 +111,24 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
                             # Write splitted files
                             for i in index:
                                 if i[1]-i[0] != 18000:
-                                    # Do not save data if there is not 18000
-                                    # records (full 30 min @ 10Hz)
-                                    continue
+                                    # Save the output file in the incomplete
+                                    # folder if the series contains less than
+                                    # 18000 records (full 30 min @ 10Hz)
+                                    file_name = os.path.join(
+                                        asciiOutDir,stationName,'Incomplete',
+                                        df.loc[i[0]+1,'TIMESTAMP'].strftime(
+                                        '%Y%m%d_%H%M') + extension)
                                 else:
                                     file_name = os.path.join(
                                         asciiOutDir,stationName,
                                         df.loc[i[0]+1,'TIMESTAMP'].strftime(
                                         '%Y%m%d_%H%M') + extension)
-                                    # Write header
-                                    with open(file_name,'w') as f:
-                                        for h in header:
-                                            f.write(h)
-                                    df.loc[i[0]+1:i[1],:].to_csv(
-                                        file_name, mode='a', header=False, index=False)
+                                # Write header
+                                with open(file_name,'w') as f:
+                                    for h in header:
+                                        f.write(h)
+                                df.loc[i[0]+1:i[1],:].to_csv(
+                                    file_name, mode='a', header=False, index=False)
                             os.remove(outFile)
 
                         else:
