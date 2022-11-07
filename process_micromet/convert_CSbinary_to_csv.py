@@ -141,7 +141,7 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
                     except Exception as e:
                         print(str(e))
                         logf.write("Failed to convert {0} from bin to csv: {1} \n".format(inFile, str(e)))
-        print(f'Folder {iDataCollection} processed')
+            print(f'Folder {iDataCollection} processed')
     # Close error log file
     logf.close()
 
