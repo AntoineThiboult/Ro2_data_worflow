@@ -214,7 +214,7 @@ def gap_fill(df):
     therm_depths_long = np.array(
         [0, 0.2, 0.4, 0.6, 0.8, 1, 1.4, 1.8, 2.2,
          2.6, 3, 4, 5, 6, 7, 8, 9, 10, 12.5, 15,
-         20, 30, 40, 50, 60, 70])
+         20, 22.5, 25, 27.5, 30, 32.5, 40, 50, 60, 70])
 
     # Names of temperature variables
     therm_depths_names_T1 = ['water_temp_{:d}m{:d}_Therm1'.format(
