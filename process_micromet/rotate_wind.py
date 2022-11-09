@@ -86,7 +86,7 @@ def rotate_wind(stationName,asciiOutDir):
             os.path.join(asciiOutDir,stationName))
                     if re.match(rotFilesRegex, f)]
 
-        logf = open("rotate_wind.log", "w")
+        logf = open(os.path.join('.','Logs','rotate_wind.log'), "w")
 
         #####################
         ### Process files ###
@@ -248,7 +248,7 @@ def rotate_wind(stationName,asciiOutDir):
 
                 except Exception as e:
                     print(str(e))
-                    logf.write("Failed to convert {0} from bin to csv: {1} \n".format(iFile, str(e)))
+                    logf.write("Failed to rotate file {0}: {1} \n".format(iFile, str(e)))
 
         # Close error log file
         logf.close()
