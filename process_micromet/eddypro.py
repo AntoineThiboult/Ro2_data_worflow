@@ -46,8 +46,9 @@ def run(station_name,ascii_dir,eddypro_config_dir,eddypro_out_dir,dates):
 
 
     # Check if there are multiple EddyPro configuration
-    config_list = glob(eddypro_config_dir+'/'+'Ro2_'+station_name+'*.metadata')
+    config_list = glob(eddypro_config_dir+'/'+'Ro2_'+station_name+'*.eddypro')
     config_list = [sub.replace('\\', '/') for sub in config_list]
+    config_list = [sub.replace('.eddypro', '') for sub in config_list]
     eddypro_configs = pd.DataFrame(
         {'start': pd.Series(dtype='datetime64[ns]'),
          'end': pd.Series(dtype='datetime64[ns]'),
@@ -91,8 +92,8 @@ def run(station_name,ascii_dir,eddypro_config_dir,eddypro_out_dir,dates):
     for i_config in eddypro_configs.index:
 
         station_out_dir     = eddypro_out_dir + station_name
-        station_config      = eddypro_config_dir + "Ro2_" + station_name + ".eddypro"
-        station_metadata    = eddypro_configs.loc[i_config,'path']
+        station_config      = eddypro_configs.loc[i_config,'path'] + '.eddypro'
+        station_metadata    = eddypro_configs.loc[i_config,'path'] + '.metadata'
         station_ascii_dir   = ascii_dir + station_name
 
         # Read in the Eddy Pro config file and replace target strings
