@@ -37,6 +37,8 @@ for iStation in CampbellStations:
 
     # Binary to ascii
     pm.convert_CSbinary_to_csv(iStation,rawFileDir,asciiOutDir)
+    # Rotate wind
+    pm.rotate_wind(iStation,asciiOutDir)
     # Merge slow data
     slow_df = pm.merge_slow_csv(dates,iStation,asciiOutDir)
     # Rename and trim slow variables
