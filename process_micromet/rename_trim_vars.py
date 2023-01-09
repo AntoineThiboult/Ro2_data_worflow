@@ -30,11 +30,11 @@ def rename_trim_vars(stationName,varNameExcelTab,df,tab):
         'NA - Only stored as binary|Database variable name', regex=True)
     column_dic = column_dic[lines_to_include == False]
     column_dic = column_dic.iloc[:,[0,1]]
-    column_dic.columns = ['db_name','cs_name']
+    column_dic.columns = ['db_name','original_name']
 
     # Trim dataframe and rename columns
-    idColumnsIntersect = column_dic.cs_name.isin(df.columns)
-    df = df[column_dic.cs_name[idColumnsIntersect]]
+    idColumnsIntersect = column_dic.original_name.isin(df.columns)
+    df = df[column_dic.original_name[idColumnsIntersect]]
     df.columns = column_dic.db_name[idColumnsIntersect]
 
     # Merge columns that have similar column name

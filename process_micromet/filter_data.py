@@ -8,7 +8,7 @@ Created on Mon Nov 29 17:59:16 2021
 import pandas as pd
 import numpy as np
 import pysolar # conda install -c conda-forge pysolar
-from process_micromet import bandpass_filter, detect_spikes, find_friction_vel_threshold
+from process_micromet import bandpass_filter, detect_spikes, find_friction_vel_threshold, rssi_filter
 
 def filter_data(stationName,df,finalOutDir=None):
     """Perform tests on fluxes and radiations data and remove suspicious data
@@ -207,6 +207,10 @@ def filter_data(stationName,df,finalOutDir=None):
         id_band = bandpass_filter(df, iVar)
         df.loc[id_band,iVar] = np.nan
 
+        # Remove low RSSI
+        id_rssi = rssi_filter.rssi_filter(df, iVar)
+        df.loc[id_rssi,iVar] = np.nan
+
         if stationName in ['Berge','Foret_ouest','Foret_est','Reservoir']:
 
             # Remove timestep where rain is measured
@@ -226,8 +230,8 @@ def filter_data(stationName,df,finalOutDir=None):
                 # Remove low quality time step (Mauder et Folken 2004)
                 id_low_quality = df[iVar+'_qf'] == 2
                 df.loc[id_low_quality,iVar] = np.nan
-                strg_var = iVar.split('_')[0]
-                df.loc[id_low_quality,strg_var+'_strg'] = np.nan
+                strg_var = iVar.split('_')[0] + '_strg'
+                df.loc[id_low_quality,strg_var] = np.nan
 
             # Energy balance violation (i.e., H+λE > 5Rn). Only for forested stations
             if stationName in ['Foret_ouest','Foret_est']:
@@ -252,8 +256,8 @@ def filter_data(stationName,df,finalOutDir=None):
                 id_fric_vel = find_friction_vel_threshold(
                     df, iVar, 'air_temp_IRGASON')
                 df.loc[id_fric_vel[0],iVar] = np.nan
-                strg_var = iVar.split('_')[0]
-                df.loc[id_fric_vel[0],strg_var+'_strg'] = np.nan
+                strg_var = iVar.split('_')[0] + '_strg'
+                df.loc[id_fric_vel[0],strg_var] = np.nan
 
         # Identify spikes that should be discarded
         if (iVar in ['CO2_flux', 'CH4_flux']) | (stationName in ['Foret_ouest','Foret_est']):
