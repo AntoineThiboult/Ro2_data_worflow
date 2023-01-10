@@ -26,7 +26,8 @@ def train_rf(target_var, input_vars):
         Scikit random forest fitted to target
     """
 
-    mask = ~np.isnan(np.column_stack((target_var,input_vars))).any(axis=1)
+    mask = ~np.isnan(np.column_stack((target_var,input_vars))).any(axis=1) \
+        & np.isfinite(np.column_stack((target_var,input_vars))).all(axis=1)
 
     X_unscaled = input_vars[mask,:]
     y_unscaled = target_var[mask,np.newaxis]
@@ -63,7 +64,8 @@ def predict_rf(scalerX, scalery, regr, input_vars):
         Predicted variable (ERA5 variable corrected with in situ measurements)
     """
 
-    mask = ~np.isnan(input_vars).any(axis=1)
+    mask = ~np.isnan(input_vars).any(axis=1) \
+        & np.isfinite(input_vars).all(axis=1)
     y_pred = np.zeros((mask.shape[0])) * np.nan
 
     X = scalerX.transform(input_vars[mask,:])
@@ -101,7 +103,7 @@ def gap_fill_meteo(station_name, df, dataFileDir):
 
         'Water_stations':  {
             'proxy':
-                 os.path.join(dataFileDir,'ERA5_Water_stations'),
+                 os.path.join(dataFileDir,'ERA5L_Water_stations'),
             'var_to_fill':
                 {'air_temp_HMP45C':6,
                  'wind_speed_05103':6,
@@ -111,7 +113,7 @@ def gap_fill_meteo(station_name, df, dataFileDir):
 
         'Forest_stations':  {
             'proxy':
-                 os.path.join(dataFileDir,'ERA5_Forest_stations'),
+                 os.path.join(dataFileDir,'ERA5L_Forest_stations'),
              'var_to_fill':
                  {'air_temp_HMP45C':6,
                   'wind_speed_05103':6,
@@ -212,7 +214,7 @@ def gap_fill_radiation(station_name, df, dataFileDir):
     station_infos = {
         'Water_stations':  {
             'proxy':
-                 os.path.join(dataFileDir,'ERA5_Water_stations'),
+                 os.path.join(dataFileDir,'ERA5L_Water_stations'),
             'var_to_fill':
                 ['rad_longwave_down_CNR4',
                  'rad_shortwave_down_CNR4',
@@ -221,7 +223,7 @@ def gap_fill_radiation(station_name, df, dataFileDir):
 
         'Forest_stations':  {
             'proxy':
-                 os.path.join(dataFileDir,'ERA5_Forest_stations'),
+                 os.path.join(dataFileDir,'ERA5L_Forest_stations'),
              'var_to_fill':
                  ['rad_longwave_down_CNR4',
                   'rad_shortwave_down_CNR4',
