@@ -8,17 +8,17 @@ CampbellStations =  ["Berge","Foret_ouest","Foret_est","Foret_sol","Reservoir"]
 eddyCovStations =   ["Berge","Foret_ouest","Foret_est","Reservoir"]
 gapfilledStation =  ["Water_stations","Forest_stations"]
 
-rawFileDir          = "F:/Ro2_micromet_raw_data/Data/"
-asciiOutDir         = "F:/Ro2_micormet_processed_data/Ascii_data/"
-eddyproOutDir       = "F:/Ro2_micormet_processed_data/Eddypro_data/"
-externalDataDir     = "F:/Ro2_micromet_raw_data/Data/External_data_and_misc/"
-intermediateOutDir  = "F:/Ro2_micormet_processed_data/Intermediate_output/"
-finalOutDir         = "F:/Ro2_micormet_processed_data/Final_output/"
+rawFileDir          = "D:/Ro2_micromet_raw_data/Data/"
+asciiOutDir         = "D:/Ro2_micromet_processed_data/Ascii_data/"
+eddyproOutDir       = "D:/Ro2_micromet_processed_data/Eddypro_data/"
+externalDataDir     = "D:/Ro2_micromet_raw_data/Data/External_data_and_misc/"
+intermediateOutDir  = "D:/Ro2_micromet_processed_data/Intermediate_output/"
+finalOutDir         = "D:/Ro2_micromet_processed_data/Final_output/"
 varNameExcelSheet   = "./Resources/Variable_description_full.xlsx"
 eddyproConfigDir    = "./Config/EddyProConfig/"
 gapfillConfigDir    = "./Config/GapFillingConfig/"
 
-dates = {'start':'2018-06-25','end':'2021-10-01'}
+dates = {'start':'2018-06-25','end':'2022-10-01'}
 
 
 def parallel_function_0(dates, rawFileDir, externalDataDir,
@@ -35,8 +35,8 @@ def parallel_function_0(dates, rawFileDir, externalDataDir,
     # Extract data from the HQ weather station
     pm.merge_hq_meteo_station(dates,externalDataDir,finalOutDir)
     # Perform ERA5 extraction and handling
-    pm.retrieve_ERA5land(dates,rawFileDir)
-    pm.handle_netcdf(dates,rawFileDir,intermediateOutDir)
+    pm.reanalysis.retrieve_ERA5land(dates,rawFileDir)
+    pm.reanalysis.netcdf_to_dataframe(dates,rawFileDir,intermediateOutDir)
 
 
 def parallel_function_1(iStation, rawFileDir, asciiOutDir, eddyproOutDir,
@@ -55,7 +55,7 @@ def parallel_function_1(iStation, rawFileDir, asciiOutDir, eddyproOutDir,
 
         # Ascii to eddypro
         pm.eddypro.run(iStation,asciiOutDir,eddyproConfigDir,
-                                 eddyproOutDir,dates)
+                       eddyproOutDir,dates)
         # Load eddypro file
         eddy_df = pm.eddypro.merge(iStation,eddyproOutDir,dates)
         # Rename and trim eddy variables
@@ -87,7 +87,7 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir,
 
     # Merge the eddy covariance together (water/forest)
     df = pm.merge_eddycov_stations(iStation,rawFileDir,
-                                    finalOutDir,varNameExcelSheet)
+                                   finalOutDir,varNameExcelSheet)
 
     # Perform gap filling
     df = pm.gap_fill_slow_data.gap_fill_meteo(iStation,df,intermediateOutDir)
