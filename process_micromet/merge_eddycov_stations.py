@@ -262,8 +262,11 @@ def merge_eddycov_stations(stationName, rawFileDir,
                 df[iVar] = np.nanmean(
                     pd.concat( [df[iVar], df_foret_est[iVar]], axis=1), axis=1)
             else:
-                # Add variable from foret est to foret ouest
-                df[iVar] = df_foret_est[iVar]
+                try:
+                    # Add variable from foret est to foret ouest
+                    df[iVar] = df_foret_est[iVar]
+                except:
+                    warnings.warn(f'Impossible to merge the variable {iVar}')
 
         # Import Foret sol
         df_foret_sol = pd.read_csv(finalOutDir+'Foret_sol'+'.csv', low_memory=False)
