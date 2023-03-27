@@ -30,24 +30,25 @@ def retrieve_routine(variables, dataset, bounding_rectangle, ymd, delay):
     cds = cdsapi.Client()
     year = ymd.strftime('%Y')
     month = ymd.strftime('%m')
+    day = ymd.strftime('%d')
 
-    for day in range(1,monthrange(ymd.year,ymd.month)[1]+1):
-        export_name = os.path.join(
-                    dataset['dest_folder'],
-                    dataset['dest_subfolder'],
-                    dataset['dest_subfolder'] + '_{}{}{:02}.nc'.format(year, month,day))
-        if not os.path.isfile(export_name):
-            time.sleep((delay%10)/2)
-            cds.retrieve(dataset['name'],
-                        {'variable': variables,
-                         'product_type': dataset['product_type'],
-                         'year':   year,
-                         'month':  month,
-                         'day':    day,
-                         'time':   ['{:02}:00'.format(f) for f in range(0,24)],
-                         'area':   bounding_rectangle,
-                         'format': 'netcdf'}, export_name
-                        )
+    export_name = os.path.join(
+                dataset['dest_folder'],
+                dataset['dest_subfolder'],
+                dataset['dest_subfolder'] + f'_{year}{month}{day}.nc')
+    
+    if not os.path.isfile(export_name):
+        time.sleep((delay%10)/2)
+        cds.retrieve(dataset['name'],
+                    {'variable': variables,
+                     'product_type': dataset['product_type'],
+                     'year':   year,
+                     'month':  month,
+                     'day':    day,
+                     'time':   ['{:02}:00'.format(f) for f in range(0,24)],
+                     'area':   bounding_rectangle,
+                     'format': 'netcdf'}, export_name
+                    )
 
 def retrieve_ERA5land(dates, dest_folder):
     """Retrieve data from the ECMWF Copernicus ERA5-land database in a netCDF4
@@ -84,7 +85,7 @@ def retrieve_ERA5land(dates, dest_folder):
                'dest_folder':dest_folder,
                'dest_subfolder':'ERA5L',
                'product_type':'reanalysis'}
-    datelist = pd.date_range(start=dates['start'], end=dates['end'], freq='M')
+    datelist = pd.date_range(start=dates['start'], end=dates['end'], freq='D')
     bounding_rectangle = [53, -64.7, 50.2, -62.4 ] # North, West, South, East.
     variables = [
         # Lake variables
@@ -99,8 +100,7 @@ def retrieve_ERA5land(dates, dest_folder):
         '10m_u_component_of_wind',
         '10m_v_component_of_wind',
         '2m_temperature',
-        'relative_humidity',
-        'specific humidity',
+        '2m_dewpoint_temperature',
         'skin_temperature',
         'soil_temperature_level_1',
         'soil_temperature_level_2',
@@ -229,6 +229,8 @@ def netcdf_to_dataframe(dates, data_folder, dest_folder):
             {'short_name': 'v10', 'db_name': 'wind_speed_v', 'unit_conv': lambda x : x },
         '2m_temperature':
             {'short_name': 't2m', 'db_name': 'air_temp_HMP45C', 'unit_conv': lambda x : x - 273.15},
+        '2m_dewpoint_temperature':
+            {'short_name': 'd2m', 'db_name': 'air_temp_dewPoint', 'unit_conv': lambda x : x},
         'soil_temperature_level_1':
             {'short_name': 'stl1', 'db_name': 'soil_temp_CS650_1', 'unit_conv': lambda x : x - 273.15},
         'soil_temperature_level_2':
@@ -238,12 +240,7 @@ def netcdf_to_dataframe(dates, data_folder, dest_folder):
         'volumetric_soil_water_layer_2':
             {'short_name': 'swvl2', 'db_name': 'soil_watercontent_CS650_2', 'unit_conv': lambda x : x},
         'surface_pressure':
-            {'short_name': 'sp', 'db_name': 'air_press_CS106', 'unit_conv': lambda x : x / 100},
-        'relative_humidity':
-            {'short_name': 'r', 'db_name': 'air_relativeHumidity', 'unit_conv': lambda x : x / 1000},
-        'specific_humidity':
-            {'short_name': 'q', 'db_name': 'air_specificHumidity', 'unit_conv': lambda x : x / 1000},
-
+            {'short_name': 'sp', 'db_name': 'air_press_CS106', 'unit_conv': lambda x : x / 100},        
 
         ### Cumulated vars ###
 
@@ -363,6 +360,13 @@ def netcdf_to_dataframe(dates, data_folder, dest_folder):
         # Compute wind speed
         df['wind_speed_05103'] = np.sqrt(df['wind_speed_u']**2 +
                                    df['wind_speed_v']**2)
+        
+        # Compute relative humidity        
+        p = np.exp( (17.625 * (df['air_temp_dewPoint']-273.15)) 
+                   / (243.04 + df['air_temp_dewPoint']-273.15))
+        ps = np.exp( (17.625 * df['air_temp_HMP45C']) 
+                   / (243.04 + df['air_temp_HMP45C']))
+        df['air_relhum_HMP45C'] = 100*p/ps
 
         # Compute wind direction
         df['wind_dir_05103'] = np.rad2deg(np.arctan2(
