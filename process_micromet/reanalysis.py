@@ -361,12 +361,13 @@ def netcdf_to_dataframe(dates, data_folder, dest_folder):
         df['wind_speed_05103'] = np.sqrt(df['wind_speed_u']**2 +
                                    df['wind_speed_v']**2)
         
-        # Compute relative humidity        
+        # Compute relative humidity
         p = np.exp( (17.625 * (df['air_temp_dewPoint']-273.15)) 
                    / (243.04 + df['air_temp_dewPoint']-273.15))
         ps = np.exp( (17.625 * df['air_temp_HMP45C']) 
                    / (243.04 + df['air_temp_HMP45C']))
         df['air_relhum_HMP45C'] = 100*p/ps
+        df['air_vpd'] = ps * (1-df['air_relhum_HMP45C']/100)
 
         # Compute wind direction
         df['wind_dir_05103'] = np.rad2deg(np.arctan2(

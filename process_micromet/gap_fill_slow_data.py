@@ -106,20 +106,20 @@ def gap_fill_meteo(station_name, df, dataFileDir):
                  os.path.join(dataFileDir,'ERA5L_Water_stations'),
             'var_to_fill':
                 {'air_temp_HMP45C':6,
+                 'air_relhum_HMP45C':6,
+                 'air_vpd':6,
                  'wind_speed_05103':6,
-                 'wind_dir_05103':6,
-                 'air_specificHumidity':12,
-                 'air_relativeHumidity':12}},
+                 'wind_dir_05103':6}},
 
         'Forest_stations':  {
             'proxy':
                  os.path.join(dataFileDir,'ERA5L_Forest_stations'),
              'var_to_fill':
                  {'air_temp_HMP45C':6,
+                  'air_relhum_HMP45C':6,
+                  'air_vpd':6,
                   'wind_speed_05103':6,
                   'wind_dir_05103':6,
-                  'air_specificHumidity':12,
-                  'air_relativeHumidity':12,
                   'air_press_CS106':24,
                   'soil_temp_CS650_1':48,
                   'soil_temp_CS650_2':48,
