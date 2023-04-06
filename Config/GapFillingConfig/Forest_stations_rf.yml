@@ -1,0 +1,66 @@
+meta:
+    site: For forested sites
+    name: Random forest
+    reference: Homemade algorithm based on random forest. Trains multiple models based on proxy variables and the lagged target variable. Gapfill with proxy variables only in last resort
+
+vars_to_fill:
+
+    LE:
+        proxy_vars:
+            rad_shortwave_down_CNR4
+            air_temp
+            air_vpd
+ 
+    H:
+        proxy_vars:
+            rad_shortwave_down_CNR4
+            air_temp
+            air_vpd
+
+    CO2_flux:
+        proxy_vars:
+            rad_shortwave_down_CNR4
+            air_temp
+            air_vpd
+
+    CH4_flux:
+        proxy_vars:
+            rad_shortwave_down_CNR4
+            air_temp
+            air_vpd
+    
+    LE_strg:
+        proxy_vars:
+            rad_shortwave_down_CNR4
+            air_temp
+            air_vpd
+
+    H_strg:
+        proxy_vars:
+            rad_shortwave_down_CNR4
+            air_temp
+            air_vpd
+
+    CO2_strg:
+        proxy_vars:
+            rad_shortwave_down_CNR4
+            air_temp
+            air_vpd
+
+    CH4_strg:
+        proxy_vars:
+            rad_shortwave_down_CNR4
+            air_temp
+            air_vpd
+
+    LE_corr:
+        proxy_vars:
+            rad_shortwave_down_CNR4
+            air_temp
+            air_vpd
+
+    H_corr:
+        proxy_vars:
+            rad_shortwave_down_CNR4
+            air_temp
+            air_vpd

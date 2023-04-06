@@ -1,7 +1,10 @@
 import pandas as pd
+import yaml
+import os
 from process_micromet.gap_fill_mds import gap_fill_mds
+from process_micromet.gap_fill_rf import gap_fill_rf
 
-def gap_fill_flux(station_name,df,out_dir,gap_fill_config):
+def gap_fill_flux(station_name,df,gf_config_dir):
 
     """Load gap filling config file, load additional data from other station
     if necessary, prepare data for gap filling, and call the specified gap
@@ -9,32 +12,48 @@ def gap_fill_flux(station_name,df,out_dir,gap_fill_config):
 
     Parameters
     ----------
+    station_name: string that indicates the name of the station
     merged_df: pandas DataFrame that contains all variables -- slow and eddy
-        covariance data -- for the entire measurement period
-    out_dir: path to the directory that contains the final .csv files
-    gap_fill_config: path to the directory that contains the gap filling
+        covariance data -- for the entire measurement period    
+    gf_config_dir: path to the directory that contains the gap filling
         configuration files
 
     Returns
     -------
     """
-    # load gap filling config file
-    xlsFile = pd.ExcelFile(gap_fill_config+'gapfilling_configuration.xlsx')
-    df_config = pd.read_excel(xlsFile,station_name+'_MDS')
+    
+    # Add variable for gap filling
+    if station_name == 'Water_stations':
+        df['delta_temp_air_eau'] = df['air_temp_HMP45C'] - df['water_temp_sfc']
+    
+    # Didctionary containing names and gapfilling functions
+    gf_methods = {'mds':gap_fill_mds,
+                  'rf':gap_fill_rf}
+    
+    # Loop over gap filling method
+    for i_gf in gf_methods:        
 
-    # Loop over variable that will be gapfilled
-    var_to_fill = df_config.loc[~df_config['Vars_to_fill'].isna(),'Vars_to_fill']
-
-    for iVar_to_fill in var_to_fill:
-        if iVar_to_fill in df.columns:
-
-            # Perform gap filling
-            print('\nStart gap filling for variable {:s} and station {:s}'.format(iVar_to_fill, station_name))
-            df = gap_fill_mds(df,iVar_to_fill,df_config,out_dir)
-
-    # Fill missing storage variable with zeros
-    strg_vars = [var for var in df.columns if '_strg' in var]
-    df[strg_vars] = df[strg_vars].fillna(value=0)
+        # Load configuration
+        config = yaml.safe_load(
+            open(os.path.join(gf_config_dir,f'{station_name}_{i_gf}.yml')))       
+        
+        # Loop over variables
+        for var_to_fill in config['vars_to_fill']:        
+            
+            if var_to_fill in df.columns:
+    
+                # Perform gap filling
+                print('\nStart gap filling for variable ' +
+                      '{:s} and station {:s} with {:s}'.format(
+                          var_to_fill, station_name, i_gf))
+                df = gf_methods[i_gf](df,var_to_fill,config)
+            
+            else: 
+                print(f'{var_to_fill} not present in data')
+    
+    # Remove variables used for gap filling
+    if station_name == 'Water_stations':
+        df = df.drop('delta_temp_air_eau',axis=1)
 
     return df
 

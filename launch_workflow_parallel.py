@@ -92,7 +92,7 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir,
     # Perform gap filling
     df = pm.gap_fill_slow_data.gap_fill_meteo(iStation,df,intermediateOutDir)
     df = pm.gap_fill_slow_data.gap_fill_radiation(iStation,df,intermediateOutDir)
-    df = pm.gap_fill_flux(iStation,df,finalOutDir,gapfillConfigDir)
+    df = pm.gap_fill_flux(iStation,df,gapfillConfigDir)
 
     # Compute storage terms
     df = pm.compute_storage_flux(iStation,df)
