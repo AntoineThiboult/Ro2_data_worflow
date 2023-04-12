@@ -8,7 +8,7 @@ Created on Mon Nov 29 17:59:16 2021
 import pandas as pd
 import numpy as np
 import pysolar # conda install -c conda-forge pysolar
-from process_micromet import bandpass_filter, detect_spikes, find_friction_vel_threshold, rssi_filter
+from process_micromet import bandpass_filter, detect_spikes, find_friction_vel_threshold, rssi_filter, wpl_filter
 
 def filter_data(stationName,df,finalOutDir=None):
     """Perform tests on fluxes and radiations data and remove suspicious data
@@ -210,6 +210,10 @@ def filter_data(stationName,df,finalOutDir=None):
         # Remove low RSSI
         id_rssi = rssi_filter.rssi_filter(df, iVar)
         df.loc[id_rssi,iVar] = np.nan
+        
+        # Remove gas fluxes when WPL correction not available
+        id_wpl = wpl_filter.wpl_filter(df,iVar)
+        df.loc[id_wpl,iVar] = np.nan
 
         if stationName in ['Berge','Foret_ouest','Foret_est','Reservoir']:
 

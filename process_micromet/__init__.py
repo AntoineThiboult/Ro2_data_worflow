@@ -24,3 +24,4 @@ from .merge_eddycov_stations import merge_eddycov_stations
 from . import reanalysis
 from .rotate_wind import rotate_wind
 from .rssi_filter import rssi_filter
+from .wpl_filter import wpl_filter
