@@ -27,8 +27,8 @@ def gap_fill_flux(station_name,df,gf_config_dir):
         df['delta_temp_air_eau'] = df['air_temp_HMP45C'] - df['water_temp_sfc']
     
     # Didctionary containing names and gapfilling functions
-    gf_methods = {'mds':gap_fill_mds,
-                  'rf':gap_fill_rf}
+    gf_methods = {'rf':gap_fill_rf,
+                  'mds':gap_fill_mds}
     
     # Loop over gap filling method
     for i_gf in gf_methods:        

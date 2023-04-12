@@ -10,6 +10,7 @@ from .find_friction_vel_threshold import find_friction_vel_threshold
 from .filter_data import filter_data
 from .gap_fill_flux import gap_fill_flux
 from .gap_fill_mds import gap_fill_mds
+from .gap_fill_rf import gap_fill_rf
 from . import gap_fill_slow_data
 from .handle_exception import handle_exception
 from .merge_slow_csv import merge_slow_csv
