@@ -2,7 +2,7 @@
 import warnings
 import numpy as np
 import pandas as pd
-from process_micromet.filters import detect_spikes
+from process_micromet.filters import spikes
 
 
 def handle_exception(stationName, df):
@@ -106,7 +106,7 @@ def handle_exception(stationName, df):
         # Despike IRGASON temperature time series
         id_dissim = np.abs(df['air_temp_IRGASON'] - df['air_temp_CR3000']) > 10
         df.loc[id_dissim, 'air_temp_IRGASON'] = np.nan
-        id_spikes = detect_spikes(df, 'air_temp_IRGASON')
+        id_spikes = spikes(df, 'air_temp_IRGASON')
         df.loc[id_spikes,'air_temp_IRGASON'] = np.nan
         T_proxy = df['air_temp_IRGASON'].interpolate() + 273.15
 

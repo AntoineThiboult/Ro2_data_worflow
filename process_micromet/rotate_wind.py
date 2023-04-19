@@ -3,7 +3,7 @@ import os
 import re
 import numpy as np
 import pandas as pd
-from process_micromet import detect_spikes
+from process_micromet.filters import spikes
 
 def rotate_wind(stationName,asciiOutDir):
     """Perform a rotation of the IRGASON 3D wind components according to the
@@ -149,7 +149,7 @@ def rotate_wind(stationName,asciiOutDir):
                             df.loc[id_rm,iVar] = np.nan
 
                         # Spiker removal
-                        id_rm = detect_spikes(df, iVar, 10, 7)
+                        id_rm = spikes(df, iVar, 10, 7)
                         df.loc[id_rm,iVar] = np.nan
 
                         # Interpolation
