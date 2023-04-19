@@ -1,0 +1,12 @@
+lon: -63.4051018
+lat: 50.9020996
+proxy_stations: [Foret_est,Berge,Reservoir]
+radiation: False
+energy_balance: False
+friction_vel: 
+    vars: []
+    temperature_var: 
+flux_vars: [LE_corr,H_corr]
+strg_vars: []
+grnd_vars: []
+carbon_vars: []

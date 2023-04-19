@@ -1,0 +1,12 @@
+lon: -63.4051018
+lat: 50.9020996
+proxy_stations: [Foret_ouest,Berge,Reservoir]
+radiation: False
+energy_balance: True
+friction_vel: 
+    vars: [CO2_flux]
+    temperature_var: air_temp_CR3000
+flux_vars: [LE,H,CO2_flux,]
+strg_vars: [LE_strg,H_strg,CO2_strg]
+grnd_vars: []
+carbon_vars: [CO2_flux,CO2_strg]

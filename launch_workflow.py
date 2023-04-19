@@ -16,6 +16,7 @@ finalOutDir         = "D:/Ro2_micromet_processed_data/Final_output/"
 varNameExcelSheet   = "./Resources/Variable_description_full.xlsx"
 eddyproConfigDir    = "./Config/EddyProConfig/"
 gapfillConfigDir    = "./Config/GapFillingConfig/"
+filterConfigDir     = "./Config/Filtering/"
 
 dates = {'start':'2018-06-25','end':'2022-10-01'}
 
@@ -70,7 +71,7 @@ for iStation in CampbellStations:
     # Handle exceptions
     df = pm.handle_exception(iStation,df)
     # Filter data
-    df = pm.filter_data(iStation,df,intermediateOutDir)
+    df = pm.filters.apply_all(iStation,df,filterConfigDir,intermediateOutDir)
     # Save to csv
     df.to_csv(finalOutDir+iStation+'.csv',index=False)
 
@@ -93,7 +94,7 @@ for iStation in gapfilledStation:
         df = pm.correct_energy_balance(df)
 
         # Filter data
-        df = pm.filter_data(iStation,df)
+        df = pm.filters.apply_all(iStation,df,filterConfigDir,finalOutDir)
 
         # Perform gap filling
         df = pm.gap_fill_flux(iStation,df,finalOutDir,gapfillConfigDir)

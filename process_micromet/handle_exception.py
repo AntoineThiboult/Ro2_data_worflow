@@ -2,7 +2,7 @@
 import warnings
 import numpy as np
 import pandas as pd
-from process_micromet import detect_spikes
+from process_micromet.filters import detect_spikes
 
 
 def handle_exception(stationName, df):

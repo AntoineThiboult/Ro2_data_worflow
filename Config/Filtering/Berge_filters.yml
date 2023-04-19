@@ -1,0 +1,12 @@
+lon: -63.2594986
+lat: 50.6538010
+proxy_stations: [Reservoir,Foret_ouest,Foret_est]
+radiation: True
+energy_balance: False
+friction_vel: 
+    vars: [CO2_flux,CH4_flux]
+    temperature_var: air_temp_IRGASON107probe
+flux_vars: [LE,H,CO2_flux,CH4_flux]
+strg_vars: [LE_strg,H_strg,CO2_strg,CH4_strg]
+grnd_vars: []
+carbon_vars: [CO2_flux,CH4_flux,CO2_strg,CH4_strg]

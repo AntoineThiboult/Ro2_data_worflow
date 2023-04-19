@@ -1,0 +1,16 @@
+lon: -63.4051018
+lat: 50.9020996
+proxy_stations: [Foret_ouest,Foret_est,Berge]
+radiation: False
+energy_balance: False
+friction_vel: 
+    vars: []
+    temperature_var: 
+flux_vars: []
+strg_vars: []
+grnd_vars: [soil_electricconductivity_CS650_1, soil_electricconductivity_CS650_2,
+            soil_heatflux_HFP01SC_1, soil_heatflux_HFP01SC_2,
+            soil_temp_CS650_1, soil_temp_CS650_2, soil_temp_TCAV_1,
+            soil_temp_TCAV_2, soil_watercontent_CS650_1,
+            soil_watercontent_CS650_2]
+carbon_vars: []
