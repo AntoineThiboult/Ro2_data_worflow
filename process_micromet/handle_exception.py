@@ -125,6 +125,33 @@ def handle_exception(stationName, df):
                 + (5.67e-8*T_proxy[0:id_change_CNR4]**4)
         df.loc[0:id_change_CNR4,'air_temp_CNR4'] = T_proxy[0:id_change_CNR4]
 
+        #########################################################
+        # Handle the faulty Li7500 that gave nonsensical values #
+        #########################################################
+        try:
+            id_change_Li7500_start = df[df['timestamp']==pd.to_datetime(
+                '2022-03-26 02:00:00')].index[0]
+            id_change_Li7500_end = df[df['timestamp']==pd.to_datetime(
+                '2021-06-19 14:00:00')].index[0]
+            id_change_Li7500 = np.arange(
+                id_change_Li7500_start,id_change_Li7500_end)
+        except IndexError:
+            id_change_Li7500 = []
+
+        Li7500_vars = [
+            # Campbell variables
+            'air_density_IRGASON', 'air_temp_IRGASON', 'CO2_conc_mean_IRGASON',
+            'CO2_conc_stdev_IRGASON', 'CO2_flux_H_wpl_IRGASON', 'CO2_flux_IRGASON',
+            'CO2_flux_LE_wpl_IRGASON', 'CO2_flux_wpl_IRGASON', 'error_flag_IRGASON',
+            'H_IRGASON', 'H2O_conc_mean_IRGASON', 'H2O_conc_stdev_IRGASON',
+            'LE_IRGASON','CO2_density_IRGASON',
+            # EddyPro variables
+            'CO2_mixing_ratio', 'CO2_molar_density', 'CO2_mole_fraction',
+            'air_heat_capacity', 'H2O_mixing_ratio', 'H2O_molar_density',
+            'H2O_mole_fraction'
+            ]
+        df.loc[id_change_Li7500,Li7500_vars] = np.nan
+
     if stationName in ['Reservoir']:
 
         ######################################################
