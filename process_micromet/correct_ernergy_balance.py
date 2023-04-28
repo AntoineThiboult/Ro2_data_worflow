@@ -38,6 +38,11 @@ def correct_energy_balance(df):
 
     df['LE_corr'] = df['LE_gf_mds']
     df['H_corr'] = df['H_gf_mds']
+    df['LE_corr_qf'] = df['LE_qf']
+    df['H_corr_qf'] = df['H_qf']
+    df['LE_corr_strg'] = df['LE_strg']
+    df['H_corr_strg'] = df['H_strg']
+
 
     id_start = (df['timestamp'].dt.hour == 0).first_valid_index()
     id_end = (df['timestamp'].dt.hour == 0).last_valid_index()
