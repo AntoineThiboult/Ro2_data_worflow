@@ -18,6 +18,7 @@ varNameExcelSheet   = "./Resources/Variable_description_full.xlsx"
 eddyproConfigDir    = "./Config/EddyProConfig/"
 gapfillConfigDir    = "./Config/GapFillingConfig/"
 filterConfigDir     = "./Config/Filtering/"
+rawConcConfigDir    = "./Config/Raw_gas_concentration/"
 
 dates = {'start':'2018-06-25','end':'2022-10-01'}
 
@@ -45,6 +46,8 @@ def parallel_function_1(iStation, rawFileDir, asciiOutDir, eddyproOutDir,
 
     # Binary to ascii
     pm.convert_CSbinary_to_csv(iStation,rawFileDir,asciiOutDir)
+    # Correct raw concentrations
+    pm.correct_raw_concentrations(iStation,asciiOutDir,rawConcConfigDir,True)
     # Rotate wind
     pm.rotate_wind(iStation,asciiOutDir)
     # Merge slow data
