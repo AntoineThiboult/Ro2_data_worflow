@@ -8,59 +8,59 @@ vars_to_fill:
     LE:
         proxy_vars:
             rad_shortwave_down_CNR4
-            air_temp
+            air_temp_HMP45C
             air_vpd
  
     H:
         proxy_vars:
             rad_shortwave_down_CNR4
-            air_temp
+            air_temp_HMP45C
             air_vpd
 
     CO2_flux:
         proxy_vars:
             rad_shortwave_down_CNR4
-            air_temp
+            air_temp_HMP45C
             soil_temp_CS650_1
 
     CH4_flux:
         proxy_vars:
             rad_shortwave_down_CNR4
-            air_temp
+            air_temp_HMP45C
             soil_temp_CS650_1
     
     LE_strg:
         proxy_vars:
             rad_shortwave_down_CNR4
-            air_temp
+            air_temp_HMP45C
             air_vpd
 
     H_strg:
         proxy_vars:
             rad_shortwave_down_CNR4
-            air_temp
+            air_temp_HMP45C
             air_vpd
 
     CO2_strg:
         proxy_vars:
             rad_shortwave_down_CNR4
-            air_temp
+            air_temp_HMP45C
             soil_temp_CS650_1
 
     CH4_strg:
         proxy_vars:
             rad_shortwave_down_CNR4
-            air_temp
+            air_temp_HMP45C
             soil_temp_CS650_1
 
     LE_corr:
         proxy_vars:
             rad_shortwave_down_CNR4
-            air_temp
+            air_temp_HMP45C
             air_vpd
 
     H_corr:
         proxy_vars:
             rad_shortwave_down_CNR4
-            air_temp
+            air_temp_HMP45C
             air_vpd
