@@ -98,7 +98,7 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
 
                             # Load file
                             df = pd.read_csv(outFile,sep=',',index_col=None,skiprows=[0,2,3],low_memory=False)
-                            df['TIMESTAMP'] = pd.to_datetime(df['TIMESTAMP'])
+                            df['TIMESTAMP'] = pd.to_datetime(df['TIMESTAMP'], format='mixed')
 
                             # Split the file into 30 minutes files
                             index = df.index[
