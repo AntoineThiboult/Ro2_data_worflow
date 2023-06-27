@@ -3,9 +3,9 @@ import os
 import time
 import pandas as pd
 import numpy as np
+import yaml
 import netCDF4 as ncdf
 import cdsapi
-from calendar import monthrange
 import concurrent.futures
 
 def retrieve_routine(variables, dataset, bounding_rectangle, ymd, delay):
@@ -36,7 +36,7 @@ def retrieve_routine(variables, dataset, bounding_rectangle, ymd, delay):
                 dataset['dest_folder'],
                 dataset['dest_subfolder'],
                 dataset['dest_subfolder'] + f'_{year}{month}{day}.nc')
-    
+
     if not os.path.isfile(export_name):
         time.sleep((delay%10)/2)
         cds.retrieve(dataset['name'],
@@ -49,6 +49,7 @@ def retrieve_routine(variables, dataset, bounding_rectangle, ymd, delay):
                      'area':   bounding_rectangle,
                      'format': 'netcdf'}, export_name
                     )
+
 
 def retrieve_ERA5land(dates, dest_folder):
     """Retrieve data from the ECMWF Copernicus ERA5-land database in a netCDF4
@@ -128,23 +129,6 @@ def retrieve_ERA5land(dates, dest_folder):
 
     print('Done!\n')
 
-def nan_helper(y):
-    """Helper to handle indices and logical indices of NaNs.
-
-    Input:
-        - y, 1d numpy array with possible NaNs
-    Output:
-        - nans, logical indices of NaNs
-        - index, a function, with signature indices= index(logical_indices),
-          to convert logical indices of NaNs to 'equivalent' indices
-    Example:
-        >>> # linear interpolation of NaNs
-        >>> nans, f= nan_helper(y)
-        >>> y[nans]= np.interp(f(nans), f(~nans), y[~nans])
-    """
-
-    return np.isnan(y), lambda z: z.nonzero()[0]
-
 
 def daily_decumulate(x):
     """Decumulate the daily meteorological variables and linearly interpolate
@@ -169,18 +153,19 @@ def daily_decumulate(x):
         ( np.zeros( (n_rows,1) ), x_arr ),
         axis=1)
 
-    # Interpolate over missing half hours
-    for i_row in range(0,n_rows):
-        nans, f = nan_helper(x_arr[i_row, :])
-        x_arr[i_row, nans]= np.interp(f(nans), f(~nans), x_arr[i_row, ~nans])
+    # Compute the difference every two items (on the dot), when they are not nans
+    diff = np.diff(x_arr[:, ::2])
 
-    # Convert back the array to its original shape (n_time_step,)
-    x[:] = np.reshape(np.diff(x_arr,axis=1), x.shape) * 2
+    # Convert back to half hour timestep and evenly split the quantity
+    # over the two half-hours
+    tmp = np.repeat(diff, repeats=2, axis=1) / 2
+
+    x[:] = np.reshape(tmp, x.shape)
 
     return x
 
 
-def netcdf_to_dataframe(dates, data_folder, dest_folder):
+def netcdf_to_dataframe(dates, station_name, config_dir, data_folder, dest_folder):
     """ Organize the daily reanalysis file into a single pandas dataframe
     Additionaly, performs a decumulation for variables that require it.
 
@@ -204,7 +189,7 @@ def netcdf_to_dataframe(dates, data_folder, dest_folder):
     reanalysis = 'ERA5L'
 
     variables = {
-        ### Instantaneous vars ###
+        ## Instantaneous vars ###
 
         # Lake variables
         'lake_mix_layer_temperature':
@@ -240,7 +225,7 @@ def netcdf_to_dataframe(dates, data_folder, dest_folder):
         'volumetric_soil_water_layer_2':
             {'short_name': 'swvl2', 'db_name': 'soil_watercontent_CS650_2', 'unit_conv': lambda x : x},
         'surface_pressure':
-            {'short_name': 'sp', 'db_name': 'air_press_CS106', 'unit_conv': lambda x : x / 100},        
+            {'short_name': 'sp', 'db_name': 'air_press_CS106', 'unit_conv': lambda x : x / 100},
 
         ### Cumulated vars ###
 
@@ -250,13 +235,13 @@ def netcdf_to_dataframe(dates, data_folder, dest_folder):
 
         # Radiation variables
         'surface_solar_radiation_downwards':
-            {'short_name': 'ssrd', 'db_name': 'rad_shortwave_down_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
+            {'short_name': 'ssrd', 'db_name': 'rad_shortwave_down_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 1800},
         'surface_thermal_radiation_downwards':
-            {'short_name': 'strd', 'db_name': 'rad_longwave_down_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
+            {'short_name': 'strd', 'db_name': 'rad_longwave_down_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 1800},
         'surface_net_solar_radiation':
-            {'short_name': 'ssr', 'db_name': 'rad_shortwave_net_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
+            {'short_name': 'ssr', 'db_name': 'rad_shortwave_net_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 1800},
         'surface_net_thermal_radiation':
-            {'short_name': 'str', 'db_name': 'rad_longwave_net_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 3600},
+            {'short_name': 'str', 'db_name': 'rad_longwave_net_CNR4', 'unit_conv': lambda x : daily_decumulate(x) / 1800},
 
         # Precipitation
         'total_precipitation':
@@ -264,9 +249,9 @@ def netcdf_to_dataframe(dates, data_folder, dest_folder):
 
         # Fluxes
         'surface_sensible_heat_flux':
-            {'short_name': 'sshf', 'db_name': 'H', 'unit_conv': lambda x : -1 * daily_decumulate(x) / 3600},
+            {'short_name': 'sshf', 'db_name': 'H', 'unit_conv': lambda x : -1 * daily_decumulate(x) / 1800},
         'surface_latent_heat_flux':
-            {'short_name': 'slhf', 'db_name': 'LE', 'unit_conv': lambda x : -1 * daily_decumulate(x) / 3600},
+            {'short_name': 'slhf', 'db_name': 'LE', 'unit_conv': lambda x : -1 * daily_decumulate(x) / 1800},
         'total_evaporation':
             {'short_name': 'e', 'db_name': 'evap', 'unit_conv': lambda x : -1 * daily_decumulate(x) * 1000},
         'potential_evaporation':
@@ -277,135 +262,134 @@ def netcdf_to_dataframe(dates, data_folder, dest_folder):
             {'short_name': 'evavt', 'db_name': 'plant_evap', 'unit_conv': lambda x : -1 * daily_decumulate(x) * 1000},
               }
 
-    station_coord = {'Water_stations': [-63.2494011, 50.6889992],
-                     'Forest_stations': [-63.4051018, 50.9020996]}
+    # Load configuration
+    config = yaml.safe_load(
+        open(os.path.join(config_dir,f'{station_name}_filters.yml')))
 
     logf = open(os.path.join('.','Logs','reanalysis.log'), "w")
 
-    for iStation in station_coord:
+    # Initialize reference reanalysis dataframe. Extend the reference
+    # period one day before the start day and one day after the end date.
+    # Add 30 min for decumulation.
+    d_start = (pd.to_datetime(dates['start'])
+               + pd.DateOffset(days = -1)
+               + pd.DateOffset(minutes = 30)).strftime('%Y-%m-%d %H:%M:%S')
+    d_end = (pd.to_datetime(dates['end'])
+             + pd.DateOffset(days = 1)
+             + pd.DateOffset(minute = 0)).strftime('%Y-%m-%d %H:%M:%S')
+    df = pd.DataFrame( index=pd.date_range(start=d_start, end=d_end, freq='30min') )
 
-        # Initialize reference reanalysis dataframe. Extend the reference
-        # period one day before the start day and one day after the end date.
-        # Add 30 min for decumulation.
-        d_start = (pd.to_datetime(dates['start'])
-                   + pd.DateOffset(days = -1)
-                   + pd.DateOffset(minutes = 30)).strftime('%Y-%m-%d %H:%M:%S')
-        d_end = (pd.to_datetime(dates['end'])
-                 + pd.DateOffset(days = 1)
-                 + pd.DateOffset(minute = 0)).strftime('%Y-%m-%d %H:%M:%S')
-        df = pd.DataFrame( index=pd.date_range(start=d_start, end=d_end, freq='30min') )
+    # Expected list of reanalysis files (dates)
+    datelist = pd.date_range(start=d_start, end=d_end, freq='D')
 
-        # Expected list of reanalysis files (dates)
-        datelist = pd.date_range(start=d_start, end=d_end, freq='D')
+    for iDate in datelist:
 
-        for iDate in datelist:
+        file_name = os.path.join(
+            data_folder,reanalysis,reanalysis+'_{}.nc'.format(
+                iDate.strftime('%Y%m%d')))
 
-            file_name = os.path.join(
-                data_folder,reanalysis,reanalysis+'_{}.nc'.format(
-                    iDate.strftime('%Y%m%d')))
+        isFilePresent = os.path.isfile(file_name)
 
-            isFilePresent = os.path.isfile(file_name)
-
-            if isFilePresent :
-                isFileComplete = os.path.getsize(file_name) > 2e3
-            else:
-                isFileComplete = False
+        if isFilePresent :
+            isFileComplete = os.path.getsize(file_name) > 2e3
+        else:
+            isFileComplete = False
 
 
-            if isFilePresent & isFileComplete:
+        if isFilePresent & isFileComplete:
 
-                # Open netcdf file
-                rootgrp = ncdf.Dataset(file_name, "r")
+            # Open netcdf file
+            rootgrp = ncdf.Dataset(file_name, "r")
 
-                # Retrieve dates and find matching entries in reference Dataframe
-                ncdf_time = rootgrp['time']
-                f_date = ncdf.num2date(ncdf_time, ncdf_time.units,
-                                       ncdf_time.calendar,
-                                       only_use_cftime_datetimes=False)
+            # Retrieve dates and find matching entries in reference Dataframe
+            ncdf_time = rootgrp['time']
+            f_date = ncdf.num2date(ncdf_time, ncdf_time.units,
+                                    ncdf_time.calendar,
+                                    only_use_cftime_datetimes=False)
 
-                # Initialize temporary dataframe that will contain netcdf data
-                f_date = pd.to_datetime(f_date)
-                id_tmp_in_df = f_date.isin(df.index)
-                id_df_in_tmp = df.index.isin(f_date)
+            # Initialize temporary dataframe that will contain netcdf data
+            f_date = pd.to_datetime(f_date)
+            id_tmp_in_df = f_date.isin(df.index)
+            id_df_in_tmp = df.index.isin(f_date)
 
-                # Handle coordinates
-                id_long = np.argmin( np.abs(
-                    (rootgrp['longitude'][:] - station_coord[iStation][0]) ) )
-                id_lat = np.argmin( np.abs(
-                    (rootgrp['latitude'][:] - station_coord[iStation][1]) ) )
+            # Handle coordinates
+            id_long = np.argmin( np.abs(
+                (rootgrp['longitude'][:] - config['lon']) ) )
+            id_lat = np.argmin( np.abs(
+                (rootgrp['latitude'][:] - config['lat']) ) )
 
-                for iVar in variables:
-                    try:
-                        df.loc[id_df_in_tmp, variables[iVar]['db_name']] = rootgrp[
-                            variables[iVar]['short_name']][id_tmp_in_df,id_lat,id_long]
-                    except:
-                        logf.write(f'{iVar} not found in file {file_name}\n')
+            for iVar in variables:
+                try:
+                    df.loc[id_df_in_tmp, variables[iVar]['db_name']] = rootgrp[
+                        variables[iVar]['short_name']][id_tmp_in_df,id_lat,id_long]
+                except:
+                    logf.write(f'{iVar} not found in file {file_name}\n')
 
-            else:
-                logf.write(f'{file_name} not available yet\n')
-
-
-        # Convert units / decumulate / (interpolate for cumulated vars)
-        for iConv in variables:
-            try:
-                df[variables[iConv]['db_name']] = \
-                    variables[iConv]['unit_conv'](df[variables[iConv]['db_name']])
-            except:
-                logf.write(f'Could not convert {iConv}\n')
+        else:
+            logf.write(f'{file_name} not available yet\n')
 
 
-        # Interpolate for remaining variables
-        df = df.interpolate(method='linear', limit=1)
+    # Convert units / decumulate / (interpolate for cumulated vars)
+    for iConv in variables:
+        try:
+            df[variables[iConv]['db_name']] = \
+                variables[iConv]['unit_conv'](df[variables[iConv]['db_name']])
+        except:
+            logf.write(f'Could not convert {iConv}\n')
 
-        # Compute wind speed
-        df['wind_speed_05103'] = np.sqrt(df['wind_speed_u']**2 +
-                                   df['wind_speed_v']**2)
-        
-        # Compute relative humidity
-        p = np.exp( (17.625 * (df['air_temp_dewPoint']-273.15)) 
-                   / (243.04 + df['air_temp_dewPoint']-273.15))
-        ps = np.exp( (17.625 * df['air_temp_HMP45C']) 
-                   / (243.04 + df['air_temp_HMP45C']))
-        df['air_relhum_HMP45C'] = 100*p/ps
-        df['air_vpd'] = ps * (1-df['air_relhum_HMP45C']/100)
+    # Interpolate for remaining variables
+    df = df.interpolate(method='linear', limit=1)
 
-        # Compute wind direction
-        df['wind_dir_05103'] = np.rad2deg(np.arctan2(
-            df['wind_speed_v'],df['wind_speed_u'])) + 180
+    # Compute wind speed
+    df['wind_speed_05103'] = np.sqrt(df['wind_speed_u']**2 +
+                               df['wind_speed_v']**2)
 
-        # Compute albedo and outward radiations
-        df['rad_shortwave_up_CNR4'] = \
-            df['rad_shortwave_down_CNR4'] - df['rad_shortwave_net_CNR4']
+    # Compute relative humidity
+    p = np.exp( (17.625 * (df['air_temp_dewPoint']-273.15))
+               / (243.04 + df['air_temp_dewPoint']-273.15))
+    ps = np.exp( (17.625 * df['air_temp_HMP45C'])
+               / (243.04 + df['air_temp_HMP45C']))
+    df['air_relhum_HMP45C'] = 100*p/ps
+    df['air_vpd'] = ps * (1-df['air_relhum_HMP45C']/100)
 
-        df['albedo_CNR4'] = np.nan
-        id_daylight = df['rad_shortwave_down_CNR4'] > 50
-        df.loc[id_daylight, 'albedo_CNR4'] = \
-            df.loc[id_daylight,'rad_shortwave_up_CNR4'] \
-                / df.loc[id_daylight,'rad_shortwave_down_CNR4']
+    # Compute wind direction
+    df['wind_dir_05103'] = np.rad2deg(np.arctan2(
+        df['wind_speed_v'],df['wind_speed_u'])) + 180
 
-        df['rad_longwave_up_CNR4'] = \
-            df['rad_longwave_down_CNR4'] - df['rad_longwave_net_CNR4']
+    # Compute albedo and outward radiations
+    df['rad_shortwave_up_CNR4'] = \
+        df['rad_shortwave_down_CNR4'] - df['rad_shortwave_net_CNR4']
 
-        # Change timezone (from UTC to UTC-5)
-        df.insert(0, 'timestamp', df.index)
-        df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
-        df['timestamp'] = df['timestamp'].dt.tz_convert('EST')
-        df['timestamp'] = df['timestamp'].dt.tz_localize(None)
-        df.index = df['timestamp']
+    df['albedo_CNR4'] = np.nan
+    id_daylight = df['rad_shortwave_down_CNR4'] > 50
+    df.loc[id_daylight, 'albedo_CNR4'] = \
+        df.loc[id_daylight,'rad_shortwave_up_CNR4'] \
+            / df.loc[id_daylight,'rad_shortwave_down_CNR4']
 
-        # Set to nan artefacts created by decumulation
-        df.loc[df['air_temp_HMP45C'].last_valid_index():,
-               df.columns != 'timestamp'] = np.nan
+    df['rad_longwave_up_CNR4'] = \
+        df['rad_longwave_down_CNR4'] - df['rad_longwave_net_CNR4']
 
-        # Realign dates on reference dataframe
-        d_start = pd.to_datetime(dates['start']).strftime('%Y-%m-%d')
-        d_end = pd.to_datetime(dates['end']).strftime('%Y-%m-%d')
-        df_ref = pd.DataFrame( index=pd.date_range(start=d_start, end=d_end, freq='30min') )
-        df_ref = df_ref.join(df)
-        df_ref['timestamp'] = df_ref.index
+    # Change timezone (from UTC to UTC-5)
+    df.insert(0, 'timestamp', df.index)
+    df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
+    df['timestamp'] = df['timestamp'].dt.tz_convert('EST')
+    df['timestamp'] = df['timestamp'].dt.tz_localize(None)
+    df.index = df['timestamp']
 
-        # Save
-        df_ref.to_csv(os.path.join(dest_folder,reanalysis+'_'+iStation+'.csv'), index=False)
+    # Set to nan artefacts created by decumulation
+    df.loc[df['air_temp_HMP45C'].last_valid_index():,
+           df.columns != 'timestamp'] = np.nan
+
+    # Realign dates on reference dataframe
+    d_start = pd.to_datetime(dates['start']).strftime('%Y-%m-%d')
+    d_end = pd.to_datetime(dates['end']).strftime('%Y-%m-%d')
+    df_ref = pd.DataFrame( index=pd.date_range(start=d_start, end=d_end, freq='30min') )
+    df_ref = df_ref.join(df)
+    df_ref['timestamp'] = df_ref.index
+
+    # Save
+    df_ref.to_csv(os.path.join(
+        dest_folder,reanalysis + '_' + station_name + '.csv'), index=False)
 
     print('Done!\n')
 

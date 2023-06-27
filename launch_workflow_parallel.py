@@ -38,7 +38,6 @@ def parallel_function_0(dates, rawFileDir, externalDataDir,
     pm.merge_hq_meteo_station(dates,externalDataDir,finalOutDir)
     # Perform ERA5 extraction and handling
     pm.reanalysis.retrieve_ERA5land(dates,rawFileDir)
-    pm.reanalysis.netcdf_to_dataframe(dates,rawFileDir,intermediateOutDir)
 
 
 def parallel_function_1(iStation, rawFileDir, asciiOutDir, eddyproOutDir,
@@ -92,6 +91,10 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir,
     # Merge the eddy covariance together (water/forest)
     df = pm.merge_eddycov_stations(iStation,rawFileDir,
                                    finalOutDir,varNameExcelSheet)
+
+    # Format reanalysis data for gapfilling
+    pm.reanalysis.netcdf_to_dataframe(dates,iStation,filterConfigDir,
+                                      rawFileDir,intermediateOutDir)
 
     # Perform gap filling
     df = pm.gap_fill_slow_data.gap_fill_meteo(iStation,df,intermediateOutDir)
