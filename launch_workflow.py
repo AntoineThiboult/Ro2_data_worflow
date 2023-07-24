@@ -3,9 +3,9 @@ import pandas as pd
 
 ### Define paths
 
-CampbellStations =  ["Berge","Foret_ouest","Foret_est","Foret_sol","Reservoir"]
-eddyCovStations =   ["Berge","Foret_ouest","Foret_est","Reservoir"]
-gapfilledStation =  ["Water_stations","Forest_stations"]
+CampbellStations =  ["Berge","Foret_ouest","Foret_est","Foret_sol","Reservoir","Bernard_lake"]
+eddyCovStations =   ["Berge","Foret_ouest","Foret_est","Reservoir","Bernard_lake"]
+gapfilledStation =  ["Bernard_lake","Water_stations","Forest_stations"]
 
 rawFileDir          = "D:/Ro2_micromet_raw_data/Data/"
 asciiOutDir         = "D:/Ro2_micromet_processed_data/Ascii_data/"

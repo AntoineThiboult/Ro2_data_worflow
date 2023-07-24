@@ -1,11 +1,11 @@
-lon: -63.4051018
-lat: 50.9020996
-proxy_stations: [Foret_est,Bernard_lake,Berge,Reservoir]
+lon: -63.3898409
+lat: 50.8614547
+proxy_stations: [Foret_ouest,Foret_est,Reservoir,Berge]
 radiation: True
 energy_balance: True
 friction_vel: 
     vars: [CO2_flux,CH4_flux]
-    temperature_var: air_temp_CR3000
+    temperature_var: air_temp_IRGASON107probe
 flux_vars: [LE,H,CO2_flux,CH4_flux]
 strg_vars: [LE_strg,H_strg,CO2_strg,CH4_strg]
 grnd_vars: []

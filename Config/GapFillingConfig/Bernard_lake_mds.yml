@@ -1,0 +1,103 @@
+meta:
+    site: For water sites
+    name: Marginal distribution sampling (MDS)
+    reference: "Reichstein et al. (2005). On the separation of net ecosystem exchange into assimilation and ecosystem respiration: review and improved algorithm. Global Change Biology, 11(9), 1424–1439. https://doi.org/info:doi/.
+    
+    CH4 variable proxys (air and water temperature; diel variability; Wind speed)
+    - Johnson, M. S., Matthews, E., Du, J., Genovese, V., & Bastviken, D. (2022). Methane emission from global lakes, New spatiotemporal data and observation-driven modeling of methane dynamics indicates lower emissions. Journal of Geophysical Research, Biogeosciences
+    - Cole, J. J. and Caraco, N. F. Atmospheric exchange of carbon dioxide in a low-wind oligotrophic lake measured by the addition of SF6, Limnol. Oceanogr., 43, 647-656, 1998
+    - Songyan Zhu, Jon McCalmont, Laura M. Cardenas, Andrew M. Cunliffe, Louise Olde, Caroline Signori-Müller, Marcy E. Litvak, Timothy Hill, Gap-filling carbon dioxide, water, energy, and methane fluxes in challenging ecosystems; Comparing between methods, drivers, and gap-lengths, Agricultural and Forest Meteorology, Volume 332, 2023, 109365, ISSN 0168-1923,
+    
+    CO2 variable proxys (air and water temperature; Wind speed; incoming solar radiation)
+    - Stets, E. G., Striegl, R. G., & Aiken, G. R. (2018). CO2 evasion from temperate and boreal lakes and reservoirs; net regional and global implications. Inland Waters, 8(4), 379-390.
+    - Songyan Zhu, Jon McCalmont, Laura M. Cardenas, Andrew M. Cunliffe, Louise Olde, Caroline Signori-Müller, Marcy E. Litvak, Timothy Hill, Gap-filling carbon dioxide, water, energy, and methane fluxes in challenging ecosystems; Comparing between methods, drivers, and gap-lengths, Agricultural and Forest Meteorology, Volume 332, 2023, 109365, ISSN 0168-1923
+    "
+
+
+vars_to_fill:
+
+    LE:
+        proxy_vars:
+            delta_temp_air_eau: 3.5
+            wind_speed_05103: 1
+            air_relhum_HMP45C: 5
+        proxy_vars_subset:
+            delta_temp_air_eau: 3.5
+
+    H:
+        proxy_vars:
+            delta_temp_air_eau: 3.5
+            wind_speed_05103: 1
+            air_relhum_HMP45C: 5
+        proxy_vars_subset:
+            delta_temp_air_eau: 3.5
+
+    CO2_flux:
+        proxy_vars:
+            water_temp_sfc: 3
+            air_temp_HMP45C: 4
+            rad_shortwave_down_CNR4: 100
+            wind_speed_05103: 1
+        proxy_vars_subset:
+            water_temp_sfc: 3
+            wind_speed_05103: 2
+
+    CH4_flux:
+        proxy_vars:
+            water_temp_sfc: 3
+            air_temp_HMP45C: 4            
+            wind_speed_05103: 1
+        proxy_vars_subset:
+            water_temp_sfc: 3
+            wind_speed_05103: 2
+    
+    LE_strg:
+        proxy_vars:
+            delta_temp_air_eau: 3.5
+            wind_speed_05103: 1
+            air_relhum_HMP45C: 5
+        proxy_vars_subset:
+            delta_temp_air_eau: 3.5
+
+    H_strg:
+        proxy_vars:
+            delta_temp_air_eau: 3.5
+            wind_speed_05103: 1
+            air_relhum_HMP45C: 5
+        proxy_vars_subset:
+            delta_temp_air_eau: 3.5
+
+    CO2_strg:
+        proxy_vars:
+            water_temp_sfc: 3
+            air_temp_HMP45C: 4
+            rad_shortwave_down_CNR4: 100
+            wind_speed_05103: 1
+        proxy_vars_subset:
+            water_temp_sfc: 3
+            wind_speed_05103: 2
+
+    CH4_strg:
+        proxy_vars:
+            water_temp_sfc: 3
+            air_temp_HMP45C: 4            
+            wind_speed_05103: 1
+        proxy_vars_subset:
+            water_temp_sfc: 3
+            wind_speed_05103: 2
+
+    LE_corr:
+        proxy_vars:
+            delta_temp_air_eau: 3.5
+            wind_speed_05103: 1
+            air_relhum_HMP45C: 5
+        proxy_vars_subset:
+            delta_temp_air_eau: 3.5
+
+    H_corr:
+        proxy_vars:
+            delta_temp_air_eau: 3.5
+            wind_speed_05103: 1
+            air_relhum_HMP45C: 5
+        proxy_vars_subset:
+            delta_temp_air_eau: 3.5

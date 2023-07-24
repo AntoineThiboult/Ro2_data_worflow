@@ -1,6 +1,6 @@
 lon: -63.4051018
 lat: 50.9020996
-proxy_stations: [Foret_ouest,Foret_est,Berge]
+proxy_stations: [Foret_ouest,Foret_est,Bernard_lake,Berge]
 radiation: False
 energy_balance: False
 friction_vel: 
