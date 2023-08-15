@@ -16,9 +16,6 @@ from .merge_slow_csv import merge_slow_csv #noqa
 from .merge_slow_csv_and_eddypro import merge_slow_csv_and_eddypro  #noqa
 from . import thermistors #noqa
 from .rename_trim_vars import rename_trim_vars #noqa
-from .merge_natashquan import merge_natashquan #noqa
-from .merge_hq_reservoir import merge_hq_reservoir #noqa
-from .merge_hq_meteo_station import merge_hq_meteo_station #noqa
 from .merge_eddycov_stations import merge_eddycov_stations #noqa
 from . import reanalysis #noqa
 from .rotate_wind import rotate_wind #noqa
