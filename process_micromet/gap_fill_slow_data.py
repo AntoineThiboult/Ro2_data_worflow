@@ -125,8 +125,17 @@ def gap_fill_meteo(station_name, df, dataFileDir):
                   'soil_temp_CS650_2':48,
                   'soil_watercontent_CS650_1':96,
                   'soil_watercontent_CS650_2':96,
-                  'soil_heatflux_HFP01SC_1': 96}}
+                  'soil_heatflux_HFP01SC_1': 96}},
 
+        'Bernard_lake':  {
+            'proxy':
+                 os.path.join(dataFileDir,'ERA5L_Bernard_lake'),
+            'var_to_fill':
+                {'air_temp_HC2S3':6,
+                 'air_relhum_HC2S3':6,
+                 'air_vpd':6,
+                 'wind_speed_05103':6,
+                 'wind_dir_05103':6}},
                      }
 
 
@@ -229,6 +238,15 @@ def gap_fill_radiation(station_name, df, dataFileDir):
                   'rad_shortwave_down_CNR4',
                   'rad_longwave_up_CNR4',
                   'rad_shortwave_up_CNR4']},
+
+         'Bernard_lake':  {
+             'proxy':
+                  os.path.join(dataFileDir,'ERA5L_Bernard_lake'),
+              'var_to_fill':
+                  ['rad_longwave_down_CNR4',
+                   'rad_shortwave_down_CNR4',
+                   'rad_longwave_up_CNR4',
+                   'rad_shortwave_up_CNR4']},
                      }
 
     ########################

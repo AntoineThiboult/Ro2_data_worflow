@@ -282,6 +282,12 @@ def merge_eddycov_stations(stationName, rawFileDir,
         # Merge foret ouest and est DataFrames
         df[column_dic] = df_foret_sol[column_dic]
 
+    elif stationName == 'Bernard_lake':
+
+        # Import Foret data
+        df = pd.read_csv(finalOutDir+'Bernard_lake'+'.csv', low_memory=False)
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+
     else:
         print('{}: Unknown station name'.format(stationName))
 

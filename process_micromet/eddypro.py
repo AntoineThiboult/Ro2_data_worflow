@@ -46,7 +46,7 @@ def run(station_name,ascii_dir,eddypro_config_dir,eddypro_out_dir,dates):
 
 
     # Check if there are multiple EddyPro configuration
-    config_list = glob(eddypro_config_dir+'/'+'Ro2_'+station_name+'*.eddypro')
+    config_list = glob(eddypro_config_dir+'/'+'*'+station_name+'*.eddypro')
     config_list = [sub.replace('\\', '/') for sub in config_list]
     config_list = [sub.replace('.eddypro', '') for sub in config_list]
     eddypro_configs = pd.DataFrame(

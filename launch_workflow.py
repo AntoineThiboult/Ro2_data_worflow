@@ -23,7 +23,8 @@ dates = {'start':'2018-06-25','end':'2022-10-01'}
 
 
 # Merge Hobo TidBit thermistors
-pm.merge_thermistors(dates,rawFileDir,finalOutDir)
+df = pm.thermistors.merge(dates,rawFileDir)
+df = pm.thermistors.gap_fill(df)
 # Make Natashquan data
 pm.merge_natashquan(dates,externalDataDir,finalOutDir)
 # Merge data relative to reservoir provided by HQ
