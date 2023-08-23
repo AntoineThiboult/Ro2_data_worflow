@@ -7,6 +7,13 @@ import subprocess
 import shutil
 import pandas as pd
 
+station_name_dict = {'Berge': 'Romaine-2_reservoir_shore',
+                     'Foret_ouest': 'Bernard_spruce_moss_west',
+                     'Foret_est': 'Bernard_spruce_moss_est',
+                     'Foret_sol': 'Bernard_spruce_moss_ground',
+                     'Reservoir': 'Romaine-2_reservoir_raft',
+                     'Bernard_lake': 'Bernard_lake'}
+
 def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     """Convert Campbell Scientific binary files (.dat) to readable .csv files.
     Csv files are named in the format YYYYMMDD_hhmm_type.csv, where the date
@@ -20,11 +27,11 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     The source directory containing the .dat files should be organized as
     follow:
         rawFileDir
-        |--Ro2_YYYYMMDD
+        |--YYYYMMDD
         |   |--stationName_YYYYMMDD
         |       |--foo.dat
         |       |--bar.dat
-        |--Ro2_YYYYMMDD
+        |--YYYYMMDD
         |   |--stationName_YYYYMMDD
         |       |--foo.dat
         |       |--bar.dat
@@ -47,14 +54,14 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     # Open error log file
     logf = open(os.path.join('.','Logs','convert_CSbinary_to_csv.log'), "w")
 
-    #Find folders that match the pattern Ro2_YYYYMMDD
-    listFieldCampains = [f for f in os.listdir(rawFileDir) if re.match(r'^Ro2_[0-9]{8}$', f)]
+    #Find folders that match the pattern YYYYMMDD
+    listFieldCampains = [f for f in os.listdir(rawFileDir) if re.match(r'[0-9]{8}$', f)]
 
     for iFieldCampain in listFieldCampains:
 
         #Find folders that match the pattern Station_YYYYMMDD
-        sationNameRegex=r'^' + stationName + r'_[0-9]{8}$'
-        listDataCollection  = [f for f in os.listdir(os.path.join(rawFileDir,iFieldCampain)) if re.match(sationNameRegex, f)]
+        stationNameRegex=r'^' + station_name_dict[stationName] + r'_[0-9]{8}$'
+        listDataCollection  = [f for f in os.listdir(os.path.join(rawFileDir,iFieldCampain)) if re.match(stationNameRegex, f)]
 
         for iDataCollection in listDataCollection:
 
