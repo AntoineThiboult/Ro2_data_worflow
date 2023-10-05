@@ -1,188 +1,239 @@
 # -*- coding: utf-8 -*-
-import os
+import warnings
+import re
+from pathlib import Path
 import pandas as pd
 import numpy as np
-import re
-import warnings
 from sklearn import linear_model
+from process_micromet import ml_utils as ml
 
-def merge(dates, rawFileDir):
-    """Merge data collected by the thermistors (TidBit and U20 sensors).
-    Perform gap filling of the series.
-    Extrapolate surface temperature based on first meter temperature with
-    multidimensional linear regression.
-    Because HOBOware does not disclose their binary format, this function does
-    not provide any conversion from .hobo to a broadly readable format. Thus,
-    one needs to first convert .hobo to .xlxs with HOBOware.
 
-    The source directory containing the .xlsx files should be organized as
-    follow:
-        rawFileDir
-        |--Ro2_YYYYMMDD
-        |   |--TidBit_YYYYMMDD
-        |       |--Excel_exported_YYYYMMDD
-        |           |--foo.dat
-        |           |--bar.dat
-        |--Ro2_YYYYMMDD
-        |   |--TidBit_YYYYMMDD
-        |       |--Excel_exported_YYYYMMDD
-        |           |--foo.dat
-        |           |--bar.dat
+
+def list_data(station_name, raw_file_dir):
+    """
+    Search *.csv thermistors data for a given station.
+
+    Parameters
+    ----------
+    station_name : String
+        Name of the station
+    raw_file_dir : String or Pathlib path
+        Path to the root directory that contains thermistor data.
+
+    Returns
+    -------
+    csv_files : List
+        List of Pathlib path toward of the thermistors for a given station
+    """
+
+    root_path = Path(raw_file_dir)
+    csv_files = []
+
+    for subfolder in root_path.rglob(f'*{station_name}*'):
+        for file in subfolder.glob('*.csv'):
+            csv_files.append(file)
+
+    return csv_files
+
+
+def merge(dates, csv_files):
+    """ Merge data collected by the thermistors (TidBit and U20 sensors).
+    The depth of the sensor should be indicated in the name of the file
+    following the first underscore. Ex: mystation_12.5_YYYYMMDD.csv
 
     Parameters
     ----------
     dates: dictionnary that contains a 'start' and 'end' key to indicates the
         period range to EddyPro.
         Example: dates{'start': '2018-06-01', 'end': '2020-02-01'}
-    rawFileDir: path to the directory that contains the .xlsx files
+    csv_files : List
+        List of Pathlib path toward of the thermistors for a given station
 
     Returns
     -------
-    None.
+    df: Pandas dataframe
+        Thermistor data. One column per variable and depth with datetime index
+    retrieval_dates: Dictionary
+        Dictionary that contains tuples where the first date indicate begining
+        of the dataset, second date the end, for each data collection. The keys
+        refer to the df columns.
     """
 
-    print('Start merging thermistors data')
     df = pd.DataFrame( index=pd.date_range(start=dates['start'], end=dates['end'], freq='30min') )
 
-    #Find folders that match the pattern Ro2_YYYYMMDD
-    listFieldCampains = [f for f in os.listdir(rawFileDir) if re.match(r'^Ro2_[0-9]{8}$', f)]
+    # Routine to save the dates of thermistor data collection
+    retrieval_dates = dict()
 
-    counterField = 0
-    for iFieldCampain in listFieldCampains:
-
-        #Find folders that match the pattern TidBit_YYYYMMDD
-        sationNameRegex = r'^' + 'TidBit' + r'_[0-9]{8}$'
-        listDataCollection  = [f for f in os.listdir(os.path.join(rawFileDir,iFieldCampain)) if re.match(sationNameRegex, f)]
-
-        for iDataCollection in listDataCollection:
-
-            #Find all thermistor files in folder
-            thermNameRegex = r'^' + 'Therm' + r'[1-2].*xlsx$'
-            listThermSensors = [f for f in os.listdir(os.path.join(rawFileDir,iFieldCampain,iDataCollection,'Excel_exported')) if re.match(thermNameRegex, f)]
-            counterSensor = 0
-
-            for iSensor in listThermSensors:
-
-                # Load data and handle annoying warning message
-                with warnings.catch_warnings(record=True):
-                    warnings.simplefilter("always")
-                    df_tmp = pd.read_excel(os.path.join(rawFileDir,iFieldCampain,iDataCollection,'Excel_exported',iSensor), skiprows=[0], engine=('openpyxl'))
-
-                # Remove 12 hours before and after data collection to avoid air contamination
-                df_tmp = df_tmp.drop(df_tmp.index[0:24])
-                df_tmp = df_tmp.drop(df_tmp.index[-26:])
-
-                # Making nice variable names
-                tmp_sensorNiceName = re.sub('\.','m',iSensor,1)[0:-5]
-                sensorNiceNameTemp = 'water_temp_' + re.split('_',tmp_sensorNiceName)[1] + '_' + re.split('_',tmp_sensorNiceName)[0]
-                sensorNiceNamePress = 'water_height_' + re.split('_',tmp_sensorNiceName)[1] + '_' + re.split('_',tmp_sensorNiceName)[0]
+    def store_retrieval_dates(variable_name):
+        if variable_name in retrieval_dates:
+            # Append the new dates to the existing list
+            retrieval_dates[variable_name].append(
+                (df_tmp.index[0], df_tmp.index[-1])
+                )
+        else:
+            # Create a new entry with the current dates
+            retrieval_dates[variable_name] = [
+                (df_tmp.index[0], df_tmp.index[-1])
+                ]
+        return retrieval_dates
 
 
-                # Remove log columns
-                listCol = [c for c in df_tmp.columns if re.match('.*(Date|Temp|Pres).*', c)]
-                df_tmp = df_tmp[listCol]
-                df_tmp.index = pd.to_datetime(df_tmp.iloc[:,0])
-                df_tmp = df_tmp.loc[~df_tmp.index.duplicated(keep='first')]
+    for counter, file in enumerate(csv_files):
 
-                # Fill df with records
-                if df_tmp.shape[1] == 2: # Temperature only sensor
-                    idDates_RecInRef = df_tmp.index.isin(df.index)
-                    idDates_RefInRec = df.index.isin(df_tmp.index)
-                    df.loc[idDates_RefInRec,sensorNiceNameTemp] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[1]]
+        if 'pro_oceanus' in file.stem:
+            print('Pro oceanus sensors not implemented yet. DCO2 data skipped')
+            continue
 
-                elif df_tmp.shape[1] == 3: # Temperature and pressure sensor
-                    idDates_RecInRef = df_tmp.index.isin(df.index)
-                    idDates_RefInRec = df.index.isin(df_tmp.index)
-                    df.loc[idDates_RefInRec,sensorNiceNameTemp] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[2]]
-                    df.loc[idDates_RefInRec,sensorNiceNamePress] = df_tmp.loc[idDates_RecInRef,df_tmp.columns[1]]
+        # Get depth of the sensor
+        match = re.search(r'_(\d+(\.\d+)?)', file.stem) # Get first number following first underscore
+        if match:
+            if '.' in match.group(1):
+                depth_string = match.group(1).replace('.','m')
+            else:
+                depth_string = f'{match.group(1)}m0'
+        else:
+            warnings.warn(f'No depth found for {file.stem}. '
+                          'Could not process the file.')
+            continue
 
-                print("\rMerging thermistors for dataset {:s}. Total progress {:2.1%} ".format(
-                    iFieldCampain, 1/len(listFieldCampains)*counterField +
-                    1/len(listFieldCampains)*counterSensor/len(listThermSensors)), end='\r')
-                counterSensor += 1
-        counterField += 1
+        # Get the number of rows to skip
+        with open(file, 'r', encoding='utf-8') as f:
+            for l, line in enumerate(f, start=1):
+                if any(keyword in line.lower() for keyword in ['date', 'day']):
+                    skiprows = range(0,l-1)
+                    break
+
+        # Load data file
+        df_tmp = pd.read_csv(file, skiprows=skiprows)
+
+        # Convert first col to datetime format and the rest to float
+        df_tmp.index = pd.to_datetime(df_tmp.iloc[:,0])
+        df = df.astype(np.float64)
+
+        # Handle exceptions where loggers fail to increment time
+        df_tmp = df_tmp.loc[ ~df_tmp.index.duplicated() ]
+
+        # Find matchin dates
+        idDates_RecInRef = df_tmp.index.isin(df.index)
+        idDates_RefInRec = df.index.isin(df_tmp.index)
+
+        for col in df_tmp.columns:
+            if 'temp' in col.lower():
+                df.loc[idDates_RefInRec, f'water_temp_{depth_string}'] = \
+                    df_tmp.loc[idDates_RecInRef, col]
+                store_retrieval_dates(f'water_temp_{depth_string}')
+
+            if 'intensity' in col.lower():
+                df.loc[idDates_RefInRec, f'light_intensity_{depth_string}'] = \
+                    df_tmp.loc[idDates_RecInRef, col]
+                store_retrieval_dates(f'light_intensity_{depth_string}')
+
+            if 'pres' in col.lower():
+                df.loc[idDates_RefInRec, f'pressure_{depth_string}'] = \
+                    df_tmp.loc[idDates_RecInRef, col]
+                store_retrieval_dates(f'pressure_{depth_string}')
+
+    return df, retrieval_dates
+
+
+def filters(df, retrieval_dates=[]):
+    """
+    Filters thermistor data. Set data to nan 6 hours before and 12 hours after
+    data collection to avoid air contamination. Set to nan when the chain is
+    not straight enough (difference greater than 5 kPa from a two day rolling
+    median) or when a temperature jump is observed (difference greater than
+    2°C from a 6 hour rolling median)
+
+    Parameters
+    ----------
+    df: Pandas dataframe
+        Thermistor data. One column per variable and depth with datetime index
+    retrieval_dates: Dictionary
+        Dictionary that contains tuples where the first date indicate begining
+        of the dataset, second date the end, for each data collection. The keys
+        refer to the df columns. If not specified, no data will be removed
+        around dates of data collection
+
+    Returns
+    -------
+    df : Pandas dataframe
+        Thermistor data filtered. One column per variable and depth with
+        datetime index
+    """
+
+    # Remove 6 hours before and 12 hours after data collection
+    # to avoid air contamination
+    for variable in retrieval_dates:
+        for date in retrieval_dates[variable]:
+
+            buffer_before = pd.date_range(
+                start=date[0].floor(freq='30T') - pd.Timedelta(hours=6),
+                end=date[0].ceil(freq='30T'),
+                freq='30T')
+            for i in buffer_before:
+                if i in df.index:
+                    df.loc[i,variable] = np.nan
+
+            buffer_after = pd.date_range(
+                start=date[1].floor(freq='30T'),
+                end=date[1].floor(freq='30T') + pd.Timedelta(hours=12),
+                freq='30T')
+            for i in buffer_after:
+                if i in df.index:
+                    df.loc[i,variable] = np.nan
 
     # Filter cases where the chain is not straight
-    for iChain in ['Therm1', 'Therm2']:
-        chain_vars = [s for s in df.columns if iChain in s]
-        chain_depth_var = [s for s in chain_vars if 'height' in s]
-        index = df.index[
-            ( df[chain_depth_var[0]].rolling(
-                window=96,center=True,min_periods=1).median() \
-                    - df[chain_depth_var[0]] ).abs() > 5]
-        df.loc[index,chain_vars] = np.nan
-
-    # Filter remaining spikes related to sensor malfunction or manipulation
-    for iVar in df.columns:
-        if 'temp' in iVar:
-            index = df.index[
-                ( df[iVar].rolling(
-                    window=12,center=True,min_periods=1).median() \
-                        - df[iVar] ).abs() > 2]
-            df.loc[index,iVar] = np.nan
-
-    df['timestamp'] = df.index
-    df = df.reindex(sorted(df.columns), axis=1)
-
-    # Linear interpolation when less than two days are missing
-    df.loc[:, df.columns != 'timestamp'] = \
-        df.loc[:, df.columns != 'timestamp'].interpolate(method='linear', limit=96)
-
-    #################################
-    ### Perform linear regression ###
-    #################################
-
-    # Average both chain
-    df_avg = pd.DataFrame()
-    listVarReg = [
-        'water_temp_0m0_Therm',
-        'water_temp_0m4_Therm',
-        'water_temp_0m6_Therm',
-        'water_temp_0m8_Therm',
-        'water_temp_1m0_Therm'
+    pressure_var = [var for var in df.columns if 'press' in var.lower()]
+    rolling_press = df[pressure_var].rolling(
+        window=96,center=True,min_periods=1).median()
+    uplifts_index = df.index[
+        (( rolling_press - df[pressure_var] ).abs() > 5).any(axis=1)
         ]
-    listVarReg1 = [f+'1' for f in listVarReg]
-    listVarReg2 = [f+'2' for f in listVarReg]
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=RuntimeWarning)
-        df_avg[listVarReg] = np.nanmean(
-            [df[listVarReg1],df[listVarReg2]],axis=0)
+    df.loc[uplifts_index] = np.nan
 
-    # Data preprocessing
-    mask = ~df_avg[listVarReg].isna().any(axis=1)
-    X = df_avg.loc[mask,listVarReg[1:]].values
-    y = df_avg.loc[mask,listVarReg[0]].values
+    # Spiky temperture
+    temp_var = [var for var in df.columns if 'temp' in var.lower()]
+    for i_var in temp_var:
+        rolling_temp = df[i_var].rolling(
+            window=24,center=True,min_periods=1).median()
+        spike_index = df.index[
+            ( rolling_temp - df[i_var] ).abs() > 2 ]
+        df.loc[spike_index,i_var] = np.nan
 
-    # Perform regression
-    reg =  linear_model.LinearRegression()
-    reg.fit(X,y)
-
-    # Predict
-    mask = ~df_avg[listVarReg[1:]].isna().any(axis=1)
-    df.loc[df.index[mask],'water_temp_sfc'] = reg.predict(
-        df_avg.loc[mask,listVarReg[1:]].values)
-    df.loc[df['water_temp_sfc']<0,'water_temp_sfc'] = 0
-
-    print('\nDone!')
     return df
 
 
+def average(df1, df2):
+    """
+    Average two DataFrame that contains thermistor data. Values in the result
+    DataFrame is the average of the two DataFrames for the same date, column by
+    column, unless there is no data available on one chain, in which case it
+    is simply the data from the other chain.
 
-def pairwise(iterable):
+    Parameters
+    ----------
+    df1, df2 : Pandas dataframe
+        Thermistor data. One column per variable and depth with datetime index
+
+    Returns
+    -------
+    df : Pandas dataframe
+        Thermistor averaged data. One column per variable and depth with
+        datetime index
     """
-    Routine to iter over pairs
-    s -> (s0, s1), (s2, s3), (s4, s5), ...
-    """
-    a = iter(iterable)
-    return zip(a, a)
+
+    # Concatenate the dataframes along the index
+    combined_df = pd.concat([df1, df2], axis=0)
+    # Calculate the mean of the columns
+    df = combined_df.groupby(level=0).mean()
+    return df
 
 
 def gap_fill(df):
     """
-    Create an average thermistor chain and gap fill missing data.
     Gaps are filled with several technics applied in the following order
-    1) Water surface temperature is derived from linear regression as
-        implemented in merge_thermistor.py
+    1) Water surface temperature is derived from multidimensional linear
+        regression performed on first meter temperatures
     2) Water temperature are derived from a linear regression with
         temperature above and below target.
     3) Remaining missing data are filled with yearly averaged temperature
@@ -192,9 +243,8 @@ def gap_fill(df):
 
     Parameters
     ----------
-    df : Pandas DataFrame
-        Dataframe that contains water temperature variable with the following
-        format: water_temp_<d>m<d>_Therm1
+    df: Pandas dataframe
+        Thermistor data. One column per variable and depth with datetime index
 
     Returns
     -------
@@ -203,137 +253,187 @@ def gap_fill(df):
         following format: water_temp_<d>m<d>_avg
 
     """
-
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    df.index = range(0,df.shape[0])
-
-    therm_depths_short = np.array(
-        [0, 0.2, 0.4, 0.6, 0.8, 1, 1.4, 1.8, 2.2,
-         2.6, 3, 4, 5, 6, 7, 8, 9, 10, 12.5, 15])
-
-    therm_depths_long = np.array(
-        [0, 0.2, 0.4, 0.6, 0.8, 1, 1.4, 1.8, 2.2,
-         2.6, 3, 4, 5, 6, 7, 8, 9, 10, 12.5, 15, 17.5,
-         20, 22.5, 25, 27.5, 30, 32.5, 40, 50, 60, 70])
-
-    # Names of temperature variables
-    therm_depths_names_T1 = ['water_temp_{:d}m{:d}_Therm1'.format(
-        int(f), int(np.round((f-np.fix(f))*10))) for f in therm_depths_short ]
-    therm_depths_names_T2 = ['water_temp_{:d}m{:d}_Therm2'.format(
-        int(f), int(np.round((f-np.fix(f))*10))) for f in therm_depths_long ]
-    therm_depths_names = ['water_temp_{:d}m{:d}_avg'.format(
-        int(f), int(np.round((f-np.fix(f))*10))) for f in therm_depths_long ]
-
-    # Construct mean temperature dataset
-    for count, iVar in enumerate(therm_depths_names):
-        if count < len(therm_depths_names_T1):
-            df[iVar] = df[[
-                therm_depths_names_T1[count],therm_depths_names_T2[count]
-                ]].mean(axis=1)
-        else:
-            df[iVar] = df[therm_depths_names_T2[count]]
+    def natural_sort(l):
+        convert = lambda text: int(text) if text.isdigit() else text.lower()
+        alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
+        return sorted(l, key=alphanum_key)
 
 
-    ######################################
-    ### Water surface temp replacement ###
-    ######################################
+    def pairwise(iterable):
+        """
+        Routine to iter over pairs
+        s -> (s0, s1), (s2, s3), (s4, s5), ...
+        """
+        a = iter(iterable)
+        return zip(a, a)
 
-    index_na = df.index[df['water_temp_0m0_avg'].isna()]
-    df.loc[index_na,'water_temp_0m0_avg'] = df.loc[index_na,'water_temp_sfc']
 
-    ##############################
-    ### Vertical extrapolation ###
-    ##############################
+    def vertical_extrapolation(df, depths):
+        # Perform a linear interpolation with the sensors located
+        # above and below target, except for bottom and top sensors.
+        for d, _ in enumerate(depths):
+            if d == 0: # Surface interpolation
+                target = depths[0]
+                feature = depths[2:6]
+            elif d == len(depths)-1: # Bottom interpolation
+                target = depths[-1]
+                feature = depths[-4:-2]
+            else: # Mid water interpolation
+                target = depths[d]
+                feature = depths[d-1:d+2:2] # Takes depth above and below target
 
-    for counter, iVar in enumerate(therm_depths_names):
+            regr = ml.train_lm(df[target].values, df[feature].values)
+            if regr:
+                pred = ml.predict_lm(regr, df[feature].values)
+                mask = df[target].isna()
+                df.loc[mask, target] = pred[mask]
+        return df
 
-        if df[iVar].isna().sum() == 0:
-            continue
 
-        if (counter > 0) & (counter < len(therm_depths_names)-1):
-            # Explanatory variables (temperature above and below target)
-            list_var_reg = [
-                therm_depths_names[counter-1],
-                therm_depths_names[counter+1]
-                ]
-        elif counter == 0:
-            # Explanatory variables (temperature below target)
-            list_var_reg = [
-                therm_depths_names[counter+1],
-                therm_depths_names[counter+2]
-                ]
-        elif counter == len(therm_depths_names)-1:
-            # Explanatory variables (temperature above target)
-            list_var_reg = [
-                therm_depths_names[counter-1],
-                therm_depths_names[counter-2]
-                ]
+    def distant_extrapolation(df, depths):
+        # Perform a extrapolation with a random forest model. The input
+        # features are chosen based on their availibility.
 
-        # Data preprocessing
-        mask = ~df[list_var_reg+[iVar]].isna().any(axis=1)
-        X = df.loc[mask,list_var_reg].values
-        y = df.loc[mask,iVar].values
+        for d, _ in enumerate(depths):
+            target = depths[d]
+            feature = depths[:d] + depths[d+1:]
 
-        # Perform regression
-        reg =  linear_model.LinearRegression()
-        reg.fit(X,y)
+            selec_features = []
+            for f in feature:
+                # Get the fraction of data available for each feature
+                # when the target is NaN
+                notna_frac = sum( df[f].notna() & df[target].isna() ) \
+                    / df[target].isna().sum()
+                if notna_frac > 0.8: selec_features.append(f)
 
-        # Predict
-        mask = ~df[list_var_reg].isna().any(axis=1) & df[iVar].isna()
-        if mask.sum()>0:
-            df.loc[mask,iVar] = reg.predict(
-                df.loc[mask,list_var_reg].values)
-            df.loc[df[iVar]<0,iVar] = 0
+            if len(selec_features) <= 3:
+                continue
 
-    #################################################################
-    ### Replacement with yearly averaged data corrected for shift ###
-    #################################################################
+            target_values = df[target].values
+            feature_values = np.column_stack(
+                (df[selec_features].values,
+                 df[target].shift(1).values))
 
-    # Add surface temperature to the depth list
-    therm_depths_names = therm_depths_names + ['water_temp_sfc']
+            scalerX, scalery, regr = ml.train_rf(target_values, feature_values)
 
-    for iVar in therm_depths_names:
+            for i, index in enumerate(df.index[1:]):
+                if ~np.isnan(df.loc[index,target]):
+                    continue
+                feature_values = np.append(
+                    df.loc[df.index[i],selec_features].values,
+                     df.loc[df.index[i-1],target]).reshape(1,-1)
+                if np.isnan(feature_values).any():
+                    continue
+                pred = ml.predict_rf(scalerX, scalery, regr, feature_values)
+                df.loc[index, target] = pred
 
-        if df[iVar].isna().sum() == 0:
-            continue
+        return df
 
-        yearly_avg = df[iVar].groupby([
-            df['timestamp'].dt.month,
-            df['timestamp'].dt.day,
-            df['timestamp'].dt.hour,
-            df['timestamp'].dt.minute]).transform('mean')
 
-        # Get starting and ending index of NaN chunks
-        id_chunks = df.index[
-            df[iVar].isna().astype(int).diff().abs() > 0 ]
+    def temporal_extrapolation(df, depths):
+        # Perform a linear interpolation based on the same sensor to fill the
+        # gaps. Maximum of 2 days of missing data.
+        df[depths] = df[depths].interpolate(method='linear', limit=96)
+        return df
 
-        if np.isnan(df.loc[df.index[0], iVar]):
-            id_chunks = pd.Int64Index([df.index[0]+1]).append(id_chunks)
-        elif np.isnan(df.loc[df.index[-1], iVar]):
-            id_chunks = id_chunks.append(pd.Int64Index([df.index[-1]]))
 
-        # Loop of NaN chunks for yearly averaged filling
-        for id_start, id_end in pairwise(id_chunks):
+    def yearly_avg_extrapolation(df, depths):
+        # Replacement with yearly averaged data corrected for shift
+        for iVar in depths:
 
-            id_start -= 1
-            start_offset = df.loc[id_start,iVar] - yearly_avg[id_start]
-            end_offset = df.loc[id_end,iVar] - yearly_avg[id_end]
+            if df[iVar].isna().sum() == 0:
+                continue
 
-            if np.isnan(start_offset):
-                start_offset = 0
-            if np.isnan(end_offset):
-                end_offset = 0
+            yearly_avg = df[iVar].groupby([
+                df.index.month,
+                df.index.day,
+                df.index.hour,
+                df.index.minute]).transform('mean')
 
-            replace_chunk = \
-                np.linspace(start_offset, end_offset, id_end-id_start) \
-                    + yearly_avg[id_start:id_end]
+            # Get starting and ending index of NaN chunks
+            id_chunks = df.index[
+                df[iVar].isna().astype(int).diff().abs() > 0 ]
 
-            df.loc[id_start:id_end,iVar] = replace_chunk
+            # if there is a NaN block at the begining of the time series
+            if np.isnan(df.loc[df.index[0], iVar]):
+                id_chunks = pd.Index(
+                    [ df.index[0] + pd.Timedelta(minutes=30) ]
+                    ).append(id_chunks)
+            # if there is a NaN block at the end of the time series
+            elif np.isnan(df.loc[df.index[-1], iVar]):
+                id_chunks = id_chunks.append( pd.Index(
+                    [ df.index[-1] ] ))
 
-    ######################################
-    ### Last hope linear extrapolation ###
-    ######################################
+            # Loop of NaN chunks for yearly averaged filling
+            for id_start, id_end in pairwise(id_chunks):
 
-    df[therm_depths_names] = df[therm_depths_names].interpolate(method='linear')
+                # Move to last value before NaN
+                id_start = id_start - pd.Timedelta(minutes=30)
+
+                start_offset = df.loc[ id_start ,iVar ] - yearly_avg[id_start]
+                end_offset = df.loc[id_end,iVar] - yearly_avg[id_end]
+
+                if np.isnan(start_offset):
+                    start_offset = 0
+                if np.isnan(end_offset):
+                    end_offset = 0
+
+                replace_chunk = \
+                    np.linspace(start_offset, end_offset,
+                                (id_end - id_start) // pd.Timedelta(minutes=30) +1 ) \
+                        + yearly_avg[id_start:id_end]
+
+                df.loc[id_start:id_end,iVar] = replace_chunk
+
+        return df
+
+
+    # Performs gap filling
+    for var_type in ['water_temp', 'light_intensity']:
+
+        depths = [var for var in df.columns if var_type in var]
+        depths = natural_sort(depths)
+
+        df = vertical_extrapolation(df, depths)
+        if var_type == 'water_temp': df = temporal_extrapolation(df, depths)
+        df = distant_extrapolation(df, depths)
+        df = yearly_avg_extrapolation(df, depths)
+
+        # Last hope interpolation
+        df[depths] = df[depths].interpolate(method='linear')
 
     return df
+
+
+def list_merge_filter(station, dates, raw_file_dir):
+    """
+    Higer level function that include the listing of the files to be merged,
+    the merging of the files, and the filtering.
+
+    Parameters
+    ----------
+    station_name : String
+        Name of the station
+    dates: dictionnary that contains a 'start' and 'end' key to indicates the
+        period range to EddyPro.
+        Example: dates{'start': '2018-06-01', 'end': '2020-02-01'}
+    raw_file_dir : String or Pathlib path
+        Path to the root directory that contains thermistor data.
+
+    Returns
+    -------
+    df: Pandas dataframe
+        Thermistor data. One column per variable and depth with datetime index
+
+    """
+
+    print(f'Start merging thermistors data for {station}')
+
+    csv_files = list_data(station, raw_file_dir)
+    df, retrieval_dates = merge(dates, csv_files)
+    df = filters(df, retrieval_dates)
+    return df
+
+def save(df, station, destination_dir):
+
+    df.to_csv(Path.joinpath(Path(destination_dir),f'{station}.csv'), index_label='timestamp')

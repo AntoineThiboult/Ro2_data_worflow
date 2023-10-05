@@ -72,10 +72,10 @@ def merge_eddycov_stations(stationName, rawFileDir,
 
         df_res = pd.read_csv(finalOutDir+'Reservoir'+'.csv',
                              low_memory=False)
-        df_therm = pd.read_csv(finalOutDir+'Thermistors'+'.csv',
+        df_therm = pd.read_csv(finalOutDir+'Romaine-2_reservoir_thermistor_chain'+'.csv',
                                low_memory=False)
         df_freeze = pd.read_csv(rawFileDir+'External_data_and_misc/'+
-                                'Reservoir_freezup_and_melt'+'.csv',
+                                'Romaine-2_reservoir_freezup_and_melt'+'.csv',
                                 low_memory=False, delimiter=';',header=1)
 
         # Add resservoir freeze up / ice melt information
@@ -160,7 +160,7 @@ def merge_eddycov_stations(stationName, rawFileDir,
 
                 # Theoretical black body radiation
                 rad_longwave_up_BB = 0.995*5.67e-8* \
-                    (df['water_temp_sfc']+273.15)**4
+                    (df['water_temp_0m0']+273.15)**4
 
                 # Replace berge data with blackbody rad when reservoir not frozen
                 df.loc[~id_frozen_res,iVar] = \

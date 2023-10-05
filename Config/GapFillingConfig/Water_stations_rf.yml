@@ -30,14 +30,14 @@ vars_to_fill:
 
     CO2_flux:
         proxy_vars:
-            water_temp_sfc
+            water_temp_0m0
             air_temp_HMP45C
             rad_shortwave_down_CNR4
             wind_speed_05103
 
     CH4_flux:
         proxy_vars:
-            water_temp_sfc
+            water_temp_0m0
             air_temp_HMP45C
             wind_speed_05103
     
@@ -55,14 +55,14 @@ vars_to_fill:
             
     CO2_strg:
         proxy_vars:
-            water_temp_sfc
+            water_temp_0m0
             air_temp_HMP45C
             rad_shortwave_down_CNR4
             wind_speed_05103
 
     CH4_strg:
         proxy_vars:
-            water_temp_sfc
+            water_temp_0m0
             air_temp_HMP45C
             wind_speed_05103
 

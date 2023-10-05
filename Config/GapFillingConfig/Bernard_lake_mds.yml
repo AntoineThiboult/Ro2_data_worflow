@@ -34,21 +34,21 @@ vars_to_fill:
 
     CO2_flux:
         proxy_vars:
-            water_temp_sfc: 3
+            water_temp_0m0: 3
             air_temp_HMP45C: 4
             rad_shortwave_down_CNR4: 100
             wind_speed_05103: 1
         proxy_vars_subset:
-            water_temp_sfc: 3
+            water_temp_0m0: 3
             wind_speed_05103: 2
 
     CH4_flux:
         proxy_vars:
-            water_temp_sfc: 3
+            water_temp_0m0: 3
             air_temp_HMP45C: 4            
             wind_speed_05103: 1
         proxy_vars_subset:
-            water_temp_sfc: 3
+            water_temp_0m0: 3
             wind_speed_05103: 2
     
     LE_strg:
@@ -69,21 +69,21 @@ vars_to_fill:
 
     CO2_strg:
         proxy_vars:
-            water_temp_sfc: 3
+            water_temp_0m0: 3
             air_temp_HMP45C: 4
             rad_shortwave_down_CNR4: 100
             wind_speed_05103: 1
         proxy_vars_subset:
-            water_temp_sfc: 3
+            water_temp_0m0: 3
             wind_speed_05103: 2
 
     CH4_strg:
         proxy_vars:
-            water_temp_sfc: 3
+            water_temp_0m0: 3
             air_temp_HMP45C: 4            
             wind_speed_05103: 1
         proxy_vars_subset:
-            water_temp_sfc: 3
+            water_temp_0m0: 3
             wind_speed_05103: 2
 
     LE_corr:

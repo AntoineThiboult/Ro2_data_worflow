@@ -8,6 +8,7 @@ eddyCovStations =   ["Berge","Foret_ouest","Foret_est","Reservoir","Bernard_lake
 gapfilledStation =  ["Bernard_lake","Water_stations","Forest_stations"]
 
 rawFileDir          = "D:/Ro2_micromet_raw_data/Data/"
+reanalysisDir       = "D:/Ro2_micromet_raw_data/Data/Reanalysis/"
 asciiOutDir         = "D:/Ro2_micromet_processed_data/Ascii_data/"
 eddyproOutDir       = "D:/Ro2_micromet_processed_data/Eddypro_data/"
 externalDataDir     = "D:/Ro2_micromet_raw_data/Data/External_data_and_misc/"
@@ -23,10 +24,18 @@ dates = {'start':'2018-06-25','end':'2022-10-01'}
 
 
 # Merge Hobo TidBit thermistors
-df = pm.thermistors.merge(dates,rawFileDir)
+df1 = pm.thermistors.list_merge_filter('Romaine-2_reservoir_thermistor_chain-1', dates, rawFileDir)
+pm.thermistors.save(df1,'Romaine-2_reservoir_thermistor_chain-1', finalOutDir)
+df2 = pm.thermistors.list_merge_filter('Romaine-2_reservoir_thermistor_chain-2', dates, rawFileDir)
+pm.thermistors.save(df2,'Romaine-2_reservoir_thermistor_chain-2', finalOutDir)
+df = pm.thermistors.average(df1, df2)
 df = pm.thermistors.gap_fill(df)
+pm.thermistors.save(df,'Romaine-2_reservoir_thermistor_chain', finalOutDir)
+df = pm.thermistors.list_merge_filter('Bernard_lake_thermistor_chain', dates, rawFileDir)
+df = pm.thermistors.gap_fill(df)
+pm.thermistors.save(df,'Bernard_lake_thermistor_chain', finalOutDir)
 # Perform ERA5 extraction and handling
-pm.reanalysis.retrieve_ERA5land(dates,rawFileDir)
+pm.reanalysis.retrieve_ERA5land(dates,reanalysisDir)
 
 
 for iStation in CampbellStations:
