@@ -12,7 +12,7 @@ rawFileDir          = "D:/Ro2_micromet_raw_data/Data/"
 reanalysisDir       = "D:/Ro2_micromet_raw_data/Data/Reanalysis/"
 asciiOutDir         = "D:/Ro2_micromet_processed_data/Ascii_data/"
 eddyproOutDir       = "D:/Ro2_micromet_processed_data/Eddypro_data/"
-externalDataDir     = "D:/Ro2_micromet_raw_data/Data/External_data_and_misc/"
+miscDataDir         = "D:/Ro2_micromet_raw_data/Data/Misc/"
 intermediateOutDir  = "D:/Ro2_micromet_processed_data/Intermediate_output/"
 finalOutDir         = "D:/Ro2_micromet_processed_data/Final_output/"
 varNameExcelSheet   = "./Resources/Variable_description_full.xlsx"
@@ -24,7 +24,7 @@ rawConcConfigDir    = "./Config/Raw_gas_concentration/"
 dates = {'start':'2018-06-25','end':'2022-10-01'}
 
 
-def parallel_function_0(dates, rawFileDir, externalDataDir,
+def parallel_function_0(dates, rawFileDir, miscDataDir,
                         intermediateOutDir, finalOutDir):
 
     # Merge Hobo TidBit thermistors
@@ -88,15 +88,15 @@ def parallel_function_2(iStation, intermediateOutDir):
 
 
 def parallel_function_3(iStation, finalOutDir, rawFileDir,
-                        gapfillConfigDir, varNameExcelSheet):
+                        gapfillConfigDir, miscDataDir, reanalysisDir, varNameExcelSheet):
 
     # Merge the eddy covariance together (water/forest)
     df = pm.merge_eddycov_stations(iStation,rawFileDir,
-                                   finalOutDir,varNameExcelSheet)
+                                   finalOutDir, miscDataDir, varNameExcelSheet)
 
     # Format reanalysis data for gapfilling
     pm.reanalysis.netcdf_to_dataframe(dates,iStation,filterConfigDir,
-                                      rawFileDir,intermediateOutDir)
+                                      reanalysisDir ,intermediateOutDir)
 
     # Perform gap filling
     df = pm.gap_fill_slow_data.gap_fill_meteo(iStation,df,intermediateOutDir)
@@ -123,7 +123,7 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir,
 
 ########### Process stations ############
 
-parallel_function_0(dates, rawFileDir, externalDataDir,
+parallel_function_0(dates, rawFileDir, miscDataDir,
                         intermediateOutDir, finalOutDir)
 
 Parallel(n_jobs=len(CampbellStations))(delayed(parallel_function_1)(
@@ -135,5 +135,5 @@ Parallel(n_jobs=len(CampbellStations))(delayed(parallel_function_2)(
         iStation, intermediateOutDir)for iStation in CampbellStations)
 
 Parallel(n_jobs=len(gapfilledStation))(delayed(parallel_function_3)(
-        iStation, finalOutDir, rawFileDir, gapfillConfigDir,
-        varNameExcelSheet)for iStation in gapfilledStation)
+        iStation, finalOutDir, rawFileDir, gapfillConfigDir, miscDataDir,
+        reanalysisDir, varNameExcelSheet)for iStation in gapfilledStation)

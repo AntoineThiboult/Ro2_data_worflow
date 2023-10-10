@@ -31,7 +31,7 @@ def compute_water_albedo(solar_angle):
     return albedo
 
 def merge_eddycov_stations(stationName, rawFileDir,
-                           finalOutDir, varNameExcelTab):
+                           finalOutDir, miscDir, varNameExcelTab):
     """Merge :
         - the Berge and Reservoir stations together. The station reservoir has
           "priority", meaning that if some data is available on both stations,
@@ -74,7 +74,7 @@ def merge_eddycov_stations(stationName, rawFileDir,
                              low_memory=False)
         df_therm = pd.read_csv(finalOutDir+'Romaine-2_reservoir_thermistor_chain'+'.csv',
                                low_memory=False)
-        df_freeze = pd.read_csv(rawFileDir+'External_data_and_misc/'+
+        df_freeze = pd.read_csv(miscDir+
                                 'Romaine-2_reservoir_freezup_and_melt'+'.csv',
                                 low_memory=False, delimiter=';',header=1)
 

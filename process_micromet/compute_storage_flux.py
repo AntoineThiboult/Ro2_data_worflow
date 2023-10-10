@@ -226,7 +226,7 @@ def compute_water_column_heat_flux(df):
     roll_window = 48*15
 
     # Names of temperature variables
-    therm_depths_names = ['water_temp_{:d}m{:d}_avg'.format(
+    therm_depths_names = ['water_temp_{:d}m{:d}'.format(
         int(f), int(np.round((f-np.fix(f))*10))) for f in therm_depths ]
 
     # Rolling mean
