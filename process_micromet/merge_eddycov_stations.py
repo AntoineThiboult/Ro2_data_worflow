@@ -282,11 +282,36 @@ def merge_eddycov_stations(stationName, rawFileDir,
         # Merge foret ouest and est DataFrames
         df[column_dic] = df_foret_sol[column_dic]
 
+
     elif stationName == 'Bernard_lake':
 
-        # Import Foret data
+        #######################################################
+        ### Merge Bernard lake and Bernard lake thermistors ###
+        #######################################################
+
+        # Import Bernard data
         df = pd.read_csv(finalOutDir+'Bernard_lake'+'.csv', low_memory=False)
         df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+        df_therm = pd.read_csv(finalOutDir+'Bernard_lake_thermistor_chain'+'.csv',
+                               low_memory=False)
+        df_freeze = pd.read_csv(miscDir+
+                                'Bernard_lake_freezup_and_melt'+'.csv',
+                                low_memory=False, delimiter=';',header=1)
+
+        # Add resservoir freeze up / ice melt information
+        df['water_frozen_sfc'] = np.zeros((df.shape[0]))
+        for index_df in df_freeze.index:
+            s = pd.to_datetime(df_freeze.loc[index_df,'Freezeup'])
+            index_s = df.index[df['timestamp'] == s][0]
+            e = pd.to_datetime(df_freeze.loc[index_df,'Icemelt'])
+            index_e = df.index[df['timestamp'] == e][0]
+            df.loc[index_s:index_e,'water_frozen_sfc'] = 1
+
+        # Add thermistors informations to dataframe
+        for iVar in df_therm.columns:
+            if iVar not in df.columns:
+                df[iVar] = df_therm[iVar]
 
     else:
         print('{}: Unknown station name'.format(stationName))

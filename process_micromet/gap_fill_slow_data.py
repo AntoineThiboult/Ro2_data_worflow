@@ -163,6 +163,15 @@ def gap_fill_meteo(station_name, df, dataFileDir):
     df_era = pd.read_csv(station_infos[station_name]['proxy']
                            + '.csv')
 
+    if station_name == 'Bernard_lake':
+        air_temp = 'air_temp_HC2S3'
+        air_relhum = 'air_relhum_HC2S3'
+        df_era = df_era.rename(columns={'air_temp_HMP45C' : air_temp,
+                                        'air_relhum_HMP45C' : air_relhum})
+    else:
+        air_temp = 'air_temp_HMP45C'
+        air_relhum = 'air_relhum_HMP45C'
+
 
     for i_var in station_infos[station_name]['var_to_fill']:
 
@@ -171,12 +180,12 @@ def gap_fill_meteo(station_name, df, dataFileDir):
             if df[i_var].isna().sum() != 0:
 
                 # Input and target variable selection
-                if i_var == 'air_temp_HMP45C':
+                if i_var == air_temp:
                     input_ml_vars = np.column_stack(
                         (df[['doy_t','hour_t']].values, df_era[i_var].values))
                 else:
                     input_ml_vars = np.column_stack(
-                        (df[['doy_t','hour_t','air_temp_HMP45C']].values, df_era[i_var].values))
+                        (df[['doy_t','hour_t',air_temp]].values, df_era[i_var].values))
                 target_ml_var = df[i_var].values
 
                 # Training
@@ -249,6 +258,11 @@ def gap_fill_radiation(station_name, df, dataFileDir):
                    'rad_shortwave_up_CNR4']},
                      }
 
+    if station_name == 'Bernard_lake':
+        air_temp = 'air_temp_HC2S3'
+    else:
+        air_temp = 'air_temp_HMP45C'
+
     ########################
     ### Machine learning ###
     ########################
@@ -274,11 +288,11 @@ def gap_fill_radiation(station_name, df, dataFileDir):
                 # Input variable
                 if i_var in ['rad_longwave_down_CNR4','rad_shortwave_down_CNR4']:
                     input_ml_vars = np.column_stack(
-                        (df[['doy_t','hour_t','air_temp_HMP45C']].values,
+                        (df[['doy_t','hour_t',air_temp]].values,
                          df_era[i_var].values))
                 elif i_var == 'rad_longwave_up_CNR4':
                     input_ml_vars = np.column_stack(
-                        (df[['doy_t','hour_t','air_temp_HMP45C']].values,
+                        (df[['doy_t','hour_t',air_temp]].values,
                          df['rad_longwave_down_CNR4'].values))
                     if station_name == 'Water_stations':
                         input_ml_vars = np.column_stack(

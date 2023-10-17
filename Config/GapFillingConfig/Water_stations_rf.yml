@@ -18,13 +18,13 @@ vars_to_fill:
 
     LE:
         proxy_vars:
-            delta_temp_air_eau
+            delta_temp_air_water
             wind_speed_05103
             air_relhum_HMP45C
 
     H:
         proxy_vars:
-            delta_temp_air_eau
+            delta_temp_air_water
             wind_speed_05103
             air_relhum_HMP45C
 
@@ -43,13 +43,13 @@ vars_to_fill:
     
     LE_strg:
         proxy_vars:
-            delta_temp_air_eau
+            delta_temp_air_water
             wind_speed_05103
             air_relhum_HMP45C
 
     H_strg:
         proxy_vars:
-            delta_temp_air_eau
+            delta_temp_air_water
             wind_speed_05103
             air_relhum_HMP45C
             
@@ -68,12 +68,12 @@ vars_to_fill:
 
     LE_corr:
         proxy_vars:
-            delta_temp_air_eau
+            delta_temp_air_water
             wind_speed_05103
             air_relhum_HMP45C
 
     H_corr:
         proxy_vars:
-            delta_temp_air_eau
+            delta_temp_air_water
             wind_speed_05103
             air_relhum_HMP45C

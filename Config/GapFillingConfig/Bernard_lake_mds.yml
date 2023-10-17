@@ -18,24 +18,24 @@ vars_to_fill:
 
     LE:
         proxy_vars:
-            delta_temp_air_eau: 3.5
+            delta_temp_air_water: 3.5
             wind_speed_05103: 1
-            air_relhum_HMP45C: 5
+            air_relhum_HC2S3: 5
         proxy_vars_subset:
-            delta_temp_air_eau: 3.5
+            delta_temp_air_water: 3.5
 
     H:
         proxy_vars:
-            delta_temp_air_eau: 3.5
+            delta_temp_air_water: 3.5
             wind_speed_05103: 1
-            air_relhum_HMP45C: 5
+            air_relhum_HC2S3: 5
         proxy_vars_subset:
-            delta_temp_air_eau: 3.5
+            delta_temp_air_water: 3.5
 
     CO2_flux:
         proxy_vars:
             water_temp_0m0: 3
-            air_temp_HMP45C: 4
+            air_temp_HC2S3: 4
             rad_shortwave_down_CNR4: 100
             wind_speed_05103: 1
         proxy_vars_subset:
@@ -45,7 +45,7 @@ vars_to_fill:
     CH4_flux:
         proxy_vars:
             water_temp_0m0: 3
-            air_temp_HMP45C: 4            
+            air_temp_HC2S3: 4            
             wind_speed_05103: 1
         proxy_vars_subset:
             water_temp_0m0: 3
@@ -53,24 +53,24 @@ vars_to_fill:
     
     LE_strg:
         proxy_vars:
-            delta_temp_air_eau: 3.5
+            delta_temp_air_water: 3.5
             wind_speed_05103: 1
-            air_relhum_HMP45C: 5
+            air_relhum_HC2S3: 5
         proxy_vars_subset:
-            delta_temp_air_eau: 3.5
+            delta_temp_air_water: 3.5
 
     H_strg:
         proxy_vars:
-            delta_temp_air_eau: 3.5
+            delta_temp_air_water: 3.5
             wind_speed_05103: 1
-            air_relhum_HMP45C: 5
+            air_relhum_HC2S3: 5
         proxy_vars_subset:
-            delta_temp_air_eau: 3.5
+            delta_temp_air_water: 3.5
 
     CO2_strg:
         proxy_vars:
             water_temp_0m0: 3
-            air_temp_HMP45C: 4
+            air_temp_HC2S3: 4
             rad_shortwave_down_CNR4: 100
             wind_speed_05103: 1
         proxy_vars_subset:
@@ -80,7 +80,7 @@ vars_to_fill:
     CH4_strg:
         proxy_vars:
             water_temp_0m0: 3
-            air_temp_HMP45C: 4            
+            air_temp_HC2S3: 4            
             wind_speed_05103: 1
         proxy_vars_subset:
             water_temp_0m0: 3
@@ -88,16 +88,16 @@ vars_to_fill:
 
     LE_corr:
         proxy_vars:
-            delta_temp_air_eau: 3.5
+            delta_temp_air_water: 3.5
             wind_speed_05103: 1
-            air_relhum_HMP45C: 5
+            air_relhum_HC2S3: 5
         proxy_vars_subset:
-            delta_temp_air_eau: 3.5
+            delta_temp_air_water: 3.5
 
     H_corr:
         proxy_vars:
-            delta_temp_air_eau: 3.5
+            delta_temp_air_water: 3.5
             wind_speed_05103: 1
-            air_relhum_HMP45C: 5
+            air_relhum_HC2S3: 5
         proxy_vars_subset:
-            delta_temp_air_eau: 3.5
+            delta_temp_air_water: 3.5
