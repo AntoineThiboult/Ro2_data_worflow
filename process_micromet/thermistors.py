@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 from sklearn import linear_model
 from process_micromet import ml_utils as ml
 
@@ -78,7 +79,7 @@ def merge(dates, csv_files):
         return retrieval_dates
 
 
-    for counter, file in enumerate(csv_files):
+    for counter, file in enumerate(tqdm(csv_files)):
 
         if 'pro_oceanus' in file.stem:
             print('Pro oceanus sensors not implemented yet. DCO2 data skipped')
@@ -108,7 +109,9 @@ def merge(dates, csv_files):
 
         # Convert first col to datetime format and the rest to float
         df_tmp.index = pd.to_datetime(df_tmp.iloc[:,0])
-        df = df.astype(np.float64)
+        variables = ['temp', 'intensity', 'pres']
+        data_cols = [element for element in df_tmp.columns if any(variables in element.lower() for variables in variables)]
+        df_tmp[data_cols] = df_tmp[data_cols].apply(pd.to_numeric, errors='coerce')
 
         # Handle exceptions where loggers fail to increment time
         df_tmp = df_tmp.loc[ ~df_tmp.index.duplicated() ]
