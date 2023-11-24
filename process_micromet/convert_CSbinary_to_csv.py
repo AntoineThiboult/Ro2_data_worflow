@@ -9,7 +9,7 @@ import pandas as pd
 
 station_name_dict = {'Berge': 'Romaine-2_reservoir_shore',
                      'Foret_ouest': 'Bernard_spruce_moss_west',
-                     'Foret_est': 'Bernard_spruce_moss_est',
+                     'Foret_est': 'Bernard_spruce_moss_east',
                      'Foret_sol': 'Bernard_spruce_moss_ground',
                      'Reservoir': 'Romaine-2_reservoir_raft',
                      'Bernard_lake': 'Bernard_lake'}
