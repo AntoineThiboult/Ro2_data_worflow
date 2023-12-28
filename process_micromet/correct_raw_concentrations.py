@@ -1,61 +1,124 @@
 import os
 import re
 import pandas as pd
+import numpy as np
+import json
+from datetime import datetime
 
-def get_raw_var_names(stationName,date):
+def load_calibration_coefficients(file_dir, station):
     """
-    Get H2O, CO2 concentrations, and temperature names.
+    Load calibration coefficients from JSON file.
 
     Parameters
     ----------
-    stationName : string
+    file_dir : Patlib object
+        Path to the folder containing data
+    station : String
         Name of the station
-    date : Pandas timestamp
-        Date of the file being processed
 
     Returns
     -------
-    temperature : strings
-    H2O : array of strings
-    CO2 : array of strings
+    Dictionary
+        Returns dictionary built from the JSON file
 
     """
+    with open(os.path.join(file_dir, f'{station}_calibration_correction.json'), 'r') as file:
+        return json.load(file)
 
-    if stationName == 'Berge':
-        if date > pd.to_datetime('20220613_1530',format='%Y%m%d_%H%M'):
-            temperature = 'amb_tmpr'
-            H2O = 'H2O'
-            CO2 = ['CO2','CO2_corr']
-        else:
-            temperature = 'amb_tmpr'
-            H2O = 'H2O'
-            CO2 = ['CO2']
 
-    if stationName == 'Foret_est':
-        if date > pd.to_datetime('20221022_1130',format='%Y%m%d_%H%M'):
-            temperature = 'amb_tmpr'
-            H2O = 'H2O'
-            CO2 = ['CO2','CO2_corr']
-        else:
-            temperature = 'Ts'
-            H2O = 'H2O_li'
-            CO2 = ['CO2_li']
+def get_calibration_coefficients(date_str, corr_coef):
+    """
+    Get coefficients that will be used to correct the raw gas concentrations
 
-    if stationName == 'Foret_ouest':
-        if date > pd.to_datetime('20221022_1400',format='%Y%m%d_%H%M'):
-            temperature = 'amb_tmpr'
-            H2O = 'H2O'
-            CO2 = ['CO2','CO2_corr']
-        else:
-            temperature = 'Ts'
-            H2O = 'H2O_li'
-            CO2 = ['CO2_li']
+    Parameters
+    ----------
+    date_str : String
+        Date in '%Y-%m-%d %H:%M:%S' format
+    corr_coef : Dictionary
+        Dictionary returned by the that contains the calibrations periods, the
 
-    return temperature, H2O, CO2
+    Returns
+    -------
+    dict
+        Dictionary that contains the fields: 'H2O_slope', 'H2O_intercept',
+        'CO2_slope', 'CO2_intercept'
+
+    """
+    input_date = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+
+    for period in corr_coef['erroneous_periods']:
+        start_date = datetime.strptime(period['start_date'], '%Y-%m-%d %H:%M:%S')
+        end_date = datetime.strptime(period['end_date'], '%Y-%m-%d %H:%M:%S') if period['end_date'] != 'None' else None
+
+        if start_date <= input_date <= end_date:
+            return {
+                'H2O_slope': np.nan,
+                'H2O_intercept': np.nan,
+                'CO2_slope': np.nan,
+                'CO2_intercept': np.nan,
+                'temperature_var_name': period['temperature_var_name'],
+                'H2O_var_name': period['H2O_var_name'],
+                'CO2_var_name': period['CO2_var_name'],
+                'cal_period': [start_date, end_date]
+            }
+
+    for period in corr_coef['calibration_periods']:
+        start_date = datetime.strptime(period['start_date'], '%Y-%m-%d %H:%M:%S')
+        end_date = datetime.strptime(period['end_date'], '%Y-%m-%d %H:%M:%S') if period['end_date'] != 'None' else None
+
+        if end_date is None:
+            return {
+                'H2O_slope': 0,
+                'H2O_intercept': 0,
+                'CO2_slope': 0,
+                'CO2_intercept': 0,
+                'temperature_var_name': period['temperature_var_name'],
+                'H2O_var_name': period['H2O_var_name'],
+                'CO2_var_name': period['CO2_var_name'],
+                'cal_period': [start_date, end_date]
+            }
+
+        if start_date <= input_date <= end_date:
+            return {
+                'H2O_slope': float(period['H2O_slope']),
+                'H2O_intercept': float(period['H2O_intercept']),
+                'CO2_slope': float(period['CO2_slope']),
+                'CO2_intercept': float(period['CO2_intercept']),
+                'temperature_var_name': period['temperature_var_name'],
+                'H2O_var_name': period['H2O_var_name'],
+                'CO2_var_name': period['CO2_var_name'],
+                'cal_period': [start_date, end_date]
+            }
+
+
+def correct_calibration(gas_conc, temperature, slope, intercept):
+    """
+    Correct the gas concentration according to a temperature linear relation
+    Corrected gas concentation =
+        original gas concentration + slope * temperature + intercept
+
+    Parameters
+    ----------
+    gas_conc : Pandas series
+        Gas concentration (H2O, CO2) as measured by the fast response
+        gas analyser
+    temperature : Pandas series
+        Fast temperature (°C)
+    slope : Float
+        Slope
+    intercept : Float
+        Intercept
+
+    Returns
+    -------
+    Pandas series
+        Corrected gas concentration
+    """
+    return gas_conc + slope * temperature + intercept
 
 
 def correct_raw_concentrations(
-        stationName, asciiOutDir, config_dir, overwrite=False):
+        station, asciiOutDir, config_dir, overwrite=False):
     """
     Correct water and CO2 concentrations. Correction factors must be provided
     in csv files that contain 'H2O_slope', 'H2O_intercept', and 'CO2_intercept'
@@ -63,7 +126,7 @@ def correct_raw_concentrations(
 
     Parameters
     ----------
-    stationName : string
+    station : string
         Name of the station
     asciiOutDir : string
         Path to the directory that contains raw (10 Hz) .csv files
@@ -79,83 +142,85 @@ def correct_raw_concentrations(
 
     """
 
-    if stationName not in ['Berge','Foret_ouest','Foret_est']:
-        return
+    print(f'Start raw gas concentration correction for the {station} station')
 
-    print(f'Start raw gas concentration correction for the {stationName} station')
+    calib_coeff = load_calibration_coefficients(config_dir, station)
 
-    # Import dataframe that contains the correction coefficients
-    df_corr = pd.read_csv( os.path.join(
-        config_dir,f'coeff_corr_calibration_{stationName}.csv'))
-    df_corr['timestamp'] = pd.to_datetime(df_corr['timestamp'])
+    # Define a regex pattern to match the date format 'YYYYmmDD_HHMM'
+    date_pattern = re.compile(r'(\d{8}_\d{4})')
 
-    #Find files that match the pattern Station_YYYYMMDD_eddy.csv
-    eddyFilesRegex=r'^[0-9]{8}_[0-9]{4}_eddy.csv$'
-    eddyFiles = [f for f in os.listdir(
-        os.path.join(asciiOutDir,stationName))
-                 if re.match(eddyFilesRegex, f)]
+    # Find files that match the pattern Station_YYYYMMDD_eddy.csv
+    eddy_files = [f for f in os.listdir(
+        os.path.join(asciiOutDir,station))
+                 if re.match(
+                         re.compile(date_pattern.pattern + r'_eddy.csv'), f)]
 
-    #Find files that match the pattern Station_YYYYMMDD_eddy_corr.csv
-    corrFilesRegex=r'^[0-9]{8}_[0-9]{4}_eddy_corr.csv$'
-    corrFiles = [f for f in os.listdir(
-        os.path.join(asciiOutDir,stationName))
-                if re.match(corrFilesRegex, f)]
+    # Find files that match the pattern Station_YYYYMMDD_eddy_corr.csv
+    eddy_corr_files = [f for f in os.listdir(
+        os.path.join(asciiOutDir,station))
+                if re.match(
+                        re.compile(date_pattern.pattern + r'_eddy_corr.csv'), f)]
 
     logf = open( os.path.join(
-        '.','Logs',f'correct_raw_concentrations_{stationName}.log'), "w")
+        '.','Logs',f'correct_raw_concentrations_{station}.log'), "w")
 
     #####################
     ### Process files ###
     #####################
 
-    for iFile in eddyFiles:
+    for eddy_file in eddy_files:
 
         #Check if the file hasn't been processed yet
-        iCorrFile = iFile[:-4]+'_corr.csv'
+        eddy_corr_file = eddy_file.replace('eddy', 'eddy_corr')
 
-        if (iCorrFile not in corrFiles) | overwrite :
-            print('Processing {}'.format(iFile))
+        if (eddy_corr_file not in eddy_corr_files) | overwrite :
+            print('Processing {}'.format(eddy_file))
             try:
                 # Load and specify datatype
-                df = pd.read_csv(os.path.join(asciiOutDir,stationName,iFile),
+                df = pd.read_csv(os.path.join(asciiOutDir,station,eddy_file),
                                  skiprows=[0,2,3],
                                  na_values = "NAN")
 
                  # Get file header
-                with open(os.path.join(asciiOutDir,stationName,iFile), 'r') as fp:
+                with open(os.path.join(asciiOutDir,station,eddy_file), 'r') as fp:
                     header = [next(fp) for x in range(4)]
 
                 # Write header to destination file
-                with open(os.path.join(asciiOutDir,stationName,iCorrFile), 'w') as fp:
+                with open(os.path.join(asciiOutDir,station,eddy_corr_file), 'w') as fp:
                     for i_line in header:
                         fp.write(i_line)
 
-                # Get appropriate correction factor for the date
-                file_date = pd.to_datetime(iFile[0:-9], format='%Y%m%d_%H%M')
-                id_corr = df_corr.index[df_corr['timestamp'] == file_date]
+                # Search for the date pattern in the string
+                match = date_pattern.search(eddy_file)
+                file_date = datetime.strptime(
+                    match.group(1),
+                    '%Y%m%d_%H%M'
+                    ).strftime('%Y-%m-%d %H:%M:%S')
 
-                if sum(id_corr) !=0:
+                # Get calibration coefficients and variables names
+                cc = get_calibration_coefficients(file_date, calib_coeff)
 
-                    temperature, H2O, CO2 = get_raw_var_names(stationName, file_date)
+                df[cc['H2O_var_name']] = correct_calibration(
+                    df[cc['H2O_var_name']].values,
+                    df[cc['temperature_var_name']].values,
+                    cc['H2O_slope'],
+                    cc['H2O_intercept']
+                    )
 
-                    # Water concentrations
-                    df[H2O] = (
-                        df[H2O]
-                        + df_corr.loc[id_corr,'H2O_slope'].values[0] * df[temperature]
-                        + df_corr.loc[id_corr,'H2O_intercept'].values[0]
-                        )
+                df[cc['CO2_var_name']] = correct_calibration(
+                    df[cc['CO2_var_name']].values,
+                    df[cc['temperature_var_name']].values,
+                    cc['CO2_slope'],
+                    cc['CO2_intercept']
+                    )
 
-                    # CO2 concentrations
-                    df[CO2] = df[CO2] + df_corr.loc[id_corr,'CO2_intercept'].values[0]
-
-
-                df.to_csv(os.path.join(asciiOutDir,stationName, iCorrFile),
+                df.to_csv(os.path.join(asciiOutDir,station, eddy_corr_file),
                           header=False, index=False, mode='a', quoting=0)
 
             except Exception as e:
                 print(str(e))
-                logf.write('Failed to correct concentration for file'+
-                           f'{iFile}: {str(e)} \n')
+                logf.write('Failed to correct concentration for file '+
+                           f'{eddy_file}: {str(e)} \n')
 
     # Close error log file
     logf.close()
