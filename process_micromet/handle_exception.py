@@ -48,7 +48,42 @@ def handle_exception(stationName, df):
                 'air_temp_min_HMP45C',
                 'air_relhum_HMP45C']] = np.nan
 
+        ######################
+        # Correct CO2 fluxes #
+        ######################
 
+        # Correct the CO2 fluxes bias that is related to the slow-response air
+        # temperature probe used in the calculation of the CO2 density
+        # Following :
+        #
+        # M. Helbig, K. Wischnewski, G.H. Gosselin, S.C. Biraud, I. Bogoev,
+        # W.S. Chan, E.S. Euskirchen, A.J. Glenn, P.M. Marsh, W.L. Quinton,
+        # O. Sonnentag, Addressing a systematic bias in carbon dioxide flux
+        # measurements with the EC150 and the IRGASON open-path gas analyzers,
+        # Agricultural and Forest Meteorology, Volumes 228–229, 2016
+        #
+        # Eric S. Russell, VictorAdd the ia Dziekan, Jinshu Chi, Sarah Waldo,
+        # Shelley N. Pressley, Patrick O’Keeffe, Brian K. Lamb, Adjustment of
+        # CO2 flux measurements due to the bias in the EC150 infrared gas
+        # analyzer, Agricultural and Forest Meteorology, Volumes 276–277, 2019
+
+        wT = df['H'] / (df['air_heat_capacity'] * df['air_density'])
+
+        # First Irgason (SN:1061)
+        index = df.index[
+            (pd.to_datetime('2018-01-01 00:00:00') <= df['timestamp'])
+            & (df['timestamp'] < pd.to_datetime('2021-10-20 09:00:00'))
+            ]
+        df.loc[index, 'CO2_flux'] = df.loc[index, 'CO2_flux'] \
+            - (-6.69604501 * wT[index] + -0.006874538127916616)
+
+        # Second Irgason (SN:1061)
+        index = df.index[
+            (pd.to_datetime('2021-10-20 09:00:00') <= df['timestamp'])
+            & (df['timestamp'] < pd.to_datetime('2022-06-13 15:30:00'))
+            ]
+        df.loc[index, 'CO2_flux'] = df.loc[index, 'CO2_flux'] \
+            - (-13.74654197 * wT[index] + -0.0004747748983443545)
 
     if stationName in ['Foret_ouest']:
 
