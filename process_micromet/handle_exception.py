@@ -206,4 +206,12 @@ def handle_exception(stationName, df):
                     df.loc[id_start:id_start+48,col_rm] = np.nan
                 df.loc[id_end-48:id_end,col_rm] = np.nan
 
+    if stationName in ['Bernard_lake']:
+
+        #############################################################################
+        ### Handle the RMY 05103 counter clockwise wind direction reference frame ###
+        #############################################################################
+
+        df['wind_dir_05103'] = 360 - df['wind_dir_05103']
+
     return df
