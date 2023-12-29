@@ -91,9 +91,10 @@ def get_calibration_coefficients(date_str, corr_coef):
             }
 
 
-def correct_calibration(gas_conc, temperature, slope, intercept):
+def correct_gas_concentration(gas_conc, temperature, slope, intercept):
     """
-    Correct the gas concentration according to a temperature linear relation
+    Correct the gas concentration according to linear regression based
+    on air temperature.
     Corrected gas concentation =
         original gas concentration + slope * temperature + intercept
 
@@ -200,14 +201,14 @@ def correct_raw_concentrations(
                 # Get calibration coefficients and variables names
                 cc = get_calibration_coefficients(file_date, calib_coeff)
 
-                df[cc['H2O_var_name']] = correct_calibration(
+                df[cc['H2O_var_name']] = correct_gas_concentration(
                     df[cc['H2O_var_name']].values,
                     df[cc['temperature_var_name']].values,
                     cc['H2O_slope'],
                     cc['H2O_intercept']
                     )
 
-                df[cc['CO2_var_name']] = correct_calibration(
+                df[cc['CO2_var_name']] = correct_gas_concentration(
                     df[cc['CO2_var_name']].values,
                     df[cc['temperature_var_name']].values,
                     cc['CO2_slope'],
