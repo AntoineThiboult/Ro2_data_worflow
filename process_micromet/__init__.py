@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# from .bandpass_filter import bandpass_filter
 from .compute_storage_flux import compute_storage_flux #noqa
 from .convert_CSbinary_to_csv import convert_CSbinary_to_csv #noqa
 from .correct_ernergy_balance import correct_energy_balance #noqa

@@ -221,6 +221,8 @@ def merge_eddycov_stations(stationName, rawFileDir,
                 except:
                     warnings.warn(f'Unknown variable: {iVar}')
 
+        # Add data for gapfilling
+        df['delta_temp_air_water'] = df['air_temp_HMP45C'] - df['water_temp_0m0']
 
     elif stationName == 'Forest_stations':
 
@@ -312,6 +314,9 @@ def merge_eddycov_stations(stationName, rawFileDir,
         for iVar in df_therm.columns:
             if iVar not in df.columns:
                 df[iVar] = df_therm[iVar]
+
+        # Add data for gapfilling
+        df['delta_temp_air_water'] = df['air_temp_HC2S3'] - df['water_temp_0m0']
 
     else:
         print('{}: Unknown station name'.format(stationName))

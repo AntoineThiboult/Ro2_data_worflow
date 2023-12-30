@@ -1,9 +1,31 @@
 import os
 import pandas as pd
 import numpy as np
+import yaml
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
-from sklearn import linear_model
+
+def load_gap_fill_config(gf_config_dir,station):
+    """
+    Load gap filling configuration for slow data
+
+    Parameters
+    ----------
+    gf_config_dir : String
+        Path to the directory that contains the .yml file. The name of the
+        file should have a format: {station}_lake_slow_data.yml
+    station : String
+        Name of the station
+
+    Returns
+    -------
+    config : Dict
+        Dictionary that contains the configuration for gap filling slow data
+
+    """
+    config = yaml.safe_load(
+        open(os.path.join(gf_config_dir,f'{station}_slow_data.yml')))
+    return config
 
 
 def train_rf(target_var, input_vars):
@@ -79,7 +101,7 @@ def predict_rf(scalerX, scalery, regr, input_vars):
 
 
 
-def gap_fill_meteo(station_name, df, dataFileDir):
+def gap_fill_meteo(station_name, df, dataFileDir, gf_config_dir):
     """ Gap fill essential data. Linear interpolation is first used with a
     limit window that depends on the variable. The remaining gaps are filled
     with the ERA5 reanalysis data. The reanalysis is corrected with in situ
@@ -97,59 +119,18 @@ def gap_fill_meteo(station_name, df, dataFileDir):
     None.
 
     """
-
-    # Declaration of variables and  maximum window length for linear interpolation
-    station_infos = {
-
-        'Water_stations':  {
-            'proxy':
-                 os.path.join(dataFileDir,'ERA5L_Water_stations'),
-            'var_to_fill':
-                {'air_temp_HMP45C':6,
-                 'air_relhum_HMP45C':6,
-                 'air_vpd':6,
-                 'wind_speed_05103':6,
-                 'wind_dir_05103':6}},
-
-        'Forest_stations':  {
-            'proxy':
-                 os.path.join(dataFileDir,'ERA5L_Forest_stations'),
-             'var_to_fill':
-                 {'air_temp_HMP45C':6,
-                  'air_relhum_HMP45C':6,
-                  'air_vpd':6,
-                  'wind_speed_05103':6,
-                  'wind_dir_05103':6,
-                  'air_press_CS106':24,
-                  'soil_temp_CS650_1':48,
-                  'soil_temp_CS650_2':48,
-                  'soil_watercontent_CS650_1':96,
-                  'soil_watercontent_CS650_2':96,
-                  'soil_heatflux_HFP01SC_1': 96}},
-
-        'Bernard_lake':  {
-            'proxy':
-                 os.path.join(dataFileDir,'ERA5L_Bernard_lake'),
-            'var_to_fill':
-                {'air_temp_HC2S3':6,
-                 'air_relhum_HC2S3':6,
-                 'air_vpd':6,
-                 'wind_speed_05103':6,
-                 'wind_dir_05103':6}},
-                     }
-
+    # Declaration of variables and maximum window length for linear interpolation
+    gf_config = load_gap_fill_config(gf_config_dir, station_name)
 
     ############################
     ### Linear interpolation ###
     ############################
 
-    for i_var in station_infos[station_name]['var_to_fill']:
-
+    for i_var in gf_config['vars_to_fill_meteo']:
         # Perform linear interpolation with a window specified by variable type
         df[i_var]= df[i_var].interpolate(
             method='linear',
-            limit=station_infos[station_name]['var_to_fill'][i_var])
-
+            limit=gf_config['vars_to_fill_meteo'][i_var])
 
     ########################
     ### Machine learning ###
@@ -160,8 +141,8 @@ def gap_fill_meteo(station_name, df, dataFileDir):
     df['hour_t'] = np.cos(df['timestamp'].dt.hour/24*2*np.pi)
 
     # Load meteorological reanalysis
-    df_era = pd.read_csv(station_infos[station_name]['proxy']
-                           + '.csv')
+    df_era = pd.read_csv(os.path.join(
+        dataFileDir, f"{gf_config['proxy']}.csv"))
 
     if station_name == 'Bernard_lake':
         air_temp = 'air_temp_HC2S3'
@@ -173,7 +154,7 @@ def gap_fill_meteo(station_name, df, dataFileDir):
         air_relhum = 'air_relhum_HMP45C'
 
 
-    for i_var in station_infos[station_name]['var_to_fill']:
+    for i_var in gf_config['vars_to_fill_meteo']:
 
         if i_var in df_era.columns:
 
@@ -210,7 +191,7 @@ def gap_fill_meteo(station_name, df, dataFileDir):
     return df
 
 
-def gap_fill_radiation(station_name, df, dataFileDir):
+def gap_fill_radiation(station_name, df, dataFileDir, gf_config_dir):
     """ Gap fill radiation data. Gaps are filled with the ERA5 reanalysis data.
     The reanalysis is corrected with in situ measurements via a random forest
     regressor.
@@ -228,40 +209,13 @@ def gap_fill_radiation(station_name, df, dataFileDir):
 
     """
 
-    # Declaration of variables and  maximum window length for linear interpolation
-    station_infos = {
-        'Water_stations':  {
-            'proxy':
-                 os.path.join(dataFileDir,'ERA5L_Water_stations'),
-            'var_to_fill':
-                ['rad_longwave_down_CNR4',
-                 'rad_shortwave_down_CNR4',
-                 'rad_longwave_up_CNR4',
-                 'rad_shortwave_up_CNR4']},
-
-        'Forest_stations':  {
-            'proxy':
-                 os.path.join(dataFileDir,'ERA5L_Forest_stations'),
-             'var_to_fill':
-                 ['rad_longwave_down_CNR4',
-                  'rad_shortwave_down_CNR4',
-                  'rad_longwave_up_CNR4',
-                  'rad_shortwave_up_CNR4']},
-
-         'Bernard_lake':  {
-             'proxy':
-                  os.path.join(dataFileDir,'ERA5L_Bernard_lake'),
-              'var_to_fill':
-                  ['rad_longwave_down_CNR4',
-                   'rad_shortwave_down_CNR4',
-                   'rad_longwave_up_CNR4',
-                   'rad_shortwave_up_CNR4']},
-                     }
-
     if station_name == 'Bernard_lake':
         air_temp = 'air_temp_HC2S3'
     else:
         air_temp = 'air_temp_HMP45C'
+
+    # Declaration of variables and maximum window length for linear interpolation
+    gf_config = load_gap_fill_config(gf_config_dir, station_name)
 
     ########################
     ### Machine learning ###
@@ -272,11 +226,11 @@ def gap_fill_radiation(station_name, df, dataFileDir):
     df['hour_t'] = np.cos(df['timestamp'].dt.hour/24*2*np.pi)
 
     # Load meteorological reanalysis
-    df_era = pd.read_csv(station_infos[station_name]['proxy']
-                           + '.csv')
+    df_era = pd.read_csv(os.path.join(
+        dataFileDir, f"{gf_config['proxy']}.csv"))
 
 
-    for i_var in station_infos[station_name]['var_to_fill']:
+    for i_var in gf_config['vars_to_fill_radiation']:
 
         if i_var in df_era.columns:
 

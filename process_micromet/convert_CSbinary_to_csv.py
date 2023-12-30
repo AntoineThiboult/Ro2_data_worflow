@@ -7,13 +7,6 @@ import subprocess
 import shutil
 import pandas as pd
 
-station_name_dict = {'Berge': 'Romaine-2_reservoir_shore',
-                     'Foret_ouest': 'Bernard_spruce_moss_west',
-                     'Foret_est': 'Bernard_spruce_moss_east',
-                     'Foret_sol': 'Bernard_spruce_moss_ground',
-                     'Reservoir': 'Romaine-2_reservoir_raft',
-                     'Bernard_lake': 'Bernard_lake'}
-
 def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     """Convert Campbell Scientific binary files (.dat) to readable .csv files.
     Csv files are named in the format YYYYMMDD_hhmm_type.csv, where the date
@@ -60,7 +53,7 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     for iFieldCampain in listFieldCampains:
 
         #Find folders that match the pattern Station_YYYYMMDD
-        stationNameRegex=r'^' + station_name_dict[stationName] + r'_[0-9]{8}$'
+        stationNameRegex=r'^' + stationName + r'_[0-9]{8}$'
         listDataCollection  = [f for f in os.listdir(os.path.join(rawFileDir,iFieldCampain)) if re.match(stationNameRegex, f)]
 
         for iDataCollection in listDataCollection:

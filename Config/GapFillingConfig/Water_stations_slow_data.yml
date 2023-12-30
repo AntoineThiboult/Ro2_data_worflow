@@ -1,0 +1,12 @@
+'proxy':
+    'ERA5L_Water_stations'
+vars_to_fill_meteo:
+    'air_temp_HMP45C': 6
+    'air_relhum_HMP45C': 6
+    'air_vpd': 6
+    'wind_speed_05103': 6
+    'wind_dir_05103': 6
+
+'vars_to_fill_radiation':
+    ['rad_longwave_down_CNR4','rad_shortwave_down_CNR4','rad_longwave_up_CNR4','rad_shortwave_up_CNR4']
+                  

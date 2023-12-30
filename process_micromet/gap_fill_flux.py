@@ -22,12 +22,6 @@ def gap_fill_flux(station_name,df,gf_config_dir):
     -------
     """
 
-    # Add variable for gap filling
-    if station_name == 'Water_stations':
-        df['delta_temp_air_water'] = df['air_temp_HMP45C'] - df['water_temp_0m0']
-    if station_name == 'Bernard_lake':
-        df['delta_temp_air_water'] = df['air_temp_HC2S3'] - df['water_temp_0m0']
-
     # Didctionary containing names and gapfilling functions
     gf_methods = {'rf':gap_fill_rf,
                   'mds':gap_fill_mds}
@@ -52,10 +46,6 @@ def gap_fill_flux(station_name,df,gf_config_dir):
 
             else:
                 print(f'{var_to_fill} not present in data')
-
-    # Remove variables used for gap filling
-    if station_name == 'Water_stations':
-        df = df.drop('delta_temp_air_water',axis=1)
 
     return df
 

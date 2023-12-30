@@ -8,6 +8,13 @@ CampbellStations =  ["Berge","Foret_ouest","Foret_est","Foret_sol","Reservoir","
 eddyCovStations =   ["Berge","Foret_ouest","Foret_est","Reservoir","Bernard_lake"]
 gapfilledStation =  ["Bernard_lake","Water_stations","Forest_stations"]
 
+station_name_conversion = {'Berge': 'Romaine-2_reservoir_shore',
+                           'Foret_ouest': 'Bernard_spruce_moss_west',
+                           'Foret_est': 'Bernard_spruce_moss_east',
+                           'Foret_sol': 'Bernard_spruce_moss_ground',
+                           'Reservoir': 'Romaine-2_reservoir_raft',
+                           'Bernard_lake': 'Bernard_lake'}
+
 rawFileDir          = "D:/Ro2_micromet_raw_data/Data/"
 reanalysisDir       = "D:/Ro2_micromet_raw_data/Data/Reanalysis/"
 asciiOutDir         = "D:/Ro2_micromet_processed_data/Ascii_data/"
@@ -42,11 +49,11 @@ def parallel_function_0(dates, rawFileDir, miscDataDir,
     pm.reanalysis.retrieve_ERA5land(dates,reanalysisDir)
 
 
-def parallel_function_1(iStation, rawFileDir, asciiOutDir, eddyproOutDir,
+def parallel_function_1(iStation, station_name_conversion, rawFileDir, asciiOutDir, eddyproOutDir,
                         eddyproConfigDir, finalOutDir, varNameExcelSheet):
 
     # Binary to ascii
-    pm.convert_CSbinary_to_csv(iStation,rawFileDir,asciiOutDir)
+    pm.convert_CSbinary_to_csv(station_name_conversion[iStation],rawFileDir,asciiOutDir)
     # Correct raw concentrations
     if iStation in eddyCovStations:
         pm.correct_raw_concentrations(iStation,asciiOutDir,gasAnalyzerConfigDir,False)
@@ -100,8 +107,10 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir,
                                       reanalysisDir ,intermediateOutDir)
 
     # Perform gap filling
-    df = pm.gap_fill_slow_data.gap_fill_meteo(iStation,df,intermediateOutDir)
-    df = pm.gap_fill_slow_data.gap_fill_radiation(iStation,df,intermediateOutDir)
+    df = pm.gap_fill_slow_data.gap_fill_meteo(
+        iStation,df,intermediateOutDir,gapfillConfigDir)
+    df = pm.gap_fill_slow_data.gap_fill_radiation(
+        iStation,df,intermediateOutDir,gapfillConfigDir)
     df = pm.gap_fill_flux(iStation,df,gapfillConfigDir)
 
     # Compute storage terms
@@ -128,7 +137,7 @@ parallel_function_0(dates, rawFileDir, miscDataDir,
                         intermediateOutDir, finalOutDir)
 
 Parallel(n_jobs=len(CampbellStations))(delayed(parallel_function_1)(
-        iStation, rawFileDir, asciiOutDir,
+        iStation, station_name_conversion, rawFileDir, asciiOutDir,
         eddyproOutDir, eddyproConfigDir,
         finalOutDir, varNameExcelSheet)for iStation in CampbellStations)
 
