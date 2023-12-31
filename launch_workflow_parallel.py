@@ -1,5 +1,6 @@
 from joblib import Parallel, delayed
 import process_micromet as pm
+from utils import data_loader as dl
 import pandas as pd
 
 ### Define paths
@@ -27,6 +28,7 @@ eddyproConfigDir    = "./Config/EddyProConfig/"
 gapfillConfigDir    = "./Config/GapFillingConfig/"
 filterConfigDir     = "./Config/Filtering/"
 gasAnalyzerConfigDir    = "./Config/Gas_analyzer/"
+reanalysisConfigDir = "./Config/Reanalysis/"
 
 dates = {'start':'2018-06-25','end':'2022-10-01'}
 
@@ -46,7 +48,10 @@ def parallel_function_0(dates, rawFileDir, miscDataDir,
     df = pm.thermistors.gap_fill(df)
     pm.thermistors.save(df,'Bernard_lake_thermistor_chain', finalOutDir)
     # Perform ERA5 extraction and handling
-    pm.reanalysis.retrieve_ERA5land(dates,reanalysisDir)
+    pm.reanalysis.retrieve( dl.yaml_file(
+        reanalysisConfigDir,'era5_land'), dates,reanalysisDir)
+    pm.reanalysis.retrieve( dl.yaml_file(
+        reanalysisConfigDir,'era5'), dates,reanalysisDir)
 
 
 def parallel_function_1(iStation, station_name_conversion, rawFileDir, asciiOutDir, eddyproOutDir,

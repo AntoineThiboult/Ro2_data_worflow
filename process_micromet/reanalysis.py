@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-import os
+from os import path
+import sys
 import time
 import pandas as pd
 import numpy as np
@@ -8,7 +9,7 @@ import netCDF4 as ncdf
 import cdsapi
 import concurrent.futures
 
-def retrieve_routine(variables, dataset, bounding_rectangle, ymd, delay):
+def make_api_request(config, ymd, delay):
     """
     Parameters
     ----------
@@ -32,27 +33,26 @@ def retrieve_routine(variables, dataset, bounding_rectangle, ymd, delay):
     month = ymd.strftime('%m')
     day = ymd.strftime('%d')
 
-    export_name = os.path.join(
-                dataset['dest_folder'],
-                dataset['dest_subfolder'],
-                dataset['dest_subfolder'] + f'_{year}{month}{day}.nc')
+    export_name = path.join(
+        config['dataset_dest_folder'],
+        f"{config['dataset']['short_name']}_{year}{month}{day}.nc")
 
-    if not os.path.isfile(export_name):
+    if not path.isfile(export_name):
         time.sleep((delay%10)/2)
-        cds.retrieve(dataset['name'],
-                    {'variable': variables,
-                     'product_type': dataset['product_type'],
+        cds.retrieve(config['dataset']['name'],
+                    {'variable': config['variables'],
+                     'product_type': config['dataset']['product_type'],
                      'year':   year,
                      'month':  month,
                      'day':    day,
                      'time':   ['{:02}:00'.format(f) for f in range(0,24)],
-                     'area':   bounding_rectangle,
+                     'area':   config['bounding_rectangle'],
                      'format': 'netcdf'}, export_name
                     )
 
 
-def retrieve_ERA5land(dates, dest_folder):
-    """Retrieve data from the ECMWF Copernicus ERA5-land database in a netCDF4
+def retrieve(config, dates, dest_folder):
+    """Retrieve data from the ECMWF Copernicus database in a netCDF4
     format. The function checks that the data has not been downloaded yet.
     Requires the cdsapi to be installed. You can install it from the anaconda
     prompt with : conda install -c conda-forge cdsapi
@@ -61,9 +61,11 @@ def retrieve_ERA5land(dates, dest_folder):
 
     Parameters
     ----------
+    config: Dictionary
+        Contains information about the reanalysis dataset and variables
     dates: dictionnary that contains a 'start' and 'end' dates
         Example: dates{'start': '2018-06-01', 'end': '2020-02-01'}
-    rawFileDir: path to the directory that contains the .xlsx files
+    dest_folder: path to the directory where reanalysis should be stored
 
     Returns
     -------
@@ -72,60 +74,27 @@ def retrieve_ERA5land(dates, dest_folder):
     References
     ----------
     - General guideline: https://cds.climate.copernicus.eu/api-how-to
-    - List of variables available for ERA5 land https://confluence.ecmwf.int/display/CKB/ERA5-Land%3A+data+documentation#ERA5Land:datadocumentation-parameterlistingParameterlistings
+    - Variable description:
+        - ERA5 land https://confluence.ecmwf.int/display/CKB/ERA5-Land%3A+data+documentation
+        - ERA5 https://confluence.ecmwf.int/display/CKB/ERA5-Land%3A+data+documentation
     - Check your request progress: https://cds.climate.copernicus.eu/cdsapp#!/yourrequests
 
     """
 
-    print('Start extracting ERA5 data...')
+    print('Start extracting reanalysis data...')
 
+    dataset_dest_folder = path.join(dest_folder,config['dataset']['short_name'])
+    if not path.exists(dataset_dest_folder):
+        print(f"The folder '{dataset_dest_folder}' does not exist."
+              +"Consider creating relevent tree. Aborting program.")
+        sys.exit()
 
-
-    # Retrieval parameters
-    dataset = {'name':'reanalysis-era5-land',
-               'dest_folder':dest_folder,
-               'dest_subfolder':'ERA5L',
-               'product_type':'reanalysis'}
+    config['dataset_dest_folder'] = dataset_dest_folder
     datelist = pd.date_range(start=dates['start'], end=dates['end'], freq='D')
-    bounding_rectangle = [53, -64.7, 50.2, -62.4 ] # North, West, South, East.
-    variables = [
-        # Lake variables
-        'lake_mix_layer_temperature',
-        # Snow variables
-        'snow_cover',
-        'snow_density',
-        'snow_depth',
-        'snow_depth_water_equivalent',
-        'snowmelt',
-        # Standard meteorological variables
-        '10m_u_component_of_wind',
-        '10m_v_component_of_wind',
-        '2m_temperature',
-        '2m_dewpoint_temperature',
-        'skin_temperature',
-        'soil_temperature_level_1',
-        'soil_temperature_level_2',
-        'volumetric_soil_water_layer_1',
-        'volumetric_soil_water_layer_2',
-        'snowfall',
-        'surface_solar_radiation_downwards',
-        'surface_thermal_radiation_downwards',
-        'surface_net_solar_radiation',
-        'surface_net_thermal_radiation',
-        'surface_pressure',
-        'total_precipitation',
-        # Fluxes
-        'surface_sensible_heat_flux',
-        'surface_latent_heat_flux',
-        'total_evaporation',
-        'potential_evaporation',
-        'evaporation_from_open_water_surfaces_excluding_oceans',
-        'evaporation_from_vegetation_transpiration'
-              ]
 
     # Process to retrieval
     with concurrent.futures.ThreadPoolExecutor(max_workers = 10) as executor:
-        [executor.submit(retrieve_routine, variables, dataset, bounding_rectangle, ymd, delay) for delay, ymd in enumerate(datelist)]
+        [executor.submit(make_api_request, config, ymd, delay) for delay, ymd in enumerate(datelist)]
 
     print('Done!\n')
 
@@ -264,9 +233,9 @@ def netcdf_to_dataframe(dates, station_name, config_dir, data_folder, dest_folde
 
     # Load configuration
     config = yaml.safe_load(
-        open(os.path.join(config_dir,f'{station_name}_filters.yml')))
+        open(path.join(config_dir,f'{station_name}_filters.yml')))
 
-    logf = open(os.path.join('.','Logs','reanalysis.log'), "w")
+    logf = open(path.join('.','Logs','reanalysis.log'), "w")
 
     # Initialize reference reanalysis dataframe. Extend the reference
     # period one day before the start day and one day after the end date.
@@ -284,14 +253,14 @@ def netcdf_to_dataframe(dates, station_name, config_dir, data_folder, dest_folde
 
     for iDate in datelist:
 
-        file_name = os.path.join(
+        file_name = path.join(
             data_folder,reanalysis,reanalysis+'_{}.nc'.format(
                 iDate.strftime('%Y%m%d')))
 
-        isFilePresent = os.path.isfile(file_name)
+        isFilePresent = path.isfile(file_name)
 
         if isFilePresent :
-            isFileComplete = os.path.getsize(file_name) > 2e3
+            isFileComplete = path.getsize(file_name) > 2e3
         else:
             isFileComplete = False
 
@@ -388,7 +357,7 @@ def netcdf_to_dataframe(dates, station_name, config_dir, data_folder, dest_folde
     df_ref['timestamp'] = df_ref.index
 
     # Save
-    df_ref.to_csv(os.path.join(
+    df_ref.to_csv(path.join(
         dest_folder,reanalysis + '_' + station_name + '.csv'), index=False)
 
     print('Done!\n')
