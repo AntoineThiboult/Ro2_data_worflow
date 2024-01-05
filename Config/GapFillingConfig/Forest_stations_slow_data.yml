@@ -1,16 +1,16 @@
 'proxy':
     'ERA5L_Forest_stations'
 vars_to_fill_meteo:
-    'air_temp_HMP45C': 6,
-    'air_relhum_HMP45C': 6,
-    'air_vpd': 6,
-    'wind_speed_05103': 6,
-    'wind_dir_05103': 6,
-    'air_press_CS106': 24,
-    'soil_temp_CS650_1': 48,
-    'soil_temp_CS650_2': 48,
-    'soil_watercontent_CS650_1': 96,
-    'soil_watercontent_CS650_2': 96,
+    'air_temp_HMP45C': 6
+    'air_relhum_HMP45C': 6
+    'air_vpd': 6
+    'wind_speed_05103': 6
+    'wind_dir_05103': 6
+    'air_press_CS106': 24
+    'soil_temp_CS650_1': 48
+    'soil_temp_CS650_2': 48
+    'soil_watercontent_CS650_1': 96
+    'soil_watercontent_CS650_2': 96
     'soil_heatflux_HFP01SC_1': 96
 'vars_to_fill_radiation':
     ['rad_longwave_down_CNR4','rad_shortwave_down_CNR4','rad_longwave_up_CNR4','rad_shortwave_up_CNR4']
