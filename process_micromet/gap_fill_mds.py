@@ -55,28 +55,26 @@ def gap_fill_mds(df,var_to_fill,df_config):
     def find_meteo_proxy_index(df, t, search_window, proxy_vars, proxy_vars_range):
         current_met = df.loc[t,proxy_vars]
         if any(current_met.isna()):
-            index_proxy_met = None
-            fail_code = "NaN in current proxy meteorological vars"
-        else:
-            t_loc = df.index.get_loc(t)
-            t_start = np.max([df.index[0], t_loc-int(search_window*48)])
-            t_end = np.min([df.index[-1], t_loc+int(search_window*48)+1])
-            time_window = list( range(t_start ,t_end) )
-            time_window_met = df.loc[df.index[time_window],proxy_vars]
-                        
-            # Check if proxy met matches gap filling conditions and that
-            # the corresponding var_to_fill is not NaN
-            index_proxy_met_bool = \
-                abs(time_window_met - current_met).lt(proxy_vars_range).all(axis=1) \
-                    & ~df.loc[df.index[time_window],var_to_fill].isna()       
-                                                
-            index_proxy_met = index_proxy_met_bool.index[index_proxy_met_bool]
+            return None
 
-            if index_proxy_met.size == 0:
-                fail_code = "Proxy met not found"
-            else:
-                fail_code = None
-        return index_proxy_met, fail_code
+        t_loc = df.index.get_loc(t)
+        t_start = np.max([df.index[0], t_loc-int(search_window*48)])
+        t_end = np.min([df.index[-1], t_loc+int(search_window*48)+1])
+        time_window = list( range(t_start ,t_end) )
+        time_window_met = df.loc[df.index[time_window],proxy_vars]
+
+        # Check if proxy met matches gap filling conditions and that
+        # the corresponding var_to_fill is not NaN
+        index_proxy_met_bool = \
+            abs(time_window_met - current_met).lt(proxy_vars_range).all(axis=1) \
+                & ~df.loc[df.index[time_window],var_to_fill].isna()
+
+        index_proxy_met = index_proxy_met_bool.index[index_proxy_met_bool]
+
+        if index_proxy_met.size != 0:
+            return index_proxy_met
+        else:
+            return None
 
     # Submodule to find a NEE within one day at the same hour of day
     def find_nee_proxy_index(df, t, search_window, exact_time=False):
@@ -87,15 +85,14 @@ def gap_fill_mds(df,var_to_fill,df_config):
             time_window = list([t_start ,t_end])
         else:
             time_window = list( range(t_start ,t_end) )
-        
+
         index_proxy_met_bool = ~df.loc[df.index[time_window],var_to_fill].isna()
         index_proxy_met = index_proxy_met_bool.index[index_proxy_met_bool]
-        
-        if index_proxy_met.size == 0:
-            fail_code = "Proxy met not found"
+
+        if index_proxy_met.size != 0:
+            return index_proxy_met
         else:
-            fail_code = None
-        return index_proxy_met, fail_code
+            return None
 
     # Identify missing flux indices
     id_missing_flux = df[var_to_fill].isna()
@@ -122,85 +119,104 @@ def gap_fill_mds(df,var_to_fill,df_config):
         if not t%100:
             print("\rGap filling {:s}, progress {:2.1%} ".format(var_to_fill, t/len(df.index)), end='\r')
 
+        # Calculates the number of time steps between t and the next non NaN-value
+        non_nan_indices = df.index[~df[var_to_fill].isna()]
+        closest_index = np.argmin(np.abs(non_nan_indices - t))
+        dist_next_valid = np.abs(t-non_nan_indices[closest_index])
+
+        # Initialize the index_proxy_met
+        index_proxy_met = None
+
         # Case 1
         search_window = 7
-        index_proxy_met, fail_code = find_meteo_proxy_index(
-            df, t, search_window, proxy_vars, proxy_vars_range)
-        if not fail_code:
-            df.loc[t,gap_fil_col_name] = np.mean(df.loc[index_proxy_met,var_to_fill])
-            df.loc[t,gap_fil_quality_col_name] = "A1"
-            continue
+        if dist_next_valid < search_window*48:
+            index_proxy_met = find_meteo_proxy_index(
+                df, t, search_window, proxy_vars, proxy_vars_range)
+            if index_proxy_met is not None:
+                df.loc[t,gap_fil_col_name] = np.mean(df.loc[index_proxy_met,var_to_fill])
+                df.loc[t,gap_fil_quality_col_name] = "A1"
+                continue
 
         # Case 2
         search_window = 14
-        index_proxy_met, fail_code = find_meteo_proxy_index(
-            df, t, search_window, proxy_vars, proxy_vars_range)
-        if not fail_code:
-            df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
-            df.loc[t,gap_fil_quality_col_name] = "A2"
-            continue
+        if dist_next_valid < search_window*48:
+            index_proxy_met = find_meteo_proxy_index(
+                df, t, search_window, proxy_vars, proxy_vars_range)
+            if index_proxy_met is not None:
+                df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
+                df.loc[t,gap_fil_quality_col_name] = "A2"
+                continue
 
         # Case 3
         search_window = 7
-        index_proxy_met, fail_code = find_meteo_proxy_index(
-            df, t, search_window, proxy_vars_subset, proxy_vars_subset_range)
-        if not fail_code:
-            df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
-            df.loc[t,gap_fil_quality_col_name] = "A3"
-            continue
+        if dist_next_valid < search_window*48:
+            index_proxy_met = find_meteo_proxy_index(
+                df, t, search_window, proxy_vars_subset, proxy_vars_subset_range)
+            if index_proxy_met is not None:
+                df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
+                df.loc[t,gap_fil_quality_col_name] = "A3"
+                continue
 
         # Case 4
         search_window = 1/24
-        index_proxy_met, fail_code = find_nee_proxy_index(df, t, search_window)
-        if not fail_code:
-            df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
-            df.loc[t,gap_fil_quality_col_name] = "A4"
-            continue
+        if dist_next_valid < search_window*48:
+            index_proxy_met = find_nee_proxy_index(df, t, search_window)
+            if index_proxy_met is not None:
+                df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
+                df.loc[t,gap_fil_quality_col_name] = "A4"
+                continue
 
         # Case 5
         search_window = 1
-        index_proxy_met, fail_code = find_nee_proxy_index(df, t, search_window, True)
-        if not fail_code:
-            df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
-            df.loc[t,gap_fil_quality_col_name] = "B1"
-            continue
+        if dist_next_valid < search_window*48:
+            index_proxy_met = find_nee_proxy_index(df, t, search_window, True)
+            if index_proxy_met is not None:
+                df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
+                df.loc[t,gap_fil_quality_col_name] = "B1"
+                continue
 
         # Case 6
         search_window = 14
-        while bool(fail_code) & (search_window <= 140):
-            search_window += 7
-            index_proxy_met, fail_code = find_meteo_proxy_index(
-                df, t, search_window, proxy_vars, proxy_vars_range)
-            if not fail_code:
-                df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
-                if search_window <= 28:
-                    df.loc[t,gap_fil_quality_col_name] = "B2"
-                else:
-                    df.loc[t,gap_fil_quality_col_name] = "C1"
-                continue
+        if dist_next_valid < search_window*48:
+            while (index_proxy_met is None) & (search_window <= 140):
+                search_window += 7
+                index_proxy_met = find_meteo_proxy_index(
+                    df, t, search_window, proxy_vars, proxy_vars_range)
+                if index_proxy_met is not None:
+                    df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
+                    if search_window <= 28:
+                        df.loc[t,gap_fil_quality_col_name] = "B2"
+                    else:
+                        df.loc[t,gap_fil_quality_col_name] = "C1"
+                    break
+        if index_proxy_met is not None:
+            continue
 
         # Case 7
         search_window = 7
-        while bool(fail_code) & (search_window <= 140):
-            search_window += 7
-            index_proxy_met, fail_code = find_meteo_proxy_index(
-                df, t, search_window, proxy_vars_subset, proxy_vars_subset_range)
-            if not fail_code:
-                df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
-                if search_window <= 14:
-                    df.loc[t,gap_fil_quality_col_name] = "B3"
-                else:
-                    df.loc[t,gap_fil_quality_col_name] = "C2"
-                continue
+        if dist_next_valid < search_window*48:
+            while (index_proxy_met is None) & (search_window <= 140):
+                search_window += 7
+                index_proxy_met = find_meteo_proxy_index(
+                    df, t, search_window, proxy_vars_subset, proxy_vars_subset_range)
+                if index_proxy_met is not None:
+                    df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
+                    if search_window <= 14:
+                        df.loc[t,gap_fil_quality_col_name] = "B3"
+                    else:
+                        df.loc[t,gap_fil_quality_col_name] = "C2"
+                    break
+        if index_proxy_met is not None:
+            continue
 
         # Case 8
-        search_window = 0
-        while bool(fail_code):
+        search_window = dist_next_valid//48
+        while True:
             search_window += 7
-            index_proxy_met, fail_code = find_nee_proxy_index(df, t, search_window)
-            if not fail_code:
+            index_proxy_met = find_nee_proxy_index(df, t, search_window)
+            if index_proxy_met is not None:
                 df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
                 df.loc[t,gap_fil_quality_col_name] = "C3"
-                continue
+                break
 
     return df
