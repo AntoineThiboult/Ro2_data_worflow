@@ -6,7 +6,7 @@ vars_to_fill_meteo:
     'air_vpd': 6
     'wind_speed_05103': 6
     'wind_dir_05103': 6
-
 'vars_to_fill_radiation':
     ['rad_longwave_down_CNR4','rad_shortwave_down_CNR4','rad_longwave_up_CNR4','rad_shortwave_up_CNR4']
-                  
+'custom_operation':
+    ["df['delta_temp_air_water'] = df['air_temp_HMP45C'] - df['water_temp_0m0']"]

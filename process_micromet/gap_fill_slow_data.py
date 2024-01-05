@@ -304,3 +304,9 @@ def gap_fill_radiation(station_name, df, dataFileDir, gf_config_dir):
         + df['rad_longwave_down_CNR4'] - df['rad_longwave_up_CNR4']
 
     return df
+
+def custom_operation(station_name, df, gf_config_dir):
+    config = load_gap_fill_config(gf_config_dir,station_name)
+    for operation in config['custom_operation']:
+        exec(operation, globals(), locals())
+    return df

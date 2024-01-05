@@ -116,6 +116,8 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir,
         iStation,df,intermediateOutDir,gapfillConfigDir)
     df = pm.gap_fill_slow_data.gap_fill_radiation(
         iStation,df,intermediateOutDir,gapfillConfigDir)
+    df = pm.gap_fill_slow_data.custom_operation(
+        iStation,df,gapfillConfigDir)
     df = pm.gap_fill_flux(iStation,df,gapfillConfigDir)
 
     # Compute storage terms
