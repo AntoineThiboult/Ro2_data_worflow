@@ -58,7 +58,8 @@ def parallel_function_1(iStation, station_name_conversion, rawFileDir, asciiOutD
                         eddyproConfigDir, finalOutDir, varNameExcelSheet):
 
     # Binary to ascii
-    pm.convert_CSbinary_to_csv(station_name_conversion[iStation],rawFileDir,asciiOutDir)
+    pm.convert_CSbinary_to_csv(station_name_conversion[iStation],iStation,
+                               rawFileDir,asciiOutDir)
     # Correct raw concentrations
     if iStation in eddyCovStations:
         pm.correct_raw_concentrations(iStation,asciiOutDir,gasAnalyzerConfigDir,False)
@@ -118,7 +119,7 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir,
         iStation,df,intermediateOutDir,gapfillConfigDir)
     df = pm.gap_fill_slow_data.custom_operation(
         iStation,df,gapfillConfigDir)
-    df = pm.gap_fill_flux(iStation,df,gapfillConfigDir)
+    df = pm.gap_fill_flux.gap_fill_flux(iStation,df,gapfillConfigDir)
 
     # Compute storage terms
     df = pm.compute_storage_flux(iStation,df)
