@@ -7,7 +7,8 @@ import subprocess
 import shutil
 import pandas as pd
 
-def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
+def convert_CSbinary_to_csv(station_name_raw, station_name_ascii,
+                            rawFileDir, asciiOutDir):
     """Convert Campbell Scientific binary files (.dat) to readable .csv files.
     Csv files are named in the format YYYYMMDD_hhmm_type.csv, where the date
     refers to the first time stamp found in the file and the type can be:
@@ -21,11 +22,11 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     follow:
         rawFileDir
         |--YYYYMMDD
-        |   |--stationName_YYYYMMDD
+        |   |--station_name_raw_YYYYMMDD
         |       |--foo.dat
         |       |--bar.dat
         |--YYYYMMDD
-        |   |--stationName_YYYYMMDD
+        |   |--station_name_raw_YYYYMMDD
         |       |--foo.dat
         |       |--bar.dat
 
@@ -33,7 +34,8 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
 
     Parameters
     ----------
-    stationName: name of the station
+    station_name_raw: name of the station as stored in the raw data
+    station_name_ascii: name of the station as stored in the ascii data
     rawFileDir: path to the directory that contains the Campbell Scientific
         binary files
     asciiOutDir: path to the directory that contains the converted files (.csv)
@@ -42,7 +44,7 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     -------
     """
 
-    print('Start converting Campbell binary files to csv for station:', stationName)
+    print(f'Start converting Campbell binary files to csv for station: {station_name_ascii}')
 
     # Open error log file
     logf = open(os.path.join('.','Logs','convert_CSbinary_to_csv.log'), "w")
@@ -53,13 +55,13 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
     for iFieldCampain in listFieldCampains:
 
         #Find folders that match the pattern Station_YYYYMMDD
-        stationNameRegex=r'^' + stationName + r'_[0-9]{8}$'
+        stationNameRegex=r'^' + station_name_raw + r'_[0-9]{8}$'
         listDataCollection  = [f for f in os.listdir(os.path.join(rawFileDir,iFieldCampain)) if re.match(stationNameRegex, f)]
 
         for iDataCollection in listDataCollection:
 
             # Check if conversion has already been performed
-            destDirContent = os.listdir(os.path.join(asciiOutDir,stationName))
+            destDirContent = os.listdir(os.path.join(asciiOutDir,station_name_ascii))
             subStr = re.search(r'^.*([0-9]{8})$', iDataCollection).group(1)
 
             if not [f for f in destDirContent if re.match(subStr, f)]:
@@ -68,7 +70,7 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
                     print(f'\t Currently processing file {rawFile}')
 
                     inFile=os.path.join(rawFileDir,iFieldCampain,iDataCollection,rawFile)
-                    outFile=os.path.join(asciiOutDir,stationName,rawFile)
+                    outFile=os.path.join(asciiOutDir,station_name_ascii,rawFile)
 
                     try:
                         # File type name handling
@@ -115,12 +117,12 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
                                     # folder if the series contains less than
                                     # 18000 records (full 30 min @ 10Hz)
                                     file_name = os.path.join(
-                                        asciiOutDir,stationName,'Incomplete',
+                                        asciiOutDir,station_name_ascii,'Incomplete',
                                         df.loc[i[0]+1,'TIMESTAMP'].strftime(
                                         '%Y%m%d_%H%M') + extension)
                                 else:
                                     file_name = os.path.join(
-                                        asciiOutDir,stationName,
+                                        asciiOutDir,station_name_ascii,
                                         df.loc[i[0]+1,'TIMESTAMP'].strftime(
                                         '%Y%m%d_%H%M') + extension)
                                 # Write header
@@ -136,7 +138,7 @@ def convert_CSbinary_to_csv(stationName,rawFileDir,asciiOutDir):
                             fileContent=pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3], nrows=1)
                             fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S")    # TIMESTAMP format for _alert.csv, _radiation.csv, and _met30min.csv
                             newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
-                            shutil.move(outFile,os.path.join(asciiOutDir,stationName,newFileName))
+                            shutil.move(outFile,os.path.join(asciiOutDir,station_name_ascii,newFileName))
 
                     except Exception as e:
                         print(str(e))
