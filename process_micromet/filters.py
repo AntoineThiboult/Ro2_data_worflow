@@ -55,9 +55,10 @@ def apply_all(stationName,df,filter_config_dir,proxy_data_dir):
 
     # Remove flux below the friction velocity threshold for carbon
     for var in config['friction_vel']['vars']:
-        id_fric_vel = run_friction_velocity_threshold(
-            df,var,config['friction_vel']['temperature_var'])
+        id_fric_vel, fvt_series = run_friction_velocity_threshold(
+            df,var,config['friction_vel']['temperature_var'],True)
         df = remove_flux_and_storage(df,var,id_fric_vel)
+        df['friction_vel_thresholds'] = fvt_series
 
     return df
 
@@ -376,7 +377,7 @@ def remove_flux_and_storage(df,var,id_rm):
     return df
 
 
-def run_friction_velocity_threshold(df, flux_var, air_temp_var):
+def run_friction_velocity_threshold(df, flux_var, air_temp_var, fvt_values=False):
     """Compute friction velocity threshold per season with bootstrap
 
     Parameters
@@ -384,6 +385,8 @@ def run_friction_velocity_threshold(df, flux_var, air_temp_var):
     df: pandas DataFrame that contains the flux variable
     flux_var: string that designate the flux variable
     air_temp_var: string that designate a cleaned variable temperature
+    fvt_values: Boolean swith (True/False) to return or not the friction
+        velocity values as time series
 
     Returns
     id_below_fvt: index of fluxes below friction velocity threshold"""
@@ -402,7 +405,18 @@ def run_friction_velocity_threshold(df, flux_var, air_temp_var):
             index_below_fvt[fvt[s]['id_below_fvt'].index] = \
                 fvt[s]['id_below_fvt'].values
 
-    return index_below_fvt
+    if not fvt_values:
+        return index_below_fvt
+
+    # Produce a time series containing friction velocity thresholds
+    fvt_series = pd.Series([np.nan] * len(df))
+    for s in fvt:
+        if fvt[s]['fvt']:
+            index_season = df[
+                df['timestamp'].dt.month.isin( fvt[s]['months'] )].index
+            fvt_series[index_season] = fvt[s]['fvt']
+
+    return index_below_fvt, fvt_series
 
 
 def seasonal_friction_vel_threshold(df, flux_var, air_temp_var):
