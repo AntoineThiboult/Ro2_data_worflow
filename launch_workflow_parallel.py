@@ -133,7 +133,7 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir,
         df = pm.filters.apply_all(iStation,df,filterConfigDir,finalOutDir)
 
         # Perform gap filling
-        df = pm.gap_fill_flux(iStation,df,gapfillConfigDir)
+        df = pm.gap_fill_flux.gap_fill_flux(iStation,df,gapfillConfigDir)
 
     # Save to csv
     df.to_csv(finalOutDir+iStation+'.csv',index=False)
