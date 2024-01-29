@@ -3,7 +3,7 @@
 title=
 id=
 creation_date=2019-11-11T18:41:33
-last_change_date=2023-12-21T14:22:34
+last_change_date=2024-01-29T12:36:57
 start_date=
 end_date=
 file_name=C:/Users/anthi182/OneDrive - Universit\xe9 Laval/Documents/GitHub/Ro2_data_worflow/Config/EddyProConfig/Ro2_Foret_ouest.metadata
@@ -61,7 +61,7 @@ instr_2_northward_separation=0.00
 instr_2_eastward_separation=0.00
 instr_2_vertical_separation=0.01
 instr_2_vpath_length=15.3700
-instr_2_hpath_length=1.0000
+instr_2_hpath_length=1.9100
 instr_2_tau=0.0001
 instr_2_tube_length=0.0
 instr_2_tube_diameter=0.0
