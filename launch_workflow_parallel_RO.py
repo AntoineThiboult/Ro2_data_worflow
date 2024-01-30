@@ -49,9 +49,9 @@ def parallel_function_0(dates, rawFileDir, miscDataDir,
     pm.thermistors.save(df,'Bernard_lake_thermistor_chain', finalOutDir)
     # Perform ERA5 extraction and handling
     pm.reanalysis.retrieve( dl.yaml_file(
-        reanalysisConfigDir,'era5_land'), dates,reanalysisDir)
+        reanalysisConfigDir,'era5_land_RO'), dates,reanalysisDir)
     pm.reanalysis.retrieve( dl.yaml_file(
-        reanalysisConfigDir,'era5'), dates,reanalysisDir)
+        reanalysisConfigDir,'era5_RO'), dates,reanalysisDir)
 
 
 def parallel_function_1(iStation, station_name_conversion, rawFileDir, asciiOutDir, eddyproOutDir,
