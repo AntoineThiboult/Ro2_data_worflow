@@ -157,7 +157,7 @@ def run(station_name,ascii_dir,eddypro_config_dir,eddypro_out_dir,dates):
                 # Statistical analysis
                 elif re.match(r'sa_start_date',line):
                     line = re.sub(r'^sa_start_date=.*$',
-                                  "sa_start_date=" "pr_start_date=" +
+                                  "sa_start_date=" +
                                    eddypro_configs.loc[
                                        i_config,'start'].strftime('%Y-%m-%d'),
                                            line.rstrip())
@@ -187,7 +187,7 @@ def run(station_name,ascii_dir,eddypro_config_dir,eddypro_out_dir,dates):
                 # Planar fit
                 elif re.match(r'pf_start_date',line):
                     line = re.sub(r'^pf_start_date=.*$',
-                                  "pf_start_date=" "pr_start_date=" +
+                                  "pf_start_date=" +
                                    eddypro_configs.loc[
                                        i_config,'start'].strftime('%Y-%m-%d'),
                                            line.rstrip())
