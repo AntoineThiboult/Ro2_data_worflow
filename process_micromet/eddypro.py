@@ -38,9 +38,11 @@ def run(station_name,ascii_dir,eddypro_config_dir,eddypro_out_dir,dates):
     output_list = [sub.replace('\\', '/') for sub in output_list]
 
     if output_list:
-        newest_file = max(output_list, key=os.path.getctime)
-        df = pd.read_csv(newest_file,skiprows=[0,2], usecols=['date'])
-        last_timestamp =  df.loc[df.index[-1],'date']
+        last_timestamp = [0]*len(output_list)
+        for ind, i_file in enumerate(output_list):
+            df = pd.read_csv(i_file,skiprows=[0,2], usecols=['date', 'time'])
+            last_timestamp[ind] =  df.loc[df.index[-1],'date'] + " " + df.loc[df.index[-1],'time']
+        last_timestamp = max(last_timestamp)
         if  eddypro_dates['start'] < last_timestamp:
             eddypro_dates['start'] = last_timestamp
 
@@ -155,7 +157,7 @@ def run(station_name,ascii_dir,eddypro_config_dir,eddypro_out_dir,dates):
                 # Statistical analysis
                 elif re.match(r'sa_start_date',line):
                     line = re.sub(r'^sa_start_date=.*$',
-                                  "sa_start_date=" "pr_start_date=" +
+                                  "sa_start_date=" +
                                    eddypro_configs.loc[
                                        i_config,'start'].strftime('%Y-%m-%d'),
                                            line.rstrip())
@@ -185,7 +187,7 @@ def run(station_name,ascii_dir,eddypro_config_dir,eddypro_out_dir,dates):
                 # Planar fit
                 elif re.match(r'pf_start_date',line):
                     line = re.sub(r'^pf_start_date=.*$',
-                                  "pf_start_date=" "pr_start_date=" +
+                                  "pf_start_date=" +
                                    eddypro_configs.loc[
                                        i_config,'start'].strftime('%Y-%m-%d'),
                                            line.rstrip())
