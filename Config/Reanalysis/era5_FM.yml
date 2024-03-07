@@ -1,9 +1,0 @@
-dataset:
-    'name': 'reanalysis-era5-single-levels'
-    'short_name': 'ERA5'
-    'product_type': 'reanalysis'
-bounding_rectangle: [48, -72, 46,-70 ] # North, West, South, East.
-variables: [
-    # Atmospheric variables
-    'boundary_layer_height'
-    ]

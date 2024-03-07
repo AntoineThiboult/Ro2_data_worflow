@@ -1,4 +1,3 @@
-from joblib import Parallel, delayed
 import process_micromet as pm
 from utils import data_loader as dl
 import pandas as pd
@@ -33,29 +32,24 @@ reanalysisConfigDir = "./Config/Reanalysis/"
 dates = {'start':'2018-06-25','end':'2022-10-01'}
 
 
-def parallel_function_0(dates, rawFileDir, miscDataDir,
-                        intermediateOutDir, finalOutDir):
+# Merge Hobo TidBit thermistors
+df1 = pm.thermistors.list_merge_filter('Romaine-2_reservoir_thermistor_chain-1', dates, rawFileDir)
+pm.thermistors.save(df1,'Romaine-2_reservoir_thermistor_chain-1', finalOutDir)
+df2 = pm.thermistors.list_merge_filter('Romaine-2_reservoir_thermistor_chain-2', dates, rawFileDir)
+pm.thermistors.save(df2,'Romaine-2_reservoir_thermistor_chain-2', finalOutDir)
+df = pm.thermistors.average(df1, df2)
+df = pm.thermistors.gap_fill(df)
+pm.thermistors.save(df,'Romaine-2_reservoir_thermistor_chain', finalOutDir)
+df = pm.thermistors.list_merge_filter('Bernard_lake_thermistor_chain', dates, rawFileDir)
+df = pm.thermistors.gap_fill(df)
+pm.thermistors.save(df,'Bernard_lake_thermistor_chain', finalOutDir)
+# Perform ERA5 extraction and handling
+for iStation in gapfilledStation:
+    reanalysis_config = dl.yaml_file(reanalysisConfigDir, iStation)
+    pm.reanalysis.retrieve( reanalysis_config['era5-land'], dates, reanalysisDir)
+    pm.reanalysis.retrieve( reanalysis_config['era5'], dates, reanalysisDir)
 
-    # Merge Hobo TidBit thermistors
-    df1 = pm.thermistors.list_merge_filter('Romaine-2_reservoir_thermistor_chain-1', dates, rawFileDir)
-    pm.thermistors.save(df1,'Romaine-2_reservoir_thermistor_chain-1', finalOutDir)
-    df2 = pm.thermistors.list_merge_filter('Romaine-2_reservoir_thermistor_chain-2', dates, rawFileDir)
-    pm.thermistors.save(df2,'Romaine-2_reservoir_thermistor_chain-2', finalOutDir)
-    df = pm.thermistors.average(df1, df2)
-    df = pm.thermistors.gap_fill(df)
-    pm.thermistors.save(df,'Romaine-2_reservoir_thermistor_chain', finalOutDir)
-    df = pm.thermistors.list_merge_filter('Bernard_lake_thermistor_chain', dates, rawFileDir)
-    df = pm.thermistors.gap_fill(df)
-    pm.thermistors.save(df,'Bernard_lake_thermistor_chain', finalOutDir)
-    # Perform ERA5 extraction and handling
-    pm.reanalysis.retrieve( dl.yaml_file(
-        reanalysisConfigDir,'era5_land_RO'), dates,reanalysisDir)
-    pm.reanalysis.retrieve( dl.yaml_file(
-        reanalysisConfigDir,'era5_RO'), dates,reanalysisDir)
-
-
-def parallel_function_1(iStation, station_name_conversion, rawFileDir, asciiOutDir, eddyproOutDir,
-                        eddyproConfigDir, finalOutDir, varNameExcelSheet):
+for iStation in CampbellStations:
 
     # Binary to ascii
     pm.convert_CSbinary_to_csv(station_name_conversion[iStation],iStation,
@@ -71,7 +65,6 @@ def parallel_function_1(iStation, station_name_conversion, rawFileDir, asciiOutD
     slow_df = pm.rename_trim_vars(iStation,varNameExcelSheet,slow_df,'cs')
 
     if iStation in eddyCovStations:
-
         # Ascii to eddypro
         pm.eddypro.run(iStation,asciiOutDir,eddyproConfigDir,
                        eddyproOutDir,dates)
@@ -82,15 +75,16 @@ def parallel_function_1(iStation, station_name_conversion, rawFileDir, asciiOutD
                                       eddy_df,'eddypro')
         # Merge slow and eddy data
         df = pm.merge_slow_csv_and_eddypro(iStation,slow_df,eddy_df)
+
     else:
         # Rename Dataframe
         df = slow_df
+
     # Save to csv
     df.to_csv(intermediateOutDir+iStation+'.csv',index=False)
 
 
-def parallel_function_2(iStation, intermediateOutDir):
-
+for iStation in CampbellStations:
     # Load csv
     df = pd.read_csv(intermediateOutDir+iStation+'.csv')
     # Handle exceptions
@@ -101,16 +95,14 @@ def parallel_function_2(iStation, intermediateOutDir):
     df.to_csv(finalOutDir+iStation+'.csv',index=False)
 
 
-def parallel_function_3(iStation, finalOutDir, rawFileDir,
-                        gapfillConfigDir, miscDataDir, reanalysisDir, varNameExcelSheet):
-
+for iStation in gapfilledStation:
     # Merge the eddy covariance together (water/forest)
     df = pm.merge_eddycov_stations(iStation,rawFileDir,
                                    finalOutDir, miscDataDir, varNameExcelSheet)
 
     # Format reanalysis data for gapfilling
     pm.reanalysis.netcdf_to_dataframe(dates,iStation,filterConfigDir,
-                                      reanalysisDir ,intermediateOutDir)
+                                      reanalysisDir,intermediateOutDir)
 
     # Perform gap filling
     df = pm.gap_fill_slow_data.gap_fill_meteo(
@@ -125,7 +117,6 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir,
     df = pm.compute_storage_flux(iStation,df)
 
     if iStation == 'Forest_stations':
-
         # Correct for energy balance
         df = pm.correct_energy_balance(df)
 
@@ -137,21 +128,3 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir,
 
     # Save to csv
     df.to_csv(finalOutDir+iStation+'.csv',index=False)
-
-
-########### Process stations ############
-
-parallel_function_0(dates, rawFileDir, miscDataDir,
-                        intermediateOutDir, finalOutDir)
-
-Parallel(n_jobs=len(CampbellStations))(delayed(parallel_function_1)(
-        iStation, station_name_conversion, rawFileDir, asciiOutDir,
-        eddyproOutDir, eddyproConfigDir,
-        finalOutDir, varNameExcelSheet)for iStation in CampbellStations)
-
-Parallel(n_jobs=len(CampbellStations))(delayed(parallel_function_2)(
-        iStation, intermediateOutDir)for iStation in CampbellStations)
-
-Parallel(n_jobs=len(gapfilledStation))(delayed(parallel_function_3)(
-        iStation, finalOutDir, rawFileDir, gapfillConfigDir, miscDataDir,
-        reanalysisDir, varNameExcelSheet)for iStation in gapfilledStation)
