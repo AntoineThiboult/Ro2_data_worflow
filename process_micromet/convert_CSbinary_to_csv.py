@@ -144,38 +144,49 @@ def convert_CSbinary_to_csv(station_name_raw, station_name_ascii,
                             tmp_df['TIMESTAMP'] = pd.to_datetime(tmp_df['TIMESTAMP'])
                             tmp_df = tmp_df.drop_duplicates(subset='TIMESTAMP', keep='last')
                             tmp_df = tmp_df.set_index('TIMESTAMP')
+                            
+                            # Perform resampling if timestep is not always 30-min
+                            if not pd.infer_freq(tmp_df.index) == '30T':
 
-                            # Identify columns that are summed and columns that are averaged.
-                            ind_sum = tmp_df.filter(regex=('\_Tot|\_aggregate')).columns
-                            ind_ave = tmp_df.columns.difference(ind_sum, sort=False)
-                            func_all = {**{ind_sum[i]: lambda x: x.sum() if len(x) >= 15 else None for i in range(len(ind_sum))}, 
-                                        **{ind_ave[i]: lambda x: x.mean() if len(x) >= 15 else None for i in range(len(ind_ave))}}                        
+                                # Identify columns that are summed and columns that are averaged.
+                                ind_sum = tmp_df.filter(regex=('\_Tot|\_aggregate')).columns
+                                ind_ave = tmp_df.columns.difference(ind_sum, sort=False)
+                                func_all = {**{ind_sum[i]: lambda x: x.sum() if len(x) >= 1 else None for i in range(len(ind_sum))}, 
+                                            **{ind_ave[i]: lambda x: x.mean() if len(x) >= 1 else None for i in range(len(ind_ave))}}                        
 
-                            # Resample the minute columns into 30-min using function defined for each column
-                            df_30min = tmp_df.resample('30T').agg(func_all)
-        
-                            # Bring back the timestamp on first column and reorder columns as original
-                            df_30min = df_30min.reset_index()
-                            tmp_df = tmp_df.reset_index()
-                            df_30min = df_30min[tmp_df.columns]
-
-                            # Move 1-min file to a new directory
-                            fileStartTime=tmp_df.TIMESTAMP[0]
-                            newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
-                            shutil.move(outFile, os.path.join(asciiOutDir,stationName,'Slow_min',newFileName))
-
-                            # Define new file name
-                            file_name = os.path.join(
-                                asciiOutDir,stationName,
-                                df_30min['TIMESTAMP'][0].strftime('%Y%m%d_%H%M') + '_slow.csv')
+                                # Resample the minute columns into 30-min using function defined for each column
+                                df_30min = tmp_df.resample('30T').agg(func_all)
                                 
-                            # Write header
-                            with open(file_name,'w') as f:
-                                for h in header:
-                                    f.write(h)
-                            df_30min.to_csv(
-                                file_name, mode='a', header=False, index=False)
+                                # Bring back the timestamp on first column and reorder columns as original
+                                df_30min = df_30min.reset_index()
+                                tmp_df = tmp_df.reset_index()
+                                df_30min = df_30min[tmp_df.columns]
 
+                                # Move 1-min file to a new directory
+                                fileStartTime=tmp_df.TIMESTAMP[0]
+                                newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
+                                shutil.move(outFile, os.path.join(asciiOutDir,station_name_ascii,'Slow_raw_freq',newFileName))
+
+                                # Define new file name
+                                file_name = os.path.join(
+                                    asciiOutDir,station_name_ascii,
+                                    df_30min['TIMESTAMP'][0].strftime('%Y%m%d_%H%M') + '_slow.csv')
+                                
+                                # Write header
+                                with open(file_name,'w') as f:
+                                    for h in header:
+                                        f.write(h)
+                                df_30min.to_csv(
+                                    file_name, mode='a', header=False, index=False)
+                            
+                            # If timestep is 30-min, simply rename the file according to date
+                            else:
+                                fileContent=pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3], nrows=1)
+                                fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S")    # TIMESTAMP format for _alert.csv, _radiation.csv, and _met30min.csv
+                                newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
+                                shutil.move(outFile,os.path.join(asciiOutDir,station_name_ascii,newFileName))
+                        
+                        # If file is neither _slow nor _eddy, rename according to date and extension
                         else:
                             # Rename file according to date
                             fileContent=pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3], nrows=1)
