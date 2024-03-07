@@ -44,11 +44,10 @@ df = pm.thermistors.list_merge_filter('Bernard_lake_thermistor_chain', dates, ra
 df = pm.thermistors.gap_fill(df)
 pm.thermistors.save(df,'Bernard_lake_thermistor_chain', finalOutDir)
 # Perform ERA5 extraction and handling
-pm.reanalysis.retrieve( dl.yaml_file(
-    reanalysisConfigDir,'era5_land'), dates,reanalysisDir)
-pm.reanalysis.retrieve( dl.yaml_file(
-    reanalysisConfigDir,'era5'), dates,reanalysisDir)
-
+for iStation in gapfilledStation:
+    reanalysis_config = dl.yaml_file(reanalysisConfigDir, iStation)
+    pm.reanalysis.retrieve( reanalysis_config['era5-land'], dates, reanalysisDir)
+    pm.reanalysis.retrieve( reanalysis_config['era5'], dates, reanalysisDir)
 
 for iStation in CampbellStations:
 
