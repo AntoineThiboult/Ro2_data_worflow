@@ -48,10 +48,10 @@ def parallel_function_0(dates, rawFileDir, miscDataDir,
     df = pm.thermistors.gap_fill(df)
     pm.thermistors.save(df,'Bernard_lake_thermistor_chain', finalOutDir)
     # Perform ERA5 extraction and handling
-    pm.reanalysis.retrieve( dl.yaml_file(
-        reanalysisConfigDir,'era5_land'), dates,reanalysisDir)
-    pm.reanalysis.retrieve( dl.yaml_file(
-        reanalysisConfigDir,'era5'), dates,reanalysisDir)
+    for iStation in gapfilledStation:
+        reanalysis_config = dl.yaml_file(reanalysisConfigDir, iStation)
+        pm.reanalysis.retrieve( reanalysis_config['era5-land'], dates, reanalysisDir)
+        pm.reanalysis.retrieve( reanalysis_config['era5'], dates, reanalysisDir)
 
 
 def parallel_function_1(iStation, station_name_conversion, rawFileDir, asciiOutDir, eddyproOutDir,
