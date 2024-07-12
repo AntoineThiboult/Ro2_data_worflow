@@ -187,6 +187,66 @@ def handle_exception(stationName, df):
             ]
         df.loc[id_change_Li7500,Li7500_vars] = np.nan
 
+        ############################################
+        # Handle the CO2 flux artifact related to  #
+        # the use of the Li7500 during cold period #
+        ############################################
+
+        # See:
+        # Addressing the influence of instrument surface heat exchange on the
+        # measurements of CO2 flux from open-path gas analyzers. Burba et al. 2008
+
+        correc_coeff = {
+            'Ta_cutoff_ouest': 20.460649803900587,
+            'Ta_slope_ouest': 0.12034168706972999,
+            'Ta_intercept_ouest': -1.837221855313137,
+            'U_A_ouest': -2.4905471374599237,
+            'U_B_ouest': 0.156252236457155,
+            'U_C_ouest': 3.7158489232698457
+            }
+
+        id_LI7500 = df['timestamp'] < pd.to_datetime(
+            '2022-10-22 12:00:00')
+
+        # Air temperature based correction
+        id_corr_temperature = id_LI7500 & (df['air_temp'] <= 273.15 + correc_coeff['Ta_cutoff_ouest'])
+        df.loc[id_corr_temperature,'CO2_flux'] = df.loc[id_corr_temperature,'CO2_flux'] \
+            - (correc_coeff['Ta_slope_ouest'] * (df.loc[id_corr_temperature,'air_temp']-273.15) + correc_coeff['Ta_intercept_ouest'])
+        # Wind speed based correction
+        df.loc[id_LI7500, 'CO2_flux'] = df.loc[id_LI7500, 'CO2_flux'] \
+            - (correc_coeff['U_A_ouest'] * np.exp(correc_coeff['U_B_ouest'] * df.loc[id_LI7500,'wind_speed_sonic']) + correc_coeff['U_C_ouest'])
+
+    if stationName in ['Foret_est']:
+
+        ############################################
+        # Handle the CO2 flux artifact related to  #
+        # the use of the Li7500 during cold period #
+        ############################################
+
+        # See:
+        # Addressing the influence of instrument surface heat exchange on the
+        # measurements of CO2 flux from open-path gas analyzers. Burba et al. 2008
+
+        correc_coeff = {
+            'Ta_cutoff_est': 21.046866259070256,
+            'Ta_slope_est': 0.12621863504666053,
+            'Ta_intercept_est': -1.1281302401119822,
+            'U_A_est': -0.2433512952999454,
+            'U_B_est': 0.40040063387223357,
+            'U_C_est': 0.8040098979405979
+            }
+
+        id_LI7500 = df['timestamp'] < pd.to_datetime(
+            '2022-10-22 12:00:00')
+
+        # Air temperature based correction
+        id_corr_temperature = id_LI7500 & (df['air_temp'] <= 273.15 + correc_coeff['Ta_cutoff_est'])
+        df.loc[id_corr_temperature,'CO2_flux'] = df.loc[id_corr_temperature,'CO2_flux'] \
+            - (correc_coeff['Ta_slope_est'] * (df.loc[id_corr_temperature,'air_temp']-273.15) + correc_coeff['Ta_intercept_est'])
+        # Wind speed based correction
+        df.loc[id_LI7500, 'CO2_flux'] = df.loc[id_LI7500, 'CO2_flux'] \
+            - (correc_coeff['U_A_est'] * np.exp(correc_coeff['U_B_est'] * df.loc[id_LI7500,'wind_speed_sonic']) + correc_coeff['U_C_est'])
+
     if stationName in ['Reservoir']:
 
         ######################################################
