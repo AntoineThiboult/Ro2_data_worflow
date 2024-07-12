@@ -6,6 +6,7 @@ from .correct_ernergy_balance import correct_energy_balance #noqa
 from .correct_raw_concentrations import correct_raw_concentrations #noqa
 from . import eddypro #noqa
 from . import filters #noqa
+from . import footprint #noqa
 from . import gap_fill_flux #noqa
 from . import gap_fill_slow_data #noqa
 from .handle_exception import handle_exception #noqa

@@ -99,6 +99,9 @@ def parallel_function_2(iStation, intermediateOutDir):
     df = pm.filters.apply_all(iStation,df,filterConfigDir,intermediateOutDir)
     # Save to csv
     df.to_csv(finalOutDir+iStation+'.csv',index=False)
+    # Format reanalysis data for gapfilling
+    pm.reanalysis.netcdf_to_dataframe(dates,iStation,filterConfigDir,
+                                      reanalysisDir ,intermediateOutDir)
 
 
 def parallel_function_3(iStation, finalOutDir, rawFileDir,
@@ -139,6 +142,11 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir,
     df.to_csv(finalOutDir+iStation+'.csv',index=False)
 
 
+def parallel_function_4(iStation, finalOutDir):
+    df = pd.read_csv(finalOutDir+iStation+'.csv')
+    fp = pm.footprint.compute(df)
+    pm.footprint.dump(iStation,fp,finalOutDir)
+
 ########### Process stations ############
 
 parallel_function_0(dates, rawFileDir, miscDataDir,
@@ -155,3 +163,6 @@ Parallel(n_jobs=len(CampbellStations))(delayed(parallel_function_2)(
 Parallel(n_jobs=len(gapfilledStation))(delayed(parallel_function_3)(
         iStation, finalOutDir, rawFileDir, gapfillConfigDir, miscDataDir,
         reanalysisDir, varNameExcelSheet)for iStation in gapfilledStation)
+
+Parallel(n_jobs=len(eddyCovStations))(delayed(parallel_function_4)(
+        iStation, finalOutDir)for iStation in eddyCovStations)

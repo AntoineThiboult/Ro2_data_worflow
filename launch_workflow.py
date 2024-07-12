@@ -93,6 +93,9 @@ for iStation in CampbellStations:
     df = pm.filters.apply_all(iStation,df,filterConfigDir,intermediateOutDir)
     # Save to csv
     df.to_csv(finalOutDir+iStation+'.csv',index=False)
+    # Format reanalysis data
+    pm.reanalysis.netcdf_to_dataframe(dates,iStation,filterConfigDir,
+                                      reanalysisDir,intermediateOutDir)
 
 
 for iStation in gapfilledStation:
@@ -128,3 +131,9 @@ for iStation in gapfilledStation:
 
     # Save to csv
     df.to_csv(finalOutDir+iStation+'.csv',index=False)
+
+
+for iStation in eddyCovStations:
+    df = pd.read_csv(finalOutDir+iStation+'.csv')
+    fp = pm.footprint.compute(df)
+    pm.footprint.dump(iStation,fp,finalOutDir)
