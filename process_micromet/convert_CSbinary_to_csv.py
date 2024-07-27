@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# TODO solve issue with shutil.copy that overwrite previous file. Add iDataCollection to name
 from datetime import datetime as dt
 import os
 import re
@@ -8,7 +7,7 @@ import shutil
 import pandas as pd
 
 def convert_CSbinary_to_csv(station_name_raw, station_name_ascii,
-                            rawFileDir, asciiOutDir):
+                            rawFileDir, asciiOutDir, overwrite=False):
     """Convert Campbell Scientific binary files (.dat) to readable .csv files.
     Csv files are named in the format YYYYMMDD_hhmm_type.csv, where the date
     refers to the first time stamp found in the file and the type can be:
@@ -64,7 +63,7 @@ def convert_CSbinary_to_csv(station_name_raw, station_name_ascii,
             destDirContent = os.listdir(os.path.join(asciiOutDir,station_name_ascii))
             subStr = re.search(r'^.*([0-9]{8})$', iDataCollection).group(1)
 
-            if not [f for f in destDirContent if re.match(subStr, f)]:
+            if (not [f for f in destDirContent if re.match(subStr, f)]) or overwrite:
 
                 for rawFile in os.listdir(os.path.join(rawFileDir,iFieldCampain,iDataCollection)):
                     print(f'\t Currently processing file {rawFile}')
@@ -113,9 +112,8 @@ def convert_CSbinary_to_csv(station_name_raw, station_name_ascii,
                             # Write splitted files
                             for i in index:
                                 if i[1]-i[0] != 18000:
-                                    # Save the output file in the incomplete
-                                    # folder if the series contains less than
-                                    # 18000 records (full 30 min @ 10Hz)
+                                    # Save the output file in the incomplete folder if the series contains
+                                    # less than 18000 records (full 30 min @ 10Hz)
                                     file_name = os.path.join(
                                         asciiOutDir,station_name_ascii,'Incomplete',
                                         df.loc[i[0]+1,'TIMESTAMP'].strftime(
@@ -132,7 +130,7 @@ def convert_CSbinary_to_csv(station_name_raw, station_name_ascii,
                                 df.loc[i[0]+1:i[1],:].to_csv(
                                     file_name, mode='a', header=False, index=False)
                             os.remove(outFile)
-                            
+
                         elif extension == "_slow.csv":
 
                             # Save the header to respect TOA5 format
@@ -144,54 +142,54 @@ def convert_CSbinary_to_csv(station_name_raw, station_name_ascii,
                             tmp_df['TIMESTAMP'] = pd.to_datetime(tmp_df['TIMESTAMP'])
                             tmp_df = tmp_df.drop_duplicates(subset='TIMESTAMP', keep='last')
                             tmp_df = tmp_df.set_index('TIMESTAMP')
-                            
+
                             # Perform resampling if timestep is not always 30-min
-                            if not pd.infer_freq(tmp_df.index) == '30T':
+                            if not pd.infer_freq(tmp_df.index) == '30min':
 
                                 # Identify columns that are summed and columns that are averaged.
-                                ind_sum = tmp_df.filter(regex=('\_Tot|\_aggregate')).columns
+                                ind_sum = tmp_df.filter(regex=('_Tot|_aggregate')).columns
                                 ind_ave = tmp_df.columns.difference(ind_sum, sort=False)
-                                func_all = {**{ind_sum[i]: lambda x: x.sum() if len(x) >= 1 else None for i in range(len(ind_sum))}, 
-                                            **{ind_ave[i]: lambda x: x.mean() if len(x) >= 1 else None for i in range(len(ind_ave))}}                        
+                                func_all = {**{ind_sum[i]: lambda x: x.sum() if len(x) >= 1 else None for i in range(len(ind_sum))},
+                                            **{ind_ave[i]: lambda x: x.mean() if len(x) >= 1 else None for i in range(len(ind_ave))}}
 
                                 # Resample the minute columns into 30-min using function defined for each column
-                                df_30min = tmp_df.resample('30T').agg(func_all)
-                                
+                                df_30min = tmp_df.resample('30min').agg(func_all)
+
                                 # Bring back the timestamp on first column and reorder columns as original
                                 df_30min = df_30min.reset_index()
                                 tmp_df = tmp_df.reset_index()
                                 df_30min = df_30min[tmp_df.columns]
 
                                 # Move 1-min file to a new directory
-                                fileStartTime=tmp_df.TIMESTAMP[0]
-                                newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
+                                fileStartTime = tmp_df.TIMESTAMP[0]
+                                newFileName = dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
                                 shutil.move(outFile, os.path.join(asciiOutDir,station_name_ascii,'Slow_raw_freq',newFileName))
 
                                 # Define new file name
                                 file_name = os.path.join(
                                     asciiOutDir,station_name_ascii,
                                     df_30min['TIMESTAMP'][0].strftime('%Y%m%d_%H%M') + '_slow.csv')
-                                
+
                                 # Write header
                                 with open(file_name,'w') as f:
                                     for h in header:
                                         f.write(h)
                                 df_30min.to_csv(
                                     file_name, mode='a', header=False, index=False)
-                            
+
                             # If timestep is 30-min, simply rename the file according to date
                             else:
-                                fileContent=pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3], nrows=1)
-                                fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S")    # TIMESTAMP format for _alert.csv, _radiation.csv, and _met30min.csv
-                                newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
+                                fileContent = pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3], nrows=1)
+                                fileStartTime = dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S")    # TIMESTAMP format for _alert.csv, _radiation.csv, and _met30min.csv
+                                newFileName = dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
                                 shutil.move(outFile,os.path.join(asciiOutDir,station_name_ascii,newFileName))
-                        
+
                         # If file is neither _slow nor _eddy, rename according to date and extension
                         else:
                             # Rename file according to date
-                            fileContent=pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3], nrows=1)
-                            fileStartTime=dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S")    # TIMESTAMP format for _alert.csv, _radiation.csv, and _met30min.csv
-                            newFileName=dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
+                            fileContent = pd.read_csv(outFile, sep=',', index_col=None, skiprows=[0,2,3], nrows=1)
+                            fileStartTime = dt.strptime(fileContent.TIMESTAMP[0], "%Y-%m-%d %H:%M:%S")    # TIMESTAMP format for _alert.csv, _radiation.csv, and _met30min.csv
+                            newFileName = dt.strftime(fileStartTime,'%Y%m%d_%H%M')+extension
                             shutil.move(outFile,os.path.join(asciiOutDir,station_name_ascii,newFileName))
 
                     except Exception as e:
