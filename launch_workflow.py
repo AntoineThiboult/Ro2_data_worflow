@@ -58,7 +58,8 @@ for iStation in CampbellStations:
     if iStation in eddyCovStations:
         pm.correct_raw_concentrations(iStation,asciiOutDir,gasAnalyzerConfigDir,False)
     # Rotate wind
-    pm.rotate_wind(iStation,asciiOutDir)
+    if iStation == 'Reservoir':
+        pm.rotate_wind(iStation,asciiOutDir)
     # Merge slow data
     slow_df = pm.merge_slow_csv(dates,iStation,asciiOutDir)
     # Rename and trim slow variables
