@@ -170,17 +170,17 @@ def filters(df, retrieval_dates=[]):
         for date in retrieval_dates[variable]:
 
             buffer_before = pd.date_range(
-                start=date[0].floor(freq='30T') - pd.Timedelta(hours=6),
-                end=date[0].ceil(freq='30T'),
-                freq='30T')
+                start=date[0].floor(freq='30min') - pd.Timedelta(hours=6),
+                end=date[0].ceil(freq='30min'),
+                freq='30min')
             for i in buffer_before:
                 if i in df.index:
                     df.loc[i,variable] = np.nan
 
             buffer_after = pd.date_range(
-                start=date[1].floor(freq='30T'),
-                end=date[1].floor(freq='30T') + pd.Timedelta(hours=12),
-                freq='30T')
+                start=date[1].floor(freq='30min'),
+                end=date[1].floor(freq='30min') + pd.Timedelta(hours=12),
+                freq='30min')
             for i in buffer_after:
                 if i in df.index:
                     df.loc[i,variable] = np.nan

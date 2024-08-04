@@ -153,7 +153,7 @@ def radiation(df,lat,lon):
     df.loc[id_sub,'rad_shortwave_up_CNR4'] = \
         df.loc[id_sub,'rad_shortwave_down_CNR4'] * \
             df.loc[id_sub,'rolling_albedo']
-    df=df.drop(columns=['rolling_albedo'])
+    df = df.drop(columns=['rolling_albedo'])
 
     # Recompute albedo
     id_daylight = df['rad_shortwave_down_CNR4'] > 25

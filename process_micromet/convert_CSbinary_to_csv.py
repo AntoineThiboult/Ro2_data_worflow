@@ -88,7 +88,7 @@ def convert_CSbinary_to_csv(station_name_raw, station_name_ascii,
                             continue
 
                         # Conversion from the Campbell binary file to csv format
-                        process=os.path.join(".\Bin","raw2ascii","csidft_convert.exe")
+                        process=os.path.join("./Bin","raw2ascii","csidft_convert.exe")
                         subprocess.call([process, inFile, outFile, 'ToA5'])
 
                         if extension == "_eddy.csv":

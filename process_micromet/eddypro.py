@@ -34,7 +34,7 @@ def run(station_name,ascii_dir,eddypro_config_dir,eddypro_out_dir,dates):
 
     # Check if there are existing EddyPro files and load the newest
     # Overwrite the starting date to run only the necessary
-    output_list = glob(eddypro_out_dir+'/'+station_name+'\*full_output*.csv')
+    output_list = glob(eddypro_out_dir+'/'+station_name+'/*full_output*.csv')
     output_list = [sub.replace('\\', '/') for sub in output_list]
 
     if output_list:
@@ -60,7 +60,7 @@ def run(station_name,ascii_dir,eddypro_config_dir,eddypro_out_dir,dates):
 
     # Fill a EddyPro config dataframe
     for count, i_config in enumerate(config_list):
-        matching_str = re.findall('\d{8}_\d{4}', i_config)
+        matching_str = re.findall(r'\d{8}_\d{4}', i_config)
         if matching_str:
             eddypro_configs.loc[count, 'end'] = pd.to_datetime(
                matching_str[0],format='%Y%m%d_%H%M')
@@ -216,7 +216,7 @@ def run(station_name,ascii_dir,eddypro_config_dir,eddypro_out_dir,dates):
                 else:
                     print(line,end='')
 
-        process=os.path.join(".\Bin","EddyPro","bin","eddypro_rp.exe")
+        process=os.path.join("./Bin","EddyPro","bin","eddypro_rp.exe")
         subprocess.call([process, station_config])
 
     print('Done!')
@@ -242,7 +242,7 @@ def merge(station_name,eddypro_out_dir,dates):
         )
 
     # List eddy pro output files and select most recent one
-    output_list = glob(eddypro_out_dir+'/'+station_name+'/'+'\*full_output*.csv')
+    output_list = glob(eddypro_out_dir+'/'+station_name+'/'+'*full_output*.csv')
 
     # Fill dataframe
     for i_file in output_list:
