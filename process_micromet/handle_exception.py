@@ -167,7 +167,7 @@ def handle_exception(stationName, df):
             id_change_Li7500_start = df[df['timestamp']==pd.to_datetime(
                 '2022-03-26 02:00:00')].index[0]
             id_change_Li7500_end = df[df['timestamp']==pd.to_datetime(
-                '2021-06-19 14:00:00')].index[0]
+                '2022-06-19 14:00:00')].index[0]
             id_change_Li7500 = np.arange(
                 id_change_Li7500_start,id_change_Li7500_end)
         except IndexError:
