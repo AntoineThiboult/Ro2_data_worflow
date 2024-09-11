@@ -1,5 +1,5 @@
 import process_micromet as pm
-from utils import data_loader as dl
+from utils import data_loader as dl, dataframe_manager as dfm
 import pandas as pd
 
 ### Define paths
@@ -60,29 +60,31 @@ for iStation in CampbellStations:
     # Rotate wind
     if iStation == 'Reservoir':
         pm.rotate_wind(iStation,asciiOutDir)
-    # Merge slow data
-    slow_df = pm.merge_slow_csv(dates,iStation,asciiOutDir)
+    # List slow files
+    slow_files = dfm.list_files(iStation, '*slow.csv', asciiOutDir)
+    # Create reference dataframe and merge slow files
+    df = dfm.create(dates)
+    df = dfm.merge_files(df,slow_files,'TOA5')
     # Rename and trim slow variables
-    slow_df = pm.rename_trim_vars(iStation,varNameExcelSheet,slow_df,'cs')
+    df = pm.rename_trim_vars(iStation,varNameExcelSheet,df,'cs')
 
     if iStation in eddyCovStations:
         # Ascii to eddypro
         pm.eddypro.run(iStation,asciiOutDir,eddyproConfigDir,
                        eddyproOutDir,dates)
-        # Load eddypro file
-        eddy_df = pm.eddypro.merge(iStation,eddyproOutDir,dates)
+        # List EddyPro files
+        eddypro_files = dfm.list_files(iStation, '*full_output*.csv', eddyproOutDir)
+        # Create reference dataframe and merge EddyPro files
+        eddy_df = dfm.create(dates)
+        eddy_df = dfm.merge_files(eddy_df,eddypro_files,'EddyPro')
         # Rename and trim eddy variables
         eddy_df = pm.rename_trim_vars(iStation,varNameExcelSheet,
                                       eddy_df,'eddypro')
         # Merge slow and eddy data
-        df = pm.merge_slow_csv_and_eddypro(iStation,slow_df,eddy_df)
+        df = dfm.merge(df,eddy_df)
 
-    else:
-        # Rename Dataframe
-        df = slow_df
-
-    # Save to csv
-    df.to_csv(intermediateOutDir+iStation+'.csv',index=False)
+    df['timestamp'] = df.index
+    dfm.save(df,intermediateOutDir,iStation)
 
 
 for iStation in CampbellStations:
@@ -93,7 +95,7 @@ for iStation in CampbellStations:
     # Filter data
     df = pm.filters.apply_all(iStation,df,filterConfigDir,intermediateOutDir)
     # Save to csv
-    df.to_csv(finalOutDir+iStation+'.csv',index=False)
+    dfm.save(df,finalOutDir,iStation)
     # Format reanalysis data
     pm.reanalysis.netcdf_to_dataframe(dates,iStation,filterConfigDir,
                                       reanalysisDir,intermediateOutDir)
@@ -131,7 +133,7 @@ for iStation in gapfilledStation:
         df = pm.gap_fill_flux.gap_fill_flux(iStation,df,gapfillConfigDir)
 
     # Save to csv
-    df.to_csv(finalOutDir+iStation+'.csv',index=False)
+    dfm.save(df,finalOutDir,iStation)
 
 
 for iStation in eddyCovStations:

@@ -10,8 +10,6 @@ from . import footprint #noqa
 from . import gap_fill_flux #noqa
 from . import gap_fill_slow_data #noqa
 from .handle_exception import handle_exception #noqa
-from .merge_slow_csv import merge_slow_csv #noqa
-from .merge_slow_csv_and_eddypro import merge_slow_csv_and_eddypro  #noqa
 from . import ml_utils #noqa
 from . import thermistors #noqa
 from .rename_trim_vars import rename_trim_vars #noqa
