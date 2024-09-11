@@ -83,7 +83,6 @@ for iStation in CampbellStations:
         # Merge slow and eddy data
         df = dfm.merge(df,eddy_df)
 
-    df['timestamp'] = df.index
     dfm.save(df,intermediateOutDir,iStation)
 
 

@@ -90,7 +90,6 @@ def parallel_function_1(iStation, station_name_conversion, rawFileDir, asciiOutD
         # Merge slow and eddy data
         df = dfm.merge(df,eddy_df)
 
-    df['timestamp'] = df.index
     dfm.save(df,intermediateOutDir,iStation)
 
 
