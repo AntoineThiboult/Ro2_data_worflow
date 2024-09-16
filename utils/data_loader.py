@@ -25,8 +25,9 @@ def yaml_file(path, file):
     data : Dictionary
     """
 
-    if '.' not in file:
-        file = file + '.yml'
+    file = Path(file)
+    if not file.suffix:
+        file = file.with_suffix('.yml')
 
     data = yaml.safe_load(
         open(Path(path).joinpath(file)))
@@ -111,4 +112,31 @@ def eddypro_fulloutput_file(file, sep=',', skiprows=[0,2], index_col=None, drop_
     df.index.name = 'timestamp'
     if drop_duplicates:
         df = df[~df.index.duplicated(keep='last')]
+    return df
+
+
+def csv(file, index_col='timestamp'):
+    """
+    Load pipeline csv
+
+    Parameters
+    ----------
+    file : String or pathlib.Path
+        Path to the EddyPro full output file
+    index_col : String or float, optional
+        Column to use as index The default is 'timestamp'.
+
+    Returns
+    -------
+    df : Pandas DataFrame
+    """
+
+    file = Path(file)
+    if not file.suffix:
+        file = file.with_suffix('.csv')
+
+    df = pd.read_csv(file, index_col=index_col)
+    if index_col.lower() == 'timestamp':
+        df.index = pd.to_datetime(df.index)
+        df.index.name = 'timestamp'
     return df

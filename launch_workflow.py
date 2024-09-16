@@ -88,7 +88,7 @@ for iStation in CampbellStations:
 
 for iStation in CampbellStations:
     # Load csv
-    df = pd.read_csv(intermediateOutDir+iStation+'.csv')
+    df = dl.csv(intermediateOutDir+iStation)
     # Handle exceptions
     df = pm.handle_exception(iStation,df)
     # Filter data

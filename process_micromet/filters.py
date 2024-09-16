@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import yaml
 import pysolar # conda install -c conda-forge pysolar
+from pathlib import Path
+from utils import data_loader as dl
 
 
 def apply_all(stationName,df,filter_config_dir,proxy_data_dir):
@@ -71,8 +73,7 @@ def get_station_info(stationName,filter_config_dir):
 def proxy_station_loader(proxy_station,proxy_data_dir,proxy_var):
     # Load proxy files until it contains variable information
     for proxy in proxy_station:
-        df_proxy = pd.read_csv(os.path.join(
-            proxy_data_dir, f'{proxy}.csv'), low_memory=False)
+        df_proxy = dl.csv(Path(proxy_data_dir).joinpath(proxy))
         if proxy_var in df_proxy.columns:
             break
     return df_proxy
@@ -109,7 +110,7 @@ def radiation(df,lat,lon):
     # Computes sun angle and max theorethical downward shortwave values
     df['solar_angle'] = np.nan
     rad_short_down_max = np.zeros((df.shape[0],))
-    dates = df['timestamp'].dt.tz_localize('Etc/GMT+5').dt.to_pydatetime()
+    dates = df.index.tz_localize('Etc/GMT+5').to_pydatetime()
     for counter, iDate in enumerate(dates):
         altitude_deg = pysolar.solar.get_altitude(
             lat,lon,iDate)
@@ -129,6 +130,14 @@ def radiation(df,lat,lon):
     df.loc[id_sub,'rad_shortwave_up_CNR4'] = 0
     id_sub = df['rad_shortwave_down_CNR4'] == 0
     df.loc[id_sub,'rad_shortwave_up_CNR4'] = 0
+
+    # Filter spiky downward radiation
+    id_spikes = (
+        df['rad_longwave_down_CNR4']
+        - df['rad_longwave_down_CNR4'].rolling(
+            window=48*10,min_periods=1).median()
+        ) > 150
+    df.loc[id_spikes, 'rad_longwave_down_CNR4'] = np.nan
 
     # Filter downward radiation for snow obstruction during daytime
     id_sub = (df['rad_shortwave_up_CNR4'] >
@@ -399,7 +408,7 @@ def run_friction_velocity_threshold(df, flux_var, air_temp_var, fvt_values=False
     fvt = seasonal_friction_vel_threshold(df.loc[mask], flux_var, air_temp_var)
 
     # Get all seasonal indexes to one single array of boolean
-    index_below_fvt = pd.Series([False] * len(df))
+    index_below_fvt = pd.Series([False] * len(df), index=df.index)
     for s in fvt:
         if fvt[s]['fvt']:
             index_below_fvt[fvt[s]['id_below_fvt'].index] = \
@@ -409,11 +418,11 @@ def run_friction_velocity_threshold(df, flux_var, air_temp_var, fvt_values=False
         return index_below_fvt
 
     # Produce a time series containing friction velocity thresholds
-    fvt_series = pd.Series([np.nan] * len(df))
+    fvt_series = pd.Series([np.nan] * len(df), index=df.index)
     for s in fvt:
         if fvt[s]['fvt']:
             index_season = df[
-                df['timestamp'].dt.month.isin( fvt[s]['months'] )].index
+                df.index.month.isin( fvt[s]['months'] )].index
             fvt_series[index_season] = fvt[s]['fvt']
 
     return index_below_fvt, fvt_series
@@ -452,7 +461,7 @@ def seasonal_friction_vel_threshold(df, flux_var, air_temp_var):
 
     for s in seasonal_fvt:
         # Select months
-        index_season = df['timestamp'].dt.month.isin(seasonal_fvt[s]['months'])
+        index_season = df.index.month.isin(seasonal_fvt[s]['months'])
 
         if sum(index_season) > 20*6*2:
             seasonal_fvt[s]['fvt'], seasonal_fvt[s]['fvt_ci'] = \

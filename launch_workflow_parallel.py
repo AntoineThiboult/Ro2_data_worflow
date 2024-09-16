@@ -96,7 +96,7 @@ def parallel_function_1(iStation, station_name_conversion, rawFileDir, asciiOutD
 def parallel_function_2(iStation, intermediateOutDir):
 
     # Load csv
-    df = pd.read_csv(intermediateOutDir+iStation+'.csv')
+    df = dl.csv(intermediateOutDir+iStation)
     # Handle exceptions
     df = pm.handle_exception(iStation,df)
     # Filter data

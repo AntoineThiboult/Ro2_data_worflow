@@ -22,8 +22,6 @@ def handle_exception(stationName, df):
     # Ignore warnings caused by averaging nan
     warnings.filterwarnings("ignore")
 
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-
     if stationName in ['Berge']:
 
         #############################################################################
@@ -37,12 +35,9 @@ def handle_exception(stationName, df):
         # Handle the faulty HMP45C replaced the 2018-12-19 10:00:00 ###
         ###############################################################
 
-        try:
-            id_change_HMP = df[df['timestamp']==pd.to_datetime(
-                '2018-12-19 10:00:00')].index[0]
-        except IndexError:
-            id_change_HMP = df.shape[0]
-        df.loc[0:id_change_HMP,
+        date_hmp = '2018-10-19 15:00:00'
+        id_change_HMP = df.index <= pd.to_datetime(date_hmp)
+        df.loc[id_change_HMP,
                ['air_temp_HMP45C',
                 'air_temp_max_HMP45C',
                 'air_temp_min_HMP45C',
@@ -70,20 +65,25 @@ def handle_exception(stationName, df):
         wT = df['H'] / (df['air_heat_capacity'] * df['air_density'])
 
         # First Irgason (SN:1061)
-        index = df.index[
-            (pd.to_datetime('2018-01-01 00:00:00') <= df['timestamp'])
-            & (df['timestamp'] < pd.to_datetime('2021-10-20 09:00:00'))
-            ]
-        df.loc[index, 'CO2_flux'] = df.loc[index, 'CO2_flux'] \
-            - (-6.69604501 * wT[index] + -0.006874538127916616)
+        date_irga_1_start = '2018-01-01 00:00:00' # installation date of Irga SN:1061
+        date_irga_1_end   = '2021-10-20 09:00:00' # replacement date of Irga SN:1061
+        id_irga_1 = (
+            ( pd.to_datetime(date_irga_1_start) <= df.index ) &
+            ( df.index < pd.to_datetime(date_irga_1_end) )
+            )
+        df.loc[id_irga_1, 'CO2_flux'] = df.loc[id_irga_1, 'CO2_flux'] \
+            - (-6.69604501 * wT[id_change_HMP] + -0.006874538127916616)
 
         # Second Irgason (SN:1061)
-        index = df.index[
-            (pd.to_datetime('2021-10-20 09:00:00') <= df['timestamp'])
-            & (df['timestamp'] < pd.to_datetime('2022-06-13 15:30:00'))
-            ]
-        df.loc[index, 'CO2_flux'] = df.loc[index, 'CO2_flux'] \
-            - (-13.74654197 * wT[index] + -0.0004747748983443545)
+        date_irga_2_start = '2021-10-20 09:00:00' # installation date of Irga SN:1061
+        date_irga_2_end   = '2022-06-13 15:30:00' # replacement date of Irga SN:1061
+        id_irga_2 = (
+            ( pd.to_datetime(date_irga_2_start) <= df.index ) &
+            ( df.index < pd.to_datetime(date_irga_2_end) )
+            )
+        df.loc[id_irga_2, 'CO2_flux'] = df.loc[id_irga_2, 'CO2_flux'] \
+            - (-13.74654197 * wT[id_irga_2] + -0.0004747748983443545)
+
 
     if stationName in ['Foret_ouest']:
 
@@ -91,12 +91,9 @@ def handle_exception(stationName, df):
         # Handle the faulty HMP45C replaced the 2019-08-30 15:00:00 ###
         ###############################################################
 
-        try:
-            id_change_HMP = df[df['timestamp']==pd.to_datetime(
-                '2019-08-30 15:00:00')].index[0]
-        except IndexError:
-            id_change_HMP = df.shape[0]
-        df.loc[0:id_change_HMP,
+        date_hmp = '2019-08-30 15:00:00'
+        id_change_HMP = df.index <= pd.to_datetime(date_hmp)
+        df.loc[id_change_HMP,
                ['air_temp_HMP45C',
                 'air_temp_max_HMP45C',
                 'air_temp_min_HMP45C',
@@ -107,16 +104,24 @@ def handle_exception(stationName, df):
         # Handle the faulty CS106 between 2020-10-23 and 2021-04-01 ###
         ###############################################################
 
-        try:
-            id_change_CS106_start = df[df['timestamp']==pd.to_datetime(
-                '2020-10-23 00:00:00')].index[0]
-            id_change_CS106_end = df[df['timestamp']==pd.to_datetime(
-                '2021-04-01 00:00:00')].index[0]
-            id_change_CS106 = np.arange(
-                id_change_CS106_start,id_change_CS106_end)
-        except IndexError:
-            id_change_CS106 = []
-        df.loc[id_change_CS106,'air_press_CS106'] = np.nan
+        date_CS106_start = '2020-10-23 00:00:00'
+        date_CS106_end   = '2021-04-01 00:00:00'
+        id_CS106 = (
+            ( pd.to_datetime(date_CS106_start) <= df.index ) &
+            ( df.index < pd.to_datetime(date_CS106_end) )
+            )
+        df.loc[id_CS106,'air_press_CS106'] = np.nan
+
+        ######################################
+        # Handle erroneous Li7500 pressure ###
+        ######################################
+        date_air_press_IRGA = '2022-06-19 13:00:00'
+        id_air_press_IRGA = pd.to_datetime(date_air_press_IRGA) <= df.index
+        df.loc[id_air_press_IRGA, 'air_press_IRGASON'] = np.nan
+
+        date_air_press = '2021-10-21 17:00:00'
+        id_air_press = pd.to_datetime(date_air_press) <= df.index
+        df.loc[id_air_press, 'air_press'] = np.nan
 
 
         ######################################################################
@@ -124,12 +129,9 @@ def handle_exception(stationName, df):
         # frame that was introduced the 2019-06-08 10:30:00                  #
         ######################################################################
 
-        try:
-            id_change_progr = df[df['timestamp']==pd.to_datetime(
-                '2019-06-08 10:30:00')].index[0]
-        except IndexError:
-            id_change_progr = df.shape[0]
-        df.loc[0:id_change_progr,'wind_dir_05103'] = 360 - df.loc[0:id_change_progr,'wind_dir_05103']
+        date_rmy = '2019-06-08 10:30:00'
+        id_rmy = df.index < pd.to_datetime(date_rmy)
+        df.loc[id_rmy,'wind_dir_05103'] = 360 - df.loc[id_rmy,'wind_dir_05103']
 
 
         ######################################################################
@@ -137,6 +139,9 @@ def handle_exception(stationName, df):
         # replaced the 2021-06-11 14:30:00 by working CNR4                   #
         # Take the CSAT temperature as proxy                                 #
         ######################################################################
+
+        date_cnr1 = '2021-06-11 14:00:00'
+        id_cnr1 = df.index < pd.to_datetime(date_cnr1)
 
         # Despike IRGASON temperature time series
         id_dissim = np.abs(df['air_temp_IRGASON'] - df['air_temp_CR3000']) > 10
@@ -146,32 +151,25 @@ def handle_exception(stationName, df):
         T_proxy = df['air_temp_IRGASON'].interpolate() + 273.15
 
         # Correct longwave radiation for blackbody radiation
-        try:
-            id_change_CNR4 = df[df['timestamp']==pd.to_datetime(
-                '2021-06-11 14:00:00')].index[0]
-        except IndexError:
-            id_change_CNR4 = df.shape[0]
+        df.loc[id_cnr1,'rad_longwave_down_CNR4'] = \
+            df.loc[id_cnr1,'rad_longwave_down_CNR4'] \
+                + (5.67e-8*T_proxy[id_cnr1]**4)
+        df.loc[id_cnr1,'rad_longwave_up_CNR4'] = \
+            df.loc[id_cnr1,'rad_longwave_up_CNR4'] \
+                + (5.67e-8*T_proxy[id_cnr1]**4)
+        df.loc[id_cnr1,'air_temp_CNR4'] = T_proxy[id_cnr1]
 
-        df.loc[0:id_change_CNR4,'rad_longwave_down_CNR4'] = \
-            df.loc[0:id_change_CNR4,'rad_longwave_down_CNR4'] \
-                + (5.67e-8*T_proxy[0:id_change_CNR4]**4)
-        df.loc[0:id_change_CNR4,'rad_longwave_up_CNR4'] = \
-            df.loc[0:id_change_CNR4,'rad_longwave_up_CNR4'] \
-                + (5.67e-8*T_proxy[0:id_change_CNR4]**4)
-        df.loc[0:id_change_CNR4,'air_temp_CNR4'] = T_proxy[0:id_change_CNR4]
 
         #########################################################
         # Handle the faulty Li7500 that gave nonsensical values #
         #########################################################
-        try:
-            id_change_Li7500_start = df[df['timestamp']==pd.to_datetime(
-                '2022-03-26 02:00:00')].index[0]
-            id_change_Li7500_end = df[df['timestamp']==pd.to_datetime(
-                '2022-06-19 14:00:00')].index[0]
-            id_change_Li7500 = np.arange(
-                id_change_Li7500_start,id_change_Li7500_end)
-        except IndexError:
-            id_change_Li7500 = []
+
+        date_li75_start = '2022-03-26 02:00:00'
+        date_li75_end   = '2022-06-19 14:00:00'
+        id_li75 = (
+            ( pd.to_datetime(date_li75_start) <= df.index ) &
+            ( df.index < pd.to_datetime(date_li75_end) )
+            )
 
         Li7500_vars = [
             # Campbell variables
@@ -185,7 +183,8 @@ def handle_exception(stationName, df):
             'air_heat_capacity', 'H2O_mixing_ratio', 'H2O_molar_density',
             'H2O_mole_fraction'
             ]
-        df.loc[id_change_Li7500,Li7500_vars] = np.nan
+        df.loc[id_li75,Li7500_vars] = np.nan
+
 
         ############################################
         # Handle the CO2 flux artifact related to  #
@@ -196,6 +195,9 @@ def handle_exception(stationName, df):
         # Addressing the influence of instrument surface heat exchange on the
         # measurements of CO2 flux from open-path gas analyzers. Burba et al. 2008
 
+        date_li75 = '2022-10-22 12:00:00'
+        id_li75 = df.index < pd.to_datetime(date_li75)
+
         correc_coeff = {
             'Ta_cutoff_ouest': 20.460649803900587,
             'Ta_slope_ouest': 0.12034168706972999,
@@ -205,16 +207,14 @@ def handle_exception(stationName, df):
             'U_C_ouest': 3.7158489232698457
             }
 
-        id_LI7500 = df['timestamp'] < pd.to_datetime(
-            '2022-10-22 12:00:00')
-
         # Air temperature based correction
-        id_corr_temperature = id_LI7500 & (df['air_temp'] <= 273.15 + correc_coeff['Ta_cutoff_ouest'])
+        id_corr_temperature = id_li75 & ( df['air_temp'] <= 273.15 + correc_coeff['Ta_cutoff_ouest'] )
         df.loc[id_corr_temperature,'CO2_flux'] = df.loc[id_corr_temperature,'CO2_flux'] \
             - (correc_coeff['Ta_slope_ouest'] * (df.loc[id_corr_temperature,'air_temp']-273.15) + correc_coeff['Ta_intercept_ouest'])
         # Wind speed based correction
-        df.loc[id_LI7500, 'CO2_flux'] = df.loc[id_LI7500, 'CO2_flux'] \
-            - (correc_coeff['U_A_ouest'] * np.exp(correc_coeff['U_B_ouest'] * df.loc[id_LI7500,'wind_speed_sonic']) + correc_coeff['U_C_ouest'])
+        df.loc[id_li75, 'CO2_flux'] = df.loc[id_li75, 'CO2_flux'] \
+            - (correc_coeff['U_A_ouest'] * np.exp(correc_coeff['U_B_ouest'] * df.loc[id_li75,'wind_speed_sonic']) + correc_coeff['U_C_ouest'])
+
 
     if stationName in ['Foret_est']:
 
@@ -227,6 +227,9 @@ def handle_exception(stationName, df):
         # Addressing the influence of instrument surface heat exchange on the
         # measurements of CO2 flux from open-path gas analyzers. Burba et al. 2008
 
+        date_li75 = '2022-10-22 12:00:00'
+        id_li75 = df.index < pd.to_datetime(date_li75)
+
         correc_coeff = {
             'Ta_cutoff_est': 21.046866259070256,
             'Ta_slope_est': 0.12621863504666053,
@@ -236,16 +239,14 @@ def handle_exception(stationName, df):
             'U_C_est': 0.8040098979405979
             }
 
-        id_LI7500 = df['timestamp'] < pd.to_datetime(
-            '2022-10-22 12:00:00')
-
         # Air temperature based correction
-        id_corr_temperature = id_LI7500 & (df['air_temp'] <= 273.15 + correc_coeff['Ta_cutoff_est'])
+        id_corr_temperature = id_li75 & (df['air_temp'] <= 273.15 + correc_coeff['Ta_cutoff_est'])
         df.loc[id_corr_temperature,'CO2_flux'] = df.loc[id_corr_temperature,'CO2_flux'] \
             - (correc_coeff['Ta_slope_est'] * (df.loc[id_corr_temperature,'air_temp']-273.15) + correc_coeff['Ta_intercept_est'])
         # Wind speed based correction
-        df.loc[id_LI7500, 'CO2_flux'] = df.loc[id_LI7500, 'CO2_flux'] \
-            - (correc_coeff['U_A_est'] * np.exp(correc_coeff['U_B_est'] * df.loc[id_LI7500,'wind_speed_sonic']) + correc_coeff['U_C_est'])
+        df.loc[id_li75, 'CO2_flux'] = df.loc[id_li75, 'CO2_flux'] \
+            - (correc_coeff['U_A_est'] * np.exp(correc_coeff['U_B_est'] * df.loc[id_li75,'wind_speed_sonic']) + correc_coeff['U_C_est'])
+
 
     if stationName in ['Reservoir']:
 
@@ -253,18 +254,17 @@ def handle_exception(stationName, df):
         # Remove first and last days of each yearly campaign #
         ######################################################
 
-        years=df['timestamp'].dt.year.unique()
-        col_rm = df.columns.drop('timestamp')
+        years=df.index.year.unique()
         for iyear in years:
-            id_year = df['timestamp'].dt.year == iyear
+            id_year = df.index.year == iyear
             id_start = df.loc[id_year,'air_temp_CR6'].first_valid_index()
             id_end = df.loc[id_year,'air_temp_CR6'].last_valid_index()
-            if (id_start is not None) & (id_end is not None):
+            if (id_start is not None) and (id_end is not None):
                 if iyear == 2019: # raft stayed longer out of water
-                    df.loc[id_start:id_start+48*3,col_rm] = np.nan
+                    df.loc[id_start:id_start+pd.Timedelta(days=3),:] = np.nan
                 else:
-                    df.loc[id_start:id_start+48,col_rm] = np.nan
-                df.loc[id_end-48:id_end,col_rm] = np.nan
+                    df.loc[id_start:id_start+pd.Timedelta(days=1),:] = np.nan
+                df.loc[id_end-+pd.Timedelta(days=1):id_end,:] = np.nan
 
     if stationName in ['Bernard_lake']:
 
