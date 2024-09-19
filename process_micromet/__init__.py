@@ -15,4 +15,5 @@ from . import thermistors #noqa
 from .rename_trim_vars import rename_trim_vars #noqa
 from .merge_eddycov_stations import merge_eddycov_stations #noqa
 from . import reanalysis #noqa
+from . import precipitation_gauge #noqa
 from .rotate_wind import rotate_wind #noqa

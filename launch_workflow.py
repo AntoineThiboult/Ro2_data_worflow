@@ -4,14 +4,16 @@ import pandas as pd
 
 ### Define paths
 
-CampbellStations =  ["Berge","Foret_ouest","Foret_est","Foret_sol","Reservoir","Bernard_lake"]
+CampbellStations =  ["Berge","Berge_precip","Foret_ouest","Foret_est","Foret_sol","Foret_precip","Reservoir","Bernard_lake"]
 eddyCovStations =   ["Berge","Foret_ouest","Foret_est","Reservoir","Bernard_lake"]
 gapfilledStation =  ["Bernard_lake","Water_stations","Forest_stations"]
 
 station_name_conversion = {'Berge': 'Romaine-2_reservoir_shore',
+                           'Berge_precip': 'Romaine-2_reservoir_shore_precip',
                            'Foret_ouest': 'Bernard_spruce_moss_west',
                            'Foret_est': 'Bernard_spruce_moss_east',
                            'Foret_sol': 'Bernard_spruce_moss_ground',
+                           'Foret_precip': 'Bernard_spruce_moss_precip',
                            'Reservoir': 'Romaine-2_reservoir_raft',
                            'Bernard_lake': 'Bernard_lake'}
 

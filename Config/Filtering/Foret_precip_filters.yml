@@ -1,0 +1,13 @@
+lon: -63.405656
+lat: 50.904151
+proxy_stations: [Foret_ouest,Foret_est,Bernard_lake,Berge]
+radiation: False
+precipitation: True
+energy_balance: False
+friction_vel: 
+    vars: []
+    temperature_var: 
+flux_vars: []
+strg_vars: []
+grnd_vars: []
+carbon_vars: []

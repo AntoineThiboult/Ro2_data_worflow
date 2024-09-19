@@ -1,13 +1,13 @@
-lon: -63.2494011
-lat: 50.6889992
+lon: -63.2594986
+lat: 50.6538010
 proxy_stations: [Reservoir,Bernard_lake,Foret_ouest,Foret_est]
 radiation: False
-precipitation: False
+precipitation: True
 energy_balance: False
 friction_vel: 
     vars: []
     temperature_var: 
-flux_vars: [LE_corr,H_corr]
+flux_vars: []
 strg_vars: []
 grnd_vars: []
 carbon_vars: []
