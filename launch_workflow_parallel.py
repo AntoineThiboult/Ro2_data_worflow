@@ -104,7 +104,7 @@ def parallel_function_2(iStation, intermediateOutDir):
     # Filter data
     df = pm.filters.apply_all(iStation,df,filterConfigDir,intermediateOutDir)
     # Save to csv
-    df.to_csv(finalOutDir+iStation+'.csv',index=False)
+    dfm.save(df,finalOutDir,iStation)
     # Format reanalysis data for gapfilling
     pm.reanalysis.netcdf_to_dataframe(dates,iStation,filterConfigDir,
                                       reanalysisDir ,intermediateOutDir)

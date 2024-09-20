@@ -120,21 +120,16 @@ def radiation(df,lat,lon):
         Pandas Dataframe with radiation filtered out and corrected
     """
 
-    # Computes sun angle and max theorethical downward shortwave values
-    df['solar_angle'] = np.nan
-    rad_short_down_max = np.zeros((df.shape[0],))
-    dates = df.index.tz_localize('Etc/GMT+5').to_pydatetime()
-    for counter, iDate in enumerate(dates):
-        altitude_deg = pysolar.solar.get_altitude(
-            lat,lon,iDate)
-        altitude_deg = max(0, altitude_deg)
-        df.loc[counter,'solar_angle'] = altitude_deg
-        max_rad = 1370 * np.sin(np.deg2rad(altitude_deg))
-        rad_short_down_max[counter] = max_rad
-
     # Filter unplausible downward short wave solar radiations
-    id_sub = df['rad_shortwave_down_CNR4'] > rad_short_down_max
-    df.loc[id_sub,'rad_shortwave_down_CNR4'] = rad_short_down_max[id_sub]
+    df['solar_angle'] = np.nan
+    for date in df.index:
+        altitude_deg = pysolar.solar.get_altitude(
+            lat,lon, date.tz_localize('Etc/GMT+5').to_pydatetime())
+        altitude_deg = max(0, altitude_deg)
+        df.loc[date,'solar_angle'] = altitude_deg
+        max_rad = 1370 * np.sin(np.deg2rad(altitude_deg))
+        if df.loc[date, 'rad_shortwave_down_CNR4'] > max_rad:
+            df.loc[date, 'rad_shortwave_down_CNR4'] = max_rad
     id_sub = df['rad_shortwave_down_CNR4'] < 0
     df.loc[id_sub,'rad_shortwave_down_CNR4'] = 0
 
