@@ -112,15 +112,16 @@ def handle_exception(stationName, df):
             )
         df.loc[id_CS106,'air_press_CS106'] = np.nan
 
+
         ######################################
         # Handle erroneous Li7500 pressure ###
         ######################################
         date_air_press_IRGA = '2022-06-19 13:00:00'
-        id_air_press_IRGA = pd.to_datetime(date_air_press_IRGA) <= df.index
+        id_air_press_IRGA = df.index <= pd.to_datetime(date_air_press_IRGA)
         df.loc[id_air_press_IRGA, 'air_press_IRGASON'] = np.nan
 
         date_air_press = '2021-10-21 17:00:00'
-        id_air_press = pd.to_datetime(date_air_press) <= df.index
+        id_air_press = df.index <= pd.to_datetime(date_air_press)
         df.loc[id_air_press, 'air_press'] = np.nan
 
 
@@ -273,5 +274,12 @@ def handle_exception(stationName, df):
         #############################################################################
 
         df['wind_dir_05103'] = 360 - df['wind_dir_05103']
+
+        #####################################
+        ### Handle non connected RMY05103 ###
+        #####################################
+
+        id_rmy = df.index < pd.to_datetime('2022-08-16 13:00:00')
+        df.loc[id_rmy,'wind_speed_05103'] = np.nan
 
     return df
