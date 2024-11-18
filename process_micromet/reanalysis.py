@@ -28,7 +28,6 @@ def make_api_request(config, ymd, delay):
     None.
 
     """
-    cds = cdsapi.Client()
     year = ymd.strftime('%Y')
     month = ymd.strftime('%m')
     day = ymd.strftime('%d')
@@ -38,6 +37,7 @@ def make_api_request(config, ymd, delay):
         f"{config['dataset']['short_name']}_{year}{month}{day}.nc")
 
     if not path.isfile(export_name):
+        cds = cdsapi.Client()
         time.sleep((delay%10)/2)
         cds.retrieve(config['dataset']['name'],
                     {'variable': config['variables'],
