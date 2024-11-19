@@ -1,6 +1,7 @@
 lon: -63.405656
 lat: 50.904151
 proxy_stations: [Foret_ouest,Foret_est,Bernard_lake,Berge]
+station_type: land
 radiation: False
 precipitation: True
 energy_balance: False

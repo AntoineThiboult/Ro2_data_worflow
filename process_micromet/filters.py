@@ -48,7 +48,7 @@ def apply_all(stationName,df,filter_config_dir,proxy_data_dir):
     for var in config['flux_vars']+config['strg_vars']:
         df = remove_flux_and_storage(df,var,id_rain)
 
-     # Remove spikes
+    # Remove spikes
     for var in config['flux_vars']:
         id_spike = spikes(df,var)
         df = remove_flux_and_storage(df,var,id_spike)
@@ -62,8 +62,12 @@ def apply_all(stationName,df,filter_config_dir,proxy_data_dir):
 
     # Remove flux below the friction velocity threshold for carbon
     for var in config['friction_vel']['vars']:
-        id_fric_vel, fvt_series = run_friction_velocity_threshold(
-            df,var,config['friction_vel']['temperature_var'],True)
+        if config['station_type'] == 'land':
+            id_fric_vel, fvt_series = run_friction_velocity_threshold(
+                df,var,config['friction_vel']['temperature_var'],True)
+        elif config['station_type'] == 'water':
+            id_fric_vel, fvt_series = run_aquatic_friction_velocity_threshold(
+                df, var)
         df = remove_flux_and_storage(df,var,id_fric_vel)
         df['friction_vel_thresholds'] = fvt_series
 
@@ -94,13 +98,15 @@ def precipitation(df):
 
 def radiation(df,lat,lon):
     """Filters radiations
-        - cap downward short wave solar radiations with theoretical max value
+        - cap downward short wave solar radiations with theoretical max value.
+            If it exceeced, replaced with max theoretical value.
         - filter out downward short wave solar radiations that are affected
-            by snow on sensor during daytime
+            by snow on sensor during daytime (measured albedo > 0.9), and
+            recompute downward short wave solar radiations from upward
+            short wave radiation and 2-day mean rolling albedo
         - set all negative measurements to 0
         - recompute albedo
-        - cap downward short wave solar radiations with albedo
-        - removes suspicious upwelling shortwave radiations
+        - removes suspicious upwelling shortwave radiations (spikes)
         - recompute net radiation
 
     Parameters
@@ -394,8 +400,39 @@ def remove_flux_and_storage(df,var,id_rm):
     return df
 
 
+def run_aquatic_friction_velocity_threshold(df, flux_var):
+    """
+    Return the index for which the friction velocity threshold criteron for
+    water bodes is not met (u∗ > 0.05 m.s−1). According to:
+    Lükő, G., Torma, P., Krámer, T., Weidinger, T., Vecenaj, Z., and
+    Grisogono, B.: Observation of wave-driven air–water turbulent momentum
+    exchange in a large but fetch-limited shallow lake, Adv. Sci. Res., 17,
+    175–182, https://doi.org/10.5194/asr-17-175-2020, 2020.
+
+
+    Parameters
+    ----------
+    df: pandas DataFrame that contains the flux variable
+    flux_var: string that designate the flux variable
+
+    Returns
+    id_below_fvt: index of fluxes below friction velocity threshold"""
+
+    # Remove daytime and NaN
+    index_below_fvt = (
+        (df['daytime'] == 0) &
+        ~df[flux_var].isna() &
+        ~df['friction_velocity'].isna() &
+        (df['friction_velocity'] < 0.05)
+        )
+    fvt_series = pd.Series([np.nan] * len(df), index=df.index)
+    fvt_series[index_below_fvt] = 0.05
+    return index_below_fvt, fvt_series
+
+
 def run_friction_velocity_threshold(df, flux_var, air_temp_var, fvt_values=False):
-    """Compute friction velocity threshold per season with bootstrap
+    """Compute friction velocity threshold per season with bootstrap for land
+    surfaces and returns index for which the threshold is not attained.
 
     Parameters
     ----------
