@@ -16,8 +16,14 @@ def apply_all(stationName,df,filter_config_dir,proxy_data_dir):
     config = get_station_info(stationName,filter_config_dir)
 
     # Precipitation
-    if config['precipitation']:
-        df = precipitation(df)
+    if config['precipitation'] == 'all_weather':
+        df = allweather_precipitation(df)
+    elif config['precipitation'] == 'tipping_bucket':
+        df = tipbucket_precipitation(df)
+
+    # Propeller anemometer
+    if config['anemometer'] == 'propeller':
+        df = propeller_anemometer(df)
 
     # Radiations
     if config['radiation']:
@@ -88,11 +94,43 @@ def proxy_station_loader(proxy_station,proxy_data_dir,proxy_var):
     return df_proxy
 
 
-def precipitation(df):
+def allweather_precipitation(df):
     precip_cum = pg.precip_cum(df.index.values, df['geonor_depth'].values)
     precip_int = pg.precip_intensity(precip_cum)
     df['precip_cum_t200b'] = precip_cum
     df['precip_intensity_t200b'] = precip_int
+    return df
+
+def tipbucket_precipitation(df, air_temp_var='air_temp_HMP45C', precip_var='precip_TB4'):
+    """
+    Remove potentially contaminated precipitation data. Data is kept only if
+    the air temperature did not fall below freezing point in the last 5 days
+
+    Parameters
+    ----------
+    df :
+        Pandas Dataframe
+    air_temp_var : String, optional
+        Name of the variable that is used to track temperature.
+        The default is 'air_temp_HMP45C'.
+    precip_var : String, optional
+        Name of the precipitation variable to be filtered. The default
+        is 'precip_TB4'.
+
+    Returns
+    -------
+    df : Pandas Dataframe
+    """
+    if air_temp_var not in df.columns:
+       air_temp_var = 'air_temp_HC2S3'
+    id_rm = (df[air_temp_var] < 0 ).rolling(window=48*5, min_periods=1, center=False ).max().astype(bool)
+    df.loc[id_rm,'precip_TB4'] = np.nan
+    return df
+
+
+def propeller_anemometer(df):
+    id_rm = (df['wind_speed_05103'] > 30) | (df['wind_speed_05103'] < 0)
+    df.loc[id_rm,'wind_speed_05103'] = np.nan
     return df
 
 

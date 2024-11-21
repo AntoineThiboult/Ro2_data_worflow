@@ -2,8 +2,9 @@ lon: -63.2594986
 lat: 50.6538010
 proxy_stations: [Reservoir,Bernard_lake,Foret_ouest,Foret_est]
 station_type: water
+anemometer: propeller
 radiation: True
-precipitation: False
+precipitation: tipping_bucket
 energy_balance: False
 friction_vel: 
     vars: [CO2_flux,CH4_flux]
