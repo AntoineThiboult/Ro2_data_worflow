@@ -47,7 +47,8 @@ def make_api_request(config, ymd, delay):
                      'day':    day,
                      'time':   ['{:02}:00'.format(f) for f in range(0,24)],
                      'area':   config['bounding_rectangle'],
-                     'format': 'netcdf'}, export_name
+                     'data_format': 'netcdf_legacy',
+                     'download_format': 'unarchived'}, export_name
                     )
 
 
