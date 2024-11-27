@@ -164,7 +164,7 @@ def radiation(df,lat,lon):
         Pandas Dataframe with radiation filtered out and corrected
     """
 
-    # Filter unplausible downward short wave solar radiations
+    # Cap downward shortwave solar radiation with max theoretical value
     df['solar_angle'] = np.nan
     for date in df.index:
         altitude_deg = pysolar.solar.get_altitude(
@@ -174,12 +174,14 @@ def radiation(df,lat,lon):
         max_rad = 1370 * np.sin(np.deg2rad(altitude_deg))
         if df.loc[date, 'rad_shortwave_down_CNR4'] > max_rad:
             df.loc[date, 'rad_shortwave_down_CNR4'] = max_rad
+    # Set negative downward solar radiation to zero
     id_sub = df['rad_shortwave_down_CNR4'] < 0
     df.loc[id_sub,'rad_shortwave_down_CNR4'] = 0
 
-    # Filter upward short wave solar radiations
+    # Set negative upward solar radiation to zero
     id_sub = df['rad_shortwave_up_CNR4'] < 0
     df.loc[id_sub,'rad_shortwave_up_CNR4'] = 0
+    # Set upward solar radiation to zero when downward is zero
     id_sub = df['rad_shortwave_down_CNR4'] == 0
     df.loc[id_sub,'rad_shortwave_up_CNR4'] = 0
 
@@ -191,24 +193,27 @@ def radiation(df,lat,lon):
         ) > 150
     df.loc[id_spikes, 'rad_longwave_down_CNR4'] = np.nan
 
-    # Filter downward radiation for snow obstruction during daytime
+    # Filter downward long and shortwave radiation for snow obstruction
+    # during daytime (albedo > .85)
     id_sub = (df['rad_shortwave_up_CNR4'] >
               (0.85 * df['rad_shortwave_down_CNR4'])) \
               & (df['rad_shortwave_up_CNR4'] > 25*0.85)
     df.loc[id_sub,'rad_shortwave_down_CNR4'] = np.nan
     df.loc[id_sub,'rad_longwave_down_CNR4'] = np.nan
 
-    # Filter erroneous albedo
+    # Compute 2-day (daytime) rolling mean mean albedo
     id_albedo = (df['rad_shortwave_down_CNR4'] > 25) & \
         (df['rad_shortwave_down_CNR4'] > df['rad_shortwave_up_CNR4'])
-
     df.loc[id_albedo,'rolling_albedo'] = \
         df.loc[id_albedo,'rad_shortwave_up_CNR4'].rolling(
             window=48*2,min_periods=12,center=True).median() \
             / df.loc[id_albedo,'rad_shortwave_down_CNR4'].rolling(
                 window=48*2,min_periods=12,center=True).median()
-
     df['rolling_albedo'] = df['rolling_albedo'].interpolate()
+
+    # Cap downward shortwave with rolling albedo and upward shortwave
+    # (minimize the artifacts du to low angle sun rays in early morning and
+    # late evenings)
     id_sub = (df['rad_shortwave_up_CNR4'] >
               (0.90 * df['rad_shortwave_down_CNR4']))
     df.loc[id_sub,'rad_shortwave_up_CNR4'] = \
