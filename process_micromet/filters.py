@@ -185,13 +185,14 @@ def radiation(df,lat,lon):
     id_sub = df['rad_shortwave_down_CNR4'] == 0
     df.loc[id_sub,'rad_shortwave_up_CNR4'] = 0
 
-    # Filter spiky downward radiation
-    id_spikes = (
-        df['rad_longwave_down_CNR4']
-        - df['rad_longwave_down_CNR4'].rolling(
-            window=48*10,min_periods=1).median()
-        ) > 150
-    df.loc[id_spikes, 'rad_longwave_down_CNR4'] = np.nan
+    # Filter spiky longwave radiation
+    longwave_vars = ['rad_longwave_down_CNR4', 'rad_longwave_up_CNR4']
+    id_spikes = \
+        (
+        df[longwave_vars] - df[longwave_vars].rolling(
+        window=48*10,min_periods=1).median() > 125
+        ).any(axis=1)
+    df.loc[id_spikes, longwave_vars] = np.nan
 
     # Filter downward long and shortwave radiation for snow obstruction
     # during daytime (albedo > .85)
