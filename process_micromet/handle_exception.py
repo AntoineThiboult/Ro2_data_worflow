@@ -72,7 +72,7 @@ def handle_exception(stationName, df):
             ( df.index < pd.to_datetime(date_irga_1_end) )
             )
         df.loc[id_irga_1, 'CO2_flux'] = df.loc[id_irga_1, 'CO2_flux'] \
-            - (-6.69604501 * wT[id_change_HMP] + -0.006874538127916616)
+            - (-6.69604501 * wT[id_irga_1] + -0.006874538127916616)
 
         # Second Irgason (SN:1061)
         date_irga_2_start = '2021-10-20 09:00:00' # installation date of Irga SN:1061
