@@ -35,7 +35,7 @@ def rotate_wind(station_name,asciiOutDir):
     ############################
 
     var_dtypes = {
-        'TIMESTAMP':              np.object0,
+        'TIMESTAMP':              np.str,
         'RECORD':                 np.float64,
         'Ux':                     np.float64,
         'Uy':                     np.float64,
