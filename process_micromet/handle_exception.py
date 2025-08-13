@@ -57,7 +57,7 @@ def handle_exception(stationName, df):
         # measurements with the EC150 and the IRGASON open-path gas analyzers,
         # Agricultural and Forest Meteorology, Volumes 228–229, 2016
         #
-        # Eric S. Russell, VictorAdd the ia Dziekan, Jinshu Chi, Sarah Waldo,
+        # Eric S. Russell, Victor Dziekan, Jinshu Chi, Sarah Waldo,
         # Shelley N. Pressley, Patrick O’Keeffe, Brian K. Lamb, Adjustment of
         # CO2 flux measurements due to the bias in the EC150 infrared gas
         # analyzer, Agricultural and Forest Meteorology, Volumes 276–277, 2019
