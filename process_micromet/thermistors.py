@@ -97,15 +97,27 @@ def merge(dates, csv_files):
                           'Could not process the file.')
             continue
 
-        # Get the number of rows to skip
+        # Get the number of rows to skip and check if there is a record number column
         with open(file, 'r', encoding='utf-8') as f:
             for l, line in enumerate(f, start=1):
                 if any(keyword in line.lower() for keyword in ['date', 'day']):
                     skiprows = range(0,l-1)
+
+                    # Split line into columns
+                    parts = line.strip().split(',')
+
+                    # Find index of the first column that contains 'date' or 'day'
+                    for i, col in enumerate(parts):
+                        if 'date' in col.lower() or 'day' in col.lower():
+                            date_col = i
+                            break
                     break
 
         # Load data file
         df_tmp = pd.read_csv(file, skiprows=skiprows)
+
+        # Remove record number column if any
+        df_tmp = df_tmp.iloc[:,date_col:]
 
         # Convert first col to datetime format and the rest to float
         df_tmp.index = pd.to_datetime(df_tmp.iloc[:,0])
@@ -126,7 +138,7 @@ def merge(dates, csv_files):
                     df_tmp.loc[idDates_RecInRef, col]
                 store_retrieval_dates(f'water_temp_{depth_string}')
 
-            if 'intensity' in col.lower():
+            if ('intensity' in col.lower()) or ('light' in col.lower()):
                 df.loc[idDates_RefInRec, f'light_intensity_{depth_string}'] = \
                     df_tmp.loc[idDates_RecInRef, col]
                 store_retrieval_dates(f'light_intensity_{depth_string}')
