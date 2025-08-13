@@ -3,7 +3,7 @@
 title=
 id=
 creation_date=2019-11-11T18:41:33
-last_change_date=2024-01-29T12:44:56
+last_change_date=2025-07-14T11:36:01
 start_date=
 end_date=
 file_name=C:/Users/anthi182/OneDrive - Universit\xe9 Laval/Documents/GitHub/Ro2_data_worflow/Config/EddyProConfig/Ro2_Foret_ouest.metadata
@@ -22,7 +22,7 @@ tstamp_end=0
 [Site]
 site_name=
 site_id=
-altitude=254.0
+altitude=271.0
 latitude=50.9021
 longitude=-63.4051
 canopy_height=15
