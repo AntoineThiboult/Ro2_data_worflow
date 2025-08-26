@@ -28,6 +28,7 @@ def precip_cum(dates, series, return_time=False):
     """
     Call the NAE SEG algorithm to produce a clean cumulative precipitation series
 
+
     Parameters
     ----------
     dates : datetime array
@@ -139,9 +140,12 @@ def NAF_SEG(xt, xRawCumPcp, intPcpTh=0.001, nRecsPerDay=48, nWindowsPerDay=3, fD
     tDay = np.unique(xt.date) # Make sure there is no duplicates
     dt = 1/nRecsPerDay # Fraction of day to use with timedelta
 
-    # Removing obvious corrupted data
-    id_spike = np.where(abs(np.diff(xRawCumPcp))>100)
-    xRawCumPcp[id_spike] = np.nan
+    # Removing obvious corrupted data and reset the series after a discontinuity
+    threshold = 100
+    jumps = np.where(np.abs(np.diff(xRawCumPcp)) > threshold)[0]
+    for j in jumps:
+        xRawCumPcp[j+1:] = xRawCumPcp[j+1:] + xRawCumPcp[j] - xRawCumPcp[j+1]
+
 
     # Setting theorical timeseries
     t = pd.date_range(start = tDay[0]+timedelta(days=dt), end = tDay[-1], freq=str(dt)+'D')
