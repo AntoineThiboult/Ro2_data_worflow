@@ -124,3 +124,19 @@ There are two chains, one installed next to the raft (Romaine-2_reservoir_thermi
 
 # Bernard lake chain
 There is no gap filled version of it yet. 
+
+
+# Other Meteorological Variables
+================================
+
+# Filtering
+    - Rainfall (Hyquest TB4) : Measurements are retained only if air temperature has remained above freezing during the past 5 days. This avoids contamination caused by ice or snow obstructing the funnel.
+    - Total precipitation (Geonor T200b) : Measurements are filtered using the Segmented Neutral Aggregating Filter (NAF_SEG; Smith et al., 2019).
+    - Wind speed (RMY 05103 anemometer) : Values are discarded if negative or greater than 30 m/s.
+
+# Gap Filling
+Certain variables needed to drive land surface models are also gap filled. The specific variables for each station are listed in:
+/Config/GapFillingConfig/[station_name]_slow_data.yml
+Gap filling is performed in two steps:
+1. Linear interpolation: Gaps are first filled by linear interpolation, up to a maximum window length defined per variable. For example, "air_temp_HC2S3": 6 means gaps of up to 6 time steps (3 hours) are interpolated.
+2. Reanalysis-based filling: Remaining gaps are filled with ERA5-Land or ERA5 reanalysis data. These values are bias-corrected using a random forest regressor trained on station observations.
