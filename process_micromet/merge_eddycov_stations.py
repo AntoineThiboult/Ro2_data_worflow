@@ -78,6 +78,9 @@ def merge_eddycov_stations(stationName, rawFileDir,
                                 'Romaine-2_reservoir_freezup_and_melt'+'.csv',
                                 low_memory=False, delimiter=';',header=1)
 
+        df_precip = pd.read_csv(finalOutDir+'Berge_precip'+'.csv',
+                                low_memory=False)
+
         # Add resservoir freeze up / ice melt information
         df['water_frozen_sfc'] = np.zeros((df.shape[0]))
         for index_df in df_freeze.index:
@@ -91,6 +94,11 @@ def merge_eddycov_stations(stationName, rawFileDir,
         for iVar in df_therm.columns:
             if iVar not in df.columns:
                 df[iVar] = df_therm[iVar]
+
+        # Add precipitation
+        for iVar in df_precip.columns:
+            if iVar not in df.columns:
+                df[iVar] = df_precip[iVar]
 
         # Import EddyPro variable names that should be merged
         xlsFile = pd.ExcelFile(varNameExcelTab)
@@ -235,6 +243,15 @@ def merge_eddycov_stations(stationName, rawFileDir,
         df_foret_est = pd.read_csv(finalOutDir+'Foret_est'+'.csv', low_memory=False)
         df_foret_est['timestamp'] = pd.to_datetime(df_foret_est['timestamp'])
 
+        # Foret Precip (T200)
+        df_precip = pd.read_csv(finalOutDir+'Foret_precip'+'.csv', low_memory=False)
+        df_precip['timestamp'] = pd.to_datetime(df_precip['timestamp'])
+
+        # Add precipitation
+        for iVar in df_precip.columns:
+            if iVar not in df.columns:
+                df[iVar] = df_precip[iVar]
+
         # Import EddyPro variable names that should be merged
         xlsFile = pd.ExcelFile(varNameExcelTab)
         column_for_est_ep = pd.read_excel(xlsFile,'Foret_est_eddypro')
@@ -297,6 +314,15 @@ def merge_eddycov_stations(stationName, rawFileDir,
         df_freeze = pd.read_csv(miscDir+
                                 'Bernard_lake_freezup_and_melt'+'.csv',
                                 low_memory=False, delimiter=';',header=1)
+
+        # Foret Precip (T200)
+        df_precip = pd.read_csv(finalOutDir+'Foret_precip'+'.csv', low_memory=False)
+        df_precip['timestamp'] = pd.to_datetime(df_precip['timestamp'])
+
+        # Add precipitation
+        for iVar in df_precip.columns:
+            if iVar not in df.columns:
+                df[iVar] = df_precip[iVar]
 
         # Add resservoir freeze up / ice melt information
         df['water_frozen_sfc'] = np.zeros((df.shape[0]))
