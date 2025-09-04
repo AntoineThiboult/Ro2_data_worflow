@@ -7,6 +7,7 @@ import numpy as np
 from tqdm import tqdm
 from sklearn import linear_model
 from process_micromet import ml_utils as ml
+from utils import data_loader as dl
 
 
 
@@ -419,6 +420,31 @@ def gap_fill(df):
 
     return df
 
+def add_ice_phenology(df, phenology_file):
+    """
+    Add ice phenology dates to dataframe as a new column 'water_frozen_sfc'
+    where 1 indicates frozen surface, 0 open water
+
+    Parameters
+    ----------
+    df : Pandas dataframe
+        Dataframe to which ice phenology dates are added
+    phenology_file : String or pathlib.Path
+        Path to a ice phenology csv file
+
+    Returns
+    -------
+    df : Pandas dataframe
+        Dataframe that include ice phenology dates
+    """
+
+    df_icepheno = dl.ice_phenology(phenology_file)
+    df['water_frozen_sfc'] = np.zeros((df.shape[0]))
+    for index_df in df_icepheno.index:
+        s = pd.to_datetime(df_icepheno.loc[index_df,'Freezeup'])
+        e = pd.to_datetime(df_icepheno.loc[index_df,'Icemelt'])
+        df.loc[s:e,'water_frozen_sfc'] = 1
+    return df
 
 def list_merge_filter(station, dates, raw_file_dir):
     """
