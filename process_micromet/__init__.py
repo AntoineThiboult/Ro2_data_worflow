@@ -12,7 +12,7 @@ from . import gap_fill_slow_data #noqa
 from .handle_exception import handle_exception #noqa
 from . import ml_utils #noqa
 from . import thermistors #noqa
-from .rename_trim_vars import rename_trim_vars #noqa
+from . import names #noqa
 from .merge_eddycov_stations import merge_eddycov_stations #noqa
 from . import reanalysis #noqa
 from . import precipitation_gauge #noqa

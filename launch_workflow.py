@@ -71,7 +71,8 @@ for iStation in CampbellStations:
     df = dfm.create(dates)
     df = dfm.merge_files(df,slow_files,'TOA5')
     # Rename and trim slow variables
-    df = pm.rename_trim_vars(iStation,varNameExcelSheet,df,'cs')
+    db_name_map = pm.names.map_db_names(iStation, varNameExcelSheet, 'cs')
+    df = pm.names.rename_trim(iStation, df, db_name_map)
 
     if iStation in eddyCovStations:
         # Ascii to eddypro
@@ -83,8 +84,8 @@ for iStation in CampbellStations:
         eddy_df = dfm.create(dates)
         eddy_df = dfm.merge_files(eddy_df,eddypro_files,'EddyPro')
         # Rename and trim eddy variables
-        eddy_df = pm.rename_trim_vars(iStation,varNameExcelSheet,
-                                      eddy_df,'eddypro')
+        db_name_map = pm.names.map_db_names(iStation, varNameExcelSheet, 'eddypro')
+        eddy_df = pm.rename_trim(iStation, df, db_name_map)
         # Merge slow and eddy data
         df = dfm.merge(df,eddy_df)
 
