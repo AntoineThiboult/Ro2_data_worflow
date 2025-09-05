@@ -434,12 +434,14 @@ def remove_flux_and_storage(df,var,id_rm):
     # Set target values to NaN
     df.loc[id_rm,var] = np.nan
 
-    # If var is a storage variable, remove the corresponding flux
+    # If var is a storage variable, remove the corresponding flux and its quality flag
     if '_strg' in var:
         df.loc[id_rm, var.split('_strg')[0]] = np.nan
-    # If var is a flux, remove the corresponding storage
+        df.loc[id_rm, f"{var.split('_strg')[0]}_qf"] = np.nan
+    # If var is a flux, remove the corresponding storage and the qualitfy flag
     elif f'{var}_strg' in df.columns:
         df.loc[id_rm,f'{var}_strg'] = np.nan
+        df.loc[id_rm,f'{var}_qf'] = np.nan
 
     return df
 
