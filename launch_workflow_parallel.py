@@ -46,10 +46,12 @@ def parallel_function_0(dates, rawFileDir, miscDataDir,
     df = pm.thermistors.average(df1, df2)
     df = pm.thermistors.gap_fill(df)
     df = pm.thermistors.add_ice_phenology(df, miscDataDir+'Romaine-2_reservoir_ice_phenology')
+    df = pm.thermistors.compute_energy_storage(df)
     pm.thermistors.save(df,'Romaine-2_reservoir_thermistor_chain', finalOutDir)
     df = pm.thermistors.list_merge_filter('Bernard_lake_thermistor_chain', dates, rawFileDir)
     df = pm.thermistors.gap_fill(df)
     df = pm.thermistors.add_ice_phenology(df, miscDataDir+'Bernard_lake_ice_phenology')
+    df = pm.thermistors.compute_energy_storage(df)
     pm.thermistors.save(df,'Bernard_lake_thermistor_chain', finalOutDir)
     # Perform ERA5 extraction and handling
     for iStation in gapfilledStation:

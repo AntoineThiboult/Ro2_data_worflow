@@ -446,6 +446,56 @@ def add_ice_phenology(df, phenology_file):
         df.loc[s:e,'water_frozen_sfc'] = 1
     return df
 
+
+def compute_energy_storage(df):
+    """
+    Compute energy storage in the water column in J/m2, between the surface up to the
+    deepest temperature sensor and add it to the dataframe (Hw).
+
+    Parameters
+    ----------
+    df : Pandas dataframe
+        Pandas dataframe that contain water temperature formated as
+        water_temp_XmY where XmY is the depth
+
+    Returns
+    -------
+    df : Pandas dataframe
+        Pandas dataframe to which the column Hw is added.
+
+    """
+
+    # Get the measurement depths
+    depth_string = np.array([d for d in df.columns if 'water_temp' in d])
+    pattern = re.compile(r"(\d+)m(\d)")
+    depths = np.array([
+        float(f"{match.group(1)}.{match.group(2)}")
+        for col in depth_string
+        if (match := pattern.search(col))
+        ])
+
+    # Sort the depths increasingly
+    sorting_index = np.argsort(depths)
+    depth_string = depth_string[sorting_index]
+    depths = depths[sorting_index]
+
+    # Compute layer properties
+    layer_thickness = np.diff(depths)
+
+    # Compute temperatures at mid layer depths
+    mid_layer_temp = (df[depth_string[:-1]].values + df[depth_string[1:]].values) / 2
+
+    # Water specific heat capacity (J kg-1 K-1)
+    Cp_water = 4184
+    # Water density (kg m-3)
+    rho = 1000
+
+    # Compute energy contained in the water column
+    df['Hw'] = np.sum(rho * Cp_water * mid_layer_temp * layer_thickness, axis=1)
+
+    return df
+
+
 def list_merge_filter(station, dates, raw_file_dir):
     """
     Higer level function that include the listing of the files to be merged,
