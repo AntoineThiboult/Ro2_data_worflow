@@ -412,7 +412,7 @@ def gap_fill(df):
 
         df = vertical_extrapolation(df, depths)
         if var_type == 'water_temp': df = temporal_extrapolation(df, depths)
-        df = distant_extrapolation(df, depths)
+        # df = distant_extrapolation(df, depths) # To be replaced by some smarter algorithm
         df = yearly_avg_extrapolation(df, depths)
 
         # Last hope interpolation
