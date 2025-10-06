@@ -200,21 +200,15 @@ def handle_exception(stationName, df):
         id_li75 = df.index < pd.to_datetime(date_li75)
 
         correc_coeff = {
-            'Ta_cutoff_ouest': 20.460649803900587,
-            'Ta_slope_ouest': 0.12034168706972999,
-            'Ta_intercept_ouest': -1.837221855313137,
-            'U_A_ouest': -2.4905471374599237,
-            'U_B_ouest': 0.156252236457155,
-            'U_C_ouest': 3.7158489232698457
+            'Ta_cutoff_ouest': 21.117778284570775,
+            'Ta_slope_ouest': 0.11644845032658153,
+            'Ta_intercept_ouest': -0.8221929625175574
             }
 
         # Air temperature based correction
         id_corr_temperature = id_li75 & ( df['air_temp'] <= 273.15 + correc_coeff['Ta_cutoff_ouest'] )
         df.loc[id_corr_temperature,'CO2_flux'] = df.loc[id_corr_temperature,'CO2_flux'] \
             - (correc_coeff['Ta_slope_ouest'] * (df.loc[id_corr_temperature,'air_temp']-273.15) + correc_coeff['Ta_intercept_ouest'])
-        # Wind speed based correction
-        df.loc[id_li75, 'CO2_flux'] = df.loc[id_li75, 'CO2_flux'] \
-            - (correc_coeff['U_A_ouest'] * np.exp(correc_coeff['U_B_ouest'] * df.loc[id_li75,'wind_speed_sonic']) + correc_coeff['U_C_ouest'])
 
 
     if stationName in ['Foret_est']:
@@ -232,21 +226,15 @@ def handle_exception(stationName, df):
         id_li75 = df.index < pd.to_datetime(date_li75)
 
         correc_coeff = {
-            'Ta_cutoff_est': 21.046866259070256,
-            'Ta_slope_est': 0.12621863504666053,
-            'Ta_intercept_est': -1.1281302401119822,
-            'U_A_est': -0.2433512952999454,
-            'U_B_est': 0.40040063387223357,
-            'U_C_est': 0.8040098979405979
+            'Ta_cutoff_est': 18.802976760121066,
+            'Ta_slope_est': 0.1607430897209991,
+            'Ta_intercept_est': -1.5983324462698427
             }
 
         # Air temperature based correction
         id_corr_temperature = id_li75 & (df['air_temp'] <= 273.15 + correc_coeff['Ta_cutoff_est'])
         df.loc[id_corr_temperature,'CO2_flux'] = df.loc[id_corr_temperature,'CO2_flux'] \
             - (correc_coeff['Ta_slope_est'] * (df.loc[id_corr_temperature,'air_temp']-273.15) + correc_coeff['Ta_intercept_est'])
-        # Wind speed based correction
-        df.loc[id_li75, 'CO2_flux'] = df.loc[id_li75, 'CO2_flux'] \
-            - (correc_coeff['U_A_est'] * np.exp(correc_coeff['U_B_est'] * df.loc[id_li75,'wind_speed_sonic']) + correc_coeff['U_C_est'])
 
 
     if stationName in ['Reservoir']:
