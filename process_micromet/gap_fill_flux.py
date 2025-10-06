@@ -176,8 +176,8 @@ def gap_fill_rf(df,var_to_fill,df_config):
         # Second choice input variable for gap filling
         input_ml_vars = np.concatenate((
             df[proxy_vars].values,
-            df['timestamp'].dt.dayofyear.values.reshape(df.shape[0],1),
-            df['timestamp'].dt.hour.values.reshape(df.shape[0],1)),
+            df.index.dayofyear.values.reshape(df.shape[0],1),
+            df.index.hour.values.reshape(df.shape[0],1)),
             axis=1)
 
         # Training
@@ -306,9 +306,9 @@ def gap_fill_mds(df,var_to_fill,df_config):
         ['proxy_vars_subset'].values())
 
     # Loop over time steps
-    for t in df.index[id_missing_flux]:
+    for counter, t in enumerate(df.index[id_missing_flux]):
 
-        if not t%100:
+        if not counter%100:
             print("\rGap filling {:s}, progress {:2.1%} ".format(var_to_fill, t/len(df.index)), end='\r')
 
         # Calculates the number of time steps between t and the next non NaN-value

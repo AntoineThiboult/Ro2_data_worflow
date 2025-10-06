@@ -137,8 +137,8 @@ def gap_fill_meteo(station_name, df, dataFileDir, gf_config_dir):
     ########################
 
     # Create variables suitable for ML
-    df['doy_t'] = np.cos(df['timestamp'].dt.dayofyear/366*2*np.pi)
-    df['hour_t'] = np.cos(df['timestamp'].dt.hour/24*2*np.pi)
+    df['doy_t'] = np.cos(df.index.dayofyear/366*2*np.pi)
+    df['hour_t'] = np.cos(df.index.hour/24*2*np.pi)
 
     # Load meteorological reanalysis
     df_era = pd.read_csv(os.path.join(
@@ -222,8 +222,8 @@ def gap_fill_radiation(station_name, df, dataFileDir, gf_config_dir):
     ########################
 
     # Create variables suitable for ML
-    df['doy_t'] = np.cos(df['timestamp'].dt.dayofyear/366*2*np.pi)
-    df['hour_t'] = np.cos(df['timestamp'].dt.hour/24*2*np.pi)
+    df['doy_t'] = np.cos(df.index.dayofyear/366*2*np.pi)
+    df['hour_t'] = np.cos(df.index.hour/24*2*np.pi)
 
     # Load meteorological reanalysis
     df_era = pd.read_csv(os.path.join(

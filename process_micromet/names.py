@@ -41,12 +41,8 @@ def rename_trim(stationName,df,db_name_map):
     # Make name translation from Campbell Scientific / EddyPro to DB names
     df.columns = db_name_map['db_name'].values
 
-    # Merge duplicated columns and keep the non-NaN value
-    dup_col_f = df.columns.duplicated('first')
-    dup_col_l = df.columns.duplicated('last')
-    df.iloc[:,dup_col_f] = df.iloc[:,dup_col_f].combine_first(
-        df.iloc[:,dup_col_l])
-    df = df.drop(dup_col_l)
+    # Remove duplicated columns by merging them and keep non-nan values
+    df = merge_duplicate_columns(df)
 
     # Close error log file
     logf.close()
@@ -96,3 +92,26 @@ def map_db_names(stationName,excelFile,tab):
     db_name_map = db_name_map[id_rm].reset_index(drop=True)
 
     return db_name_map
+
+
+def merge_duplicate_columns(df):
+    """
+    Merge duplicated columns, keep value over NaN if available, and return
+    a dataframe without duplicated columns
+
+    Parameters
+    ----------
+    df : Pandas dataframe
+        Pandas dataframe with duplicated columns
+
+    Returns
+    -------
+    df : Pandas dataframe
+        Pandas dataframe without duplicated columns
+    """
+    return (
+        df.T
+          .groupby(level=0)           # group by column names
+          .apply(lambda g: g.bfill().ffill().iloc[0])  # or g.max(), etc.
+          .T
+    )
