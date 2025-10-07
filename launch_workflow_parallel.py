@@ -45,7 +45,7 @@ def parallel_function_1(iStation, station_name_conversion, rawFileDir,
 
     # Binary to ascii
     pm.convert_CSbinary_to_csv(station_name_conversion[iStation],iStation,
-                               rawFileDir,asciiOutDir,gasAnalyzerConfigDir)
+                               rawFileDir,asciiOutDir,False)
     # Correct raw concentrations
     if iStation in eddyCovStations:
         pm.correct_raw_concentrations(iStation,asciiOutDir,gasAnalyzerConfigDir,False)
