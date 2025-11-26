@@ -10,7 +10,7 @@ sw_version=7.0.9
 ini_version=4.5.0
 project_id=FM_Neige
 file_type=1
-file_prototype=Neige_ts_yyyy_mm_dd_HHMM.dat
+file_prototype=yyyymmdd_HHMM_eddy.csv
 use_pfile=1
 proj_file=./Config/EddyProConfig/FM_Neige.metadata
 use_dyn_md_file=0
@@ -50,7 +50,7 @@ lf_meth=1
 wpl_meth=1
 foot_meth=1
 tob1_format=0
-out_path=E:/EVAP/Data_EVAP/Processed_Data/EddyPro_FM/Neige
+out_path=
 fix_out_format=0
 err_label=NaN
 qc_meth=1
@@ -130,7 +130,7 @@ sa_gas4_g1_start=1
 sa_gas4_g1_stop=12
 
 [RawProcess_General]
-data_path=E:/EVAP/Data_EVAP/Raw_Data/ASCII/Neige/ts_data
+data_path=
 recurse=0
 use_geo_north=0
 mag_dec=0
@@ -167,7 +167,7 @@ flag10_threshold=-9999.0000000000
 flag10_upper=1
 
 [RawProcess_Settings]
-max_lack=30
+max_lack=40
 u_offset=0
 v_offset=0
 w_offset=0
@@ -349,7 +349,7 @@ pf_north_offset=0
 pf_min_num_per_sec=1
 pf_w_max=0.100
 pf_u_min=0.000
-pf_file=F:/EVAP/EddyPro/FM_1/eddypro_FM_1_planar_fit_2016-06-09T183724_adv.txt
+pf_file=
 pf_fix=2
 pf_subset=1
 pf_sect_1_width=90.0
