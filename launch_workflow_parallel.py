@@ -135,9 +135,6 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir, gapfillConfigDir,
     # Save to csv
     dfm.save(df,finalOutDir,iStation)
 
-    # Save to csv
-    df.to_csv(finalOutDir+iStation+'.csv',index=False)
-
 
 def parallel_function_4(iStation, finalOutDir):
     df = pd.read_csv(finalOutDir+iStation+'.csv')
