@@ -30,7 +30,7 @@ These suffixes can be combined. For example, the variable LE_gf_mds_qf refers to
 
 # Gap filling
 -------------
-Gap filling is performed only for the stations 'Water stations', 'Forest stations', and 'Bernard Lake'. Gaps in the variables 'rad_longwave_down_CNR4', 'rad_shortwave_down_CNR4', 'rad_longwave_up_CNR4', 'rad_shortwave_up_CNR4' are filled by using ERA5 Land reanalysis that are corrected with in situ measurements and a random forest regressor. Albedo and net radiation are subsequently recomputed with continuous series. 
+Gap filling is performed only for the stations 'Water stations', 'Forest stations', and 'Bernard Lake'. Gaps in the variables 'rad_longwave_down_CNR4', 'rad_shortwave_down_CNR4', 'rad_longwave_up_CNR4', 'rad_shortwave_up_CNR4' are filled by using ERA5 Land reanalysis that are corrected with in situ measurements and a random forest regressor. Albedo and net radiation are subsequently recomputed with continuous series. Albedo is computed only if 'rad_shortwave_down_CNR4' is greater than 25W/m2
 
 
 # Fluxes
@@ -156,6 +156,8 @@ It is composed of:
     - Romaine-2_reservoir_thermistor_chain-2
     
 Radiations are handled in a specific way. To obtain a continuous annual time series of net radiation over the water surface, we combined the following data sets: net radiation measured from the raft from June to October, net radiation measured from the shore during periods of reservoir freeze-up, assuming equivalent winter conditions on the shore and on the reservoir (similar snow cover). During the transition periods (late April-early June and late October-December), incoming radiation fluxes were taken from the shore site, the reflected shortwave radiation from the reservoir was based on the albedo calculated from Patel and Rix (2019), and the emitted longwave radiation was estimated from Stefan-Boltzmann’s law considering a surface water temperature estimated from the 0.2-m deep sensor. A water emissivity of 0.99 was used because it provided the best comparison between the raft net radiometer measurements and the empirical Stefan-Boltzmann’s law using the water surface temperature in open water.
+
+Merging fluxes from Berge and Reservoir doesn't allow to track the storage of LE, H, CO2, and CH4 below the instrument. 
 
 # Forest stations
 It is composed of:
