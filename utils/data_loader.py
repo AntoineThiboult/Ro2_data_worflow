@@ -174,7 +174,7 @@ def tob3_first_timestamp(file):
     parses the first binary frame header to extract the initial
     SecNano timestamp. The timestamp is converted to a Python
     ``datetime.datetime`` using the Campbell Scientific epoch
-    (1990-01-01).
+    (1990-01-01). Returns None if the file is empty or truncated.
 
     Parameters
     ----------
@@ -186,22 +186,44 @@ def tob3_first_timestamp(file):
     first_timestamp : datetime.datetime
         Timestamp of the first data record in the file.
     """
+    file = Path(file)
+
+    # Check if file is empty
+    try:
+        if file.stat().st_size == 0:
+            return None
+    except FileNotFoundError:
+        raise
 
     with open(file, "rb") as f:
 
-        # Move past the header
-        [f.readline().decode().rstrip("\r\n") for _ in range(6)]
+        # Skip ASCII header lines
+        for _ in range(6):
+            line = f.readline()
+            if not line:
+                # File ends before end of header. The file is either
+                # corrupted or do not match expected format
+                return None
 
         # Skip the TOB3 12-byte header
         frame_header = f.read(12)
 
-        # First 8 bytes = SecNano timestamp
-        sec = struct.unpack('<L', frame_header[0:4])[0]
-        nano = struct.unpack('<L', frame_header[4:8])[0]
+        # Ensure we have at least 8 bits
+        # (4 bits for seconds, 4 bits for nano seconds)
+        if len(frame_header) < 8:
+            # Not enough data, file is probably corrupted or empty
+            return None
+
+        try:
+            sec = struct.unpack('<L', frame_header[0:4])[0]
+            nano = struct.unpack('<L', frame_header[4:8])[0]
+        except struct.error:
+            # Other
+            return None
+
         epoch = dt.datetime(1990, 1, 1)
         first_timestamp = epoch + dt.timedelta(seconds=sec, microseconds=nano/1000)
-
-        return first_timestamp
+    return first_timestamp
 
 
 def tob3_header(file,clean=True):
@@ -232,9 +254,15 @@ def tob3_header(file,clean=True):
     except FileNotFoundError:
         raise
 
-
     with open(file, "r", encoding="latin1") as f:
-        header = [next(f) for _ in range(6)]
+        header = []
+        for _ in range(6):
+            line = f.readline()
+            if not line:
+                # File ends before end of header. The file is either
+                # corrupted or do not match expected format
+                return None
+            header.append(line)
 
     if not clean:
         return header

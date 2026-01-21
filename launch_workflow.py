@@ -37,8 +37,9 @@ for iStation in gapfilledStation:
 for iStation in CampbellStations:
 
     # Binary to ascii
-    pm.convert_CSbinary_to_csv(path.station_name_conversion[iStation],iStation,
-                               path.rawFileDir,path.asciiOutDir)
+    unconverted_files = pm.csbinary_to_csv.find_unconverted_files(path.station_name_conversion[iStation],iStation,
+                                path.rawFileDir,path.asciiOutDir,deep_search=True)
+    pm.csbinary_to_csv.convert(iStation, path.asciiOutDir, unconverted_files)
     # Correct raw concentrations
     if iStation in eddyCovStations:
         pm.correct_raw_concentrations(iStation,path.asciiOutDir,path.gasAnalyzerConfigDir,False)

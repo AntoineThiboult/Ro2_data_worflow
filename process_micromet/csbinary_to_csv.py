@@ -51,12 +51,12 @@ def list_csbinary_files(root_dir,station):
 
     """
     # List Campbell binary files located in the root dir, that contain
-    pattern = f'{station}'+r"_\d{8}"
+    pattern = re.compile(re.escape(station) + r"_\d{8}")
     csbin_files = []
 
     for root, dirs, files in os.walk(root_dir):
         # Check if the directory matches the pattern
-        if re.search(pattern, root):
+        if pattern.search(root):
             for file in files:
                 # Check if the file ends with .dat
                 if file.endswith(".dat"):
@@ -103,12 +103,12 @@ def list_csbinary_folders(root_dir, station):
         │       ├── foo.dat
         │       └── bar.dat
     """
-    pattern = f'{station}'+r"_\d{8}"
+    pattern = re.compile(re.escape(station) + r"_\d{8}")
     csbin_folders = []
 
     for root, dirs, files in os.walk(root_dir):
         # Check if the directory matches the pattern
-        if re.search(pattern, root):
+        if pattern.search(root):
             csbin_folders.append(root)
     return csbin_folders
 
@@ -399,30 +399,33 @@ def find_unconverted_files(
     """
 
     # Open error log file
-    logf = open(Path('.','Logs','csbinary_to_csv.log'), "w")
+    logf = open(Path('.','Logs','csbinary_to_csv.log'), "a")
 
     # Paths
-    bin_file_dir, csv_file_dir = Path(bin_file_dir), Path(csv_file_dir).joinpath(station_name_ascii)
+    bin_file_dir = Path(bin_file_dir)
+    csv_file_dir = Path(csv_file_dir).joinpath(station_name_ascii)
 
     # List files that are already converted
     csv_files = list_csv_files(csv_file_dir)
+    csv_files_stems = {p.name for p in csv_files}
     unconverted_files = []
 
     if deep_search:
-        print("Scan all Campbell Scientific binary files")
-
         # List all Campbell binary files located in subdirectories and
         # matching station name
         csbin_files = list_csbinary_files(bin_file_dir, station_name_raw)
 
-        for csbin_file in csbin_files:
+        for csbin_file in tqdm(csbin_files, miniters=10, desc=f'{station_name_ascii}: Listing unconverted files'):
 
             file_header = dl.tob3_header(csbin_file)
-
             if not file_header:
-                logf.write(f'{csbin_file}: Cannot read header')
+                logf.write(f'{csbin_file}: Cannot read header\n')
                 continue
+
             first_timestamp = dl.tob3_first_timestamp(csbin_file)
+            if not first_timestamp:
+                logf.write(f'{csbin_file}: Cannot read first timestamp\n')
+                continue
 
             # Get card removal time if any.
             card_rm_time_sec = int(file_header[1][7])
@@ -464,34 +467,30 @@ def find_unconverted_files(
                     freq=split_interval)[:-1]
                 date_array = date_array.insert(0, first_timestamp)
 
-            # Formatted dates that are supposed to be contained in the csbin file
-            converted_file_names = [f"{d.strftime('%Y%m%d_%H%M')}{extension}" for d in date_array]
 
-            # Check if all csbin file expected dates are in found in the
-            # destination directory
+            # short-circuit check
+            needs_conversion = False
+            for d in date_array:
+                expected = f"{pd.Timestamp(d).strftime('%Y%m%d_%H%M')}{extension}"
+                if expected not in csv_files_stems:
+                    needs_conversion = True
+                    break
 
-            all_present = all(
-                any(date in f.name for f in csv_files)
-                for date in converted_file_names
-            )
-
-            if not all_present:
-                unconverted_files = unconverted_files + [csbin_file]
+            if needs_conversion:
+                unconverted_files.append(str(csbin_file))  # store the .dat path only
 
     elif not deep_search:
-        print("Scan folder names")
-
         # List all Campbell directories matching station name
         csbin_folders = list_csbinary_folders(bin_file_dir, station_name_raw)
 
-        for csbin_folder in csbin_folders:
+        for csbin_folder in tqdm(csbin_folders, miniters=10):
             matches = re.search(r"\d{8}", Path(csbin_folder).stem)
             date = matches.group()
 
             folder_converted = any(date in f.name for f in csv_files)
 
             if not folder_converted:
-                unconverted_files = unconverted_files + list(Path(csbin_folder).glob('*.dat'))
+                unconverted_files.extend(list(Path(csbin_folder).glob('*.dat')))
 
     # Close error log file
     logf.close()
@@ -546,55 +545,59 @@ def convert(station_name,
     """
 
     # Open error log file
-    logf = open(Path('.','Logs','csbinary_to_csv.log'), "w")
+    logf = open(Path('.','Logs','csbinary_to_csv.log'), "a")
 
     # Paths
     csv_file_dir = Path(csv_file_dir)
 
     csidft_exe = Path("./Bin/raw2ascii/csidft_convert.exe")
 
-    for csbin_file in tqdm(unconverted_files):
+    for csbin_file in tqdm(unconverted_files, miniters=1, desc=f'{station_name}: Converting CS binaries to csv'):
 
-        print(f'Processing {csbin_file}')
+        try:
+            # Conversion from the Campbell binary file to csv format
+            tmp_file = csv_file_dir.joinpath(station_name, 'tmp.csv')
+            subprocess.call(
+                [csidft_exe, csbin_file, tmp_file , 'ToA5'],
+                stdout=subprocess.DEVNULL)
 
-        # Conversion from the Campbell binary file to csv format
-        tmp_file = csv_file_dir.joinpath(station_name, 'tmp.csv')
-        subprocess.call([csidft_exe, csbin_file, tmp_file , 'ToA5'])
+            # Get the type of file (eddy covariance, regular met data, etc)
+            extension, split_interval = type_of_file(csbin_file)
 
-        # Get the type of file (eddy covariance, regular met data, etc)
-        extension, split_interval = type_of_file(csbin_file)
+            # Save the header to respect TOA5 format
+            with open(tmp_file) as f:
+                header = [next(f) for x in range(4)]
 
-        # Save the header to respect TOA5 format
-        with open(tmp_file) as f:
-            header = [next(f) for x in range(4)]
+            # Load file
+            df = dl.toa5_file(tmp_file)
 
-        # Load file
-        df = dl.toa5_file(tmp_file)
+            if extension == "_eddy.csv":
+                # Slice df into 30min blocks
+                blocks = slice_30min_blocks(df)
 
-        if extension == "_eddy.csv":
-            # Slice df into 30min blocks
-            blocks = slice_30min_blocks(df)
+            elif extension == "_slow.csv":
+                # Get time step duration (1min files need to be resampled at 30min)
+                tob3_file_header = dl.tob3_header(csbin_file)
+                if tob3_file_header[1][1] == '1 MIN':
+                    df = resample(df)
+                # Slice df into daily blocks
+                blocks = slice_day_blocks(df)
 
-        elif extension == "_slow.csv":
-            # Get time step duration (1min files need to be resampled at 30min)
-            tob3_file_header = dl.tob3_header(csbin_file)
-            if tob3_file_header[1][1] == '1 MIN':
-                df = resample(df)
+            # Write splitted files
+            for block in blocks:
+                file_name = csv_file_dir.joinpath(station_name,
+                    block.index[0].strftime('%Y%m%d_%H%M') + extension)
 
-            # Slice df into daily blocks
-            blocks = slice_day_blocks(df)
+                # Write header
+                with open(file_name,'w') as f:
+                    for h in header:
+                        f.write(h)
+                block.to_csv(file_name, mode='a', header=False, index=True)
 
-        # Write splitted files
-        for block in blocks:
-            file_name = csv_file_dir.joinpath(station_name,
-                block.index[0].strftime('%Y%m%d_%H%M') + extension)
+            os.remove(tmp_file)
 
-            # Write header
-            with open(file_name,'w') as f:
-                for h in header:
-                    f.write(h)
-            block.to_csv(file_name, mode='a', header=False, index=True)
-
-        os.remove(tmp_file)
+        except:
+            logf.write(f'{csbin_file}: Cannot convert\n')
+            continue
 
     logf.close()
