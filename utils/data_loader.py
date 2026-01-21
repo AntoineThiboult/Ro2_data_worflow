@@ -7,6 +7,8 @@ Created on Sat Dec 30 17:47:54 2023
 from pathlib import Path
 import yaml
 import pandas as pd
+import struct
+import datetime as dt
 
 
 def yaml_file(path, file):
@@ -35,7 +37,8 @@ def yaml_file(path, file):
     return data
 
 
-def toa5_file(file, sep=',', skiprows=[0,2,3], index_col='TIMESTAMP', drop_duplicates=True):
+def toa5_file(file, sep=',', skiprows=[0,2,3], index_col='TIMESTAMP',
+              drop_duplicates=True, datetime_format='mixed'):
     """
     Load Campbell Scientific TOA5 files, set the index as the time and rename
     it 'timestamp', convert data to float if possible, and remove duplicated
@@ -67,7 +70,7 @@ def toa5_file(file, sep=',', skiprows=[0,2,3], index_col='TIMESTAMP', drop_dupli
         low_memory=False,
         na_values="NAN")
     df.index.name = df.index.name.lower()
-    df.index = pd.to_datetime(df.index)
+    df.index = pd.to_datetime(df.index, format=datetime_format)
     if drop_duplicates:
         df = df[~df.index.duplicated(keep='last')]
     return df
@@ -163,47 +166,86 @@ def ice_phenology(file, make_time_series=True):
     return df
 
 
-def tob3():
-    print('In prevision of binary loading')
-
-
-def tob3_header(file):
+def tob3_first_timestamp(file):
     """
-    Extract the 6 line header of TOB3 file
+    Extract the first data record timestamp from a TOB3 file.
+
+    This function reads the 6-line ASCII header of a TOB3 file, then
+    parses the first binary frame header to extract the initial
+    SecNano timestamp. The timestamp is converted to a Python
+    ``datetime.datetime`` using the Campbell Scientific epoch
+    (1990-01-01).
 
     Parameters
     ----------
-    file : String / Pathlib path
-        Path to a TOB3 file
+    file : str or pathlib.Path
+        Path to a TOB3 file.
 
     Returns
     -------
-    header : List
-        Header
+    first_timestamp : datetime.datetime
+        Timestamp of the first data record in the file.
+    """
+
+    with open(file, "rb") as f:
+
+        # Move past the header
+        [f.readline().decode().rstrip("\r\n") for _ in range(6)]
+
+        # Skip the TOB3 12-byte header
+        frame_header = f.read(12)
+
+        # First 8 bytes = SecNano timestamp
+        sec = struct.unpack('<L', frame_header[0:4])[0]
+        nano = struct.unpack('<L', frame_header[4:8])[0]
+        epoch = dt.datetime(1990, 1, 1)
+        first_timestamp = epoch + dt.timedelta(seconds=sec, microseconds=nano/1000)
+
+        return first_timestamp
+
+
+def tob3_header(file,clean=True):
+    """
+    Extract the 6-line header of a TOB3 file.
+
+    Parameters
+    ----------
+    file : String or pathlib.Path
+        Path to a TOB3 file
+    clean : bool, optional (default=True)
+        If True, return a cleaned list of lists:
+        - split by commas
+        - remove surrounding quotes and newline chars
+
+    Returns
+    -------
+    header : list
+        Raw or cleaned header
 
     """
+    file = Path(file)
+
+    # Check if file is empty
+    try:
+        if file.stat().st_size == 0:
+            return None
+    except FileNotFoundError:
+        raise
+
+
     with open(file, "r", encoding="latin1") as f:
         header = [next(f) for _ in range(6)]
-    return header
 
+    if not clean:
+        return header
 
-def tob3_creation_date(file):
-    """
-    Extract the creation time of a TOB3 file.
-    The first line of a TOB3 file is a regular ascii line such as
-    "TOB3","<data_logger_SN>",...,"YYYY-MM-DD hh:mm:ss"
+    # Clean each line
+    cleaned_header = []
+    for line in header:
+        # Strip newline, split by commas
+        parts = line.strip().split(",")
+        # Remove surrounding quotes from each element
+        parts = [p.strip().strip('"') for p in parts]
+        cleaned_header.append(parts)
 
-    Parameters
-    ----------
-    file : String / Pathlib path
-        Path to a TOB3 file
-
-    Returns
-    -------
-    creation_time : string
-        Time the table has been initialized = Time of file creation on
-        the data logger
-
-    """
-    with open(file, "r", encoding="latin1") as f:
-       return next(f).rsplit(",", 1)[-1].strip('"\n')
+    return cleaned_header
