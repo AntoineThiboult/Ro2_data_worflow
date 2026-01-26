@@ -80,7 +80,7 @@ def merge(dates, csv_files):
         return retrieval_dates
 
 
-    for counter, file in enumerate(tqdm(csv_files)):
+    for counter, file in enumerate(tqdm(csv_files, desc='Merging thermistors')):
 
         if 'pro_oceanus' in file.stem:
             print('Pro oceanus sensors not implemented yet. DCO2 data skipped')

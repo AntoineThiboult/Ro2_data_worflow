@@ -89,7 +89,7 @@ def merge_files(df, file_list, file_type, merge_col='timestamp',
         Contains merged files
     """
 
-    for i_file in tqdm(file_list, disable=not verbose):
+    for i_file in tqdm(file_list, disable=not verbose, desc='Merging files'):
         try:
             # Load dataframe
             if file_type.lower() == 'toa5':

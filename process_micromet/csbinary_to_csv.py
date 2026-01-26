@@ -468,7 +468,7 @@ def find_unconverted_files(
         # List all Campbell directories matching station name
         csbin_folders = list_csbinary_folders(bin_file_dir, station_name_raw)
 
-        for csbin_folder in tqdm(csbin_folders, miniters=10):
+        for csbin_folder in tqdm(csbin_folders, miniters=1, desc=f'{station_name_ascii}: Listing unconverted files'):
             matches = re.search(r"\d{8}", Path(csbin_folder).stem)
             date = matches.group()
 

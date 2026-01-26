@@ -331,8 +331,10 @@ def FFP_climatology(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, 
               for vals in zip(ustars, sigmavs, hs, ols, wind_dirs, zms)]
 
     if verbosity > 1: print ('')
-    for ix, (ustar, sigmav, h, ol, wind_dir, zm, z0, umean) \
-            in tqdm(enumerate(zip(ustars, sigmavs, hs, ols, wind_dirs, zms, z0s, umeans)),total=len(ustars)):
+    for ix, (ustar, sigmav, h, ol, wind_dir, zm, z0, umean) in tqdm(
+            enumerate(zip(ustars, sigmavs, hs, ols, wind_dirs, zms, z0s, umeans)),
+            total=len(ustars),
+            desc='Computing footprint'):
 
         # Counter
         if verbosity > 1 and ix % pulse == 0:
