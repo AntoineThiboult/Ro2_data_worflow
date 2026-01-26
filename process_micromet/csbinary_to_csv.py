@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
-import datetime as dt
 import os
 import re
 import subprocess
 import pandas as pd
 from pathlib import Path
 from utils import data_loader as dl
-from datetime import datetime
 from tqdm import tqdm
 
 
@@ -19,6 +17,8 @@ def list_csbinary_files(root_dir,station):
     all ``.dat`` files located in directories whose path contains a segment
     matching the pattern ``{station}_YYYYMMDD`` (8-digit date). It is designed
     for repositories organized by acquisition date and station name.
+
+    The function will not look into folders named _quarantine.
 
     Parameters
     ----------
@@ -55,6 +55,8 @@ def list_csbinary_files(root_dir,station):
     csbin_files = []
 
     for root, dirs, files in os.walk(root_dir):
+        # Prevent os.walk from searching in "_quarantine" folders
+        dirs[:] = [d for d in dirs if d != "_quarantine"]
         # Check if the directory matches the pattern
         if pattern.search(root):
             for file in files:
@@ -351,7 +353,8 @@ def find_unconverted_files(
         station_name_ascii,
         bin_file_dir,
         csv_file_dir,
-        deep_search=True):
+        deep_search=True,
+        log_search=True):
     """
     Find Campbell Scientific binary TOB3 files (*.dat) located in `bin_file_dir`
     and determine which ones still need to be converted to CSV files in
@@ -415,60 +418,42 @@ def find_unconverted_files(
         # matching station name
         csbin_files = list_csbinary_files(bin_file_dir, station_name_raw)
 
-        for csbin_file in tqdm(csbin_files, miniters=10, desc=f'{station_name_ascii}: Listing unconverted files'):
+        for csbin_file in tqdm(csbin_files, miniters=1, desc=f'{station_name_ascii}: Listing unconverted files'):
+
+            # Get the type of file (eddy covariance, regular met data, etc)
+            extension, split_interval = type_of_file(csbin_file)
+            if not extension:
+                # Type of file not to be converted
+                continue
 
             file_header = dl.tob3_header(csbin_file)
             if not file_header:
                 logf.write(f'{csbin_file}: Cannot read header\n')
                 continue
 
-            first_timestamp = dl.tob3_first_timestamp(csbin_file)
-            if not first_timestamp:
+            first_ts, last_ts = dl.tob3_first_last_timestamp(csbin_file)
+            if not (first_ts and last_ts):
                 logf.write(f'{csbin_file}: Cannot read first timestamp\n')
                 continue
 
-            # Get card removal time if any.
-            card_rm_time_sec = int(file_header[1][7])
-            if card_rm_time_sec == 0:
-                # Table was closed before card ejection
-                card_rm_time = None
-            else:
-                # The datalogger records the time stamp in terms of seconds since
-                # 1 January 1990 when the card was last removed
-                card_rm_time = dt.datetime.strptime('1990-01-01','%Y-%m-%d') \
-                    + dt.timedelta(seconds=card_rm_time_sec)
+            if extension == '_eddy.csv':
+                date_array = pd.DatetimeIndex([first_ts]).append(
+                    pd.date_range(
+                        start=pd.Timestamp(first_ts).ceil(split_interval),
+                        end=last_ts,
+                        inclusive='left',
+                        freq=split_interval)
+                    ).unique()
+            elif extension == '_slow.csv':
+                date_array = pd.DatetimeIndex([first_ts]).append(
+                    pd.date_range(
+                        start=pd.Timestamp(first_ts).ceil(split_interval) + pd.Timedelta(minutes=30),
+                        end=last_ts,
+                        inclusive='left',
+                        freq=split_interval)
+                    ).unique()
 
-            # Get the type of file (eddy covariance, regular met data, etc)
-            extension, split_interval = type_of_file(csbin_file)
-            if extension == '_slow.csv':
-                # Expected offset from 00:00:00.000 for first timestamp
-                offset_from_midnight = pd.Timedelta(minutes=30)
-            elif extension == '_eddy.csv':
-                # Expected offset from 00:00:00.000 for first timestamp
-                offset_from_midnight = pd.Timedelta(microseconds=100000)
-            elif not extension:
-                # Skip if the type of data that is not converted
-                continue
-
-            # Generate array of dates that the CS file should contain
-            if card_rm_time:
-                # The file has been created on card removal
-                date_array = pd.date_range(
-                    start=pd.Timestamp(first_timestamp).ceil(split_interval)+pd.Timedelta(offset_from_midnight),
-                    end=card_rm_time,
-                    freq=split_interval)
-                date_array = date_array.insert(0, first_timestamp)
-            else:
-                # The file was created at the end of the day. It is assumed that
-                # the file ends a day later after
-                date_array = pd.date_range(
-                    start=pd.Timestamp(first_timestamp).ceil(split_interval)+pd.Timedelta(offset_from_midnight),
-                    end=pd.Timestamp(first_timestamp).ceil('1D'),
-                    freq=split_interval)[:-1]
-                date_array = date_array.insert(0, first_timestamp)
-
-
-            # short-circuit check
+            # Check if a expected dates are already in csv files
             needs_conversion = False
             for d in date_array:
                 expected = f"{pd.Timestamp(d).strftime('%Y%m%d_%H%M')}{extension}"
@@ -477,7 +462,7 @@ def find_unconverted_files(
                     break
 
             if needs_conversion:
-                unconverted_files.append(str(csbin_file))  # store the .dat path only
+                unconverted_files.append(str(csbin_file))
 
     elif not deep_search:
         # List all Campbell directories matching station name
