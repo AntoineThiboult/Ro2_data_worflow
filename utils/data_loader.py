@@ -36,7 +36,7 @@ def yaml_file(path, file):
     data = yaml.safe_load(
         open(Path(path).joinpath(file)))
 
-    return data
+    return data or {}
 
 
 def toa5_file(file, sep=',', skiprows=[0,2,3], index_col='TIMESTAMP',

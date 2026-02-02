@@ -4,7 +4,7 @@ Created on Mon Oct  6 11:26:23 2025
 
 @author: ANTHI182
 """
-
+from pathlib import Path
 station_name_conversion = {'Berge': 'Romaine-2_reservoir_shore',
                            'Berge_precip': 'Romaine-2_reservoir_shore_precip',
                            'Foret_ouest': 'Bernard_spruce_moss_west',
@@ -14,16 +14,16 @@ station_name_conversion = {'Berge': 'Romaine-2_reservoir_shore',
                            'Reservoir': 'Romaine-2_reservoir_raft',
                            'Bernard_lake': 'Bernard_lake'}
 
-rawFileDir          = "D:/Ro2_micromet_raw_data/Data/"
-reanalysisDir       = "D:/Ro2_micromet_raw_data/Data/Reanalysis/"
-asciiOutDir         = "D:/Ro2_micromet_processed_data/Ascii_data/"
-eddyproOutDir       = "D:/Ro2_micromet_processed_data/Eddypro_data/"
-miscDataDir         = "D:/Ro2_micromet_raw_data/Data/Misc/"
-intermediateOutDir  = "D:/Ro2_micromet_processed_data/Intermediate_output/"
-finalOutDir         = "D:/Ro2_micromet_processed_data/Final_output/"
-varNameExcelSheet   = "./Resources/Variable_description_full.xlsx"
-eddyproConfigDir    = "./Config/EddyProConfig/"
-gapfillConfigDir    = "./Config/GapFillingConfig/"
-filterConfigDir     = "./Config/Filtering/"
-gasAnalyzerConfigDir    = "./Config/Gas_analyzer/"
-reanalysisConfigDir = "./Config/Reanalysis/"
+rawFileDir          = Path("D:/Ro2_micromet_raw_data/Data/Raw_data/Data")
+reanalysisDir       = Path("D:/Ro2_micromet_raw_data/Data/Reanalysis/")
+asciiOutDir         = Path("D:/Ro2_micromet_raw_data/Data/Ascii_data")
+miscDataDir         = Path("D:/Ro2_micromet_raw_data/Data/Misc/")
+eddyproOutDir       = Path("D:/Ro2_micromet_processed_data/Eddypro_data/")
+intermediateOutDir  = Path("D:/Ro2_micromet_processed_data/Data/Intermediate/")
+finalOutDir         = Path("D:/Ro2_micromet_processed_data/Final_output/")
+varNameExcelSheet   = Path("./Resources/Variable_description_full.xlsx")
+eddyproConfigDir    = Path("./Config/EddyProConfig/")
+gapfillConfigDir    = Path("./Config/GapFillingConfig/")
+filterConfigDir     = Path("./Config/Filtering/")
+gasAnalyzerConfigDir    = Path("./Config/Gas_analyzer/")
+reanalysisConfigDir = Path("./Config/Reanalysis/")

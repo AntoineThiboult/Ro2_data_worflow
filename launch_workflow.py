@@ -40,20 +40,25 @@ for iStation in CampbellStations:
     unconverted_files = pm.csbinary_to_csv.find_unconverted_files(path.station_name_conversion[iStation],iStation,
                                 path.rawFileDir,path.asciiOutDir,deep_search=True)
     pm.csbinary_to_csv.convert(iStation, path.asciiOutDir, unconverted_files)
+
+    # List slow files
+    slow_files = dfm.list_files(iStation, '*slow.csv', path.asciiOutDir)
+    # Create reference dataframe and merge slow files
+    df = dfm.create(dates)
+    df = dfm.merge_files(df, slow_files, 'TOA5')
+    # Rename and trim slow variables
+    db_name_map = pm.names.map_db_names(iStation, path.varNameExcelSheet, 'cs')
+    df = pm.names.rename_trim(iStation, df, db_name_map)
+
+    # First filter
+    pm.filters.remove_by_variable_and_date(df, path.filterConfigDir, f"{iStation}_erroneous_variables")
+
     # Correct raw concentrations
     if iStation in eddyCovStations:
         pm.correct_raw_concentrations(iStation,path.asciiOutDir,path.gasAnalyzerConfigDir,False)
     # Rotate wind
     if iStation == 'Reservoir':
         pm.rotate_wind(iStation,path.asciiOutDir)
-    # List slow files
-    slow_files = dfm.list_files(iStation, '*slow.csv', path.asciiOutDir)
-    # Create reference dataframe and merge slow files
-    df = dfm.create(dates)
-    df = dfm.merge_files(df,slow_files,'TOA5')
-    # Rename and trim slow variables
-    db_name_map = pm.names.map_db_names(iStation, path.varNameExcelSheet, 'cs')
-    df = pm.names.rename_trim(iStation, df, db_name_map)
 
     if iStation in eddyCovStations:
         # Ascii to eddypro

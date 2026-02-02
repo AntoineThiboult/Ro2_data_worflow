@@ -101,6 +101,58 @@ def allweather_precipitation(df):
     df['precip_intensity_t200b'] = precip_int
     return df
 
+
+def remove_by_variable_and_date(df, path, file):
+    """
+    Set erroneous values to NaN for specified variables over specified date ranges.
+
+    This function loads a dictionary of "erroneous" variables and their associated
+    date ranges from a YAML file, then replaces values with ``np.nan`` in the input
+    DataFrame for each variable and the specified dates.
+
+    The YAML file is expected to define a mapping of variable names (column names
+    in ``df``) to a two-element sequence defining the start and end of the date
+    range to invalidate, e.g.:
+
+        temperature: ["2020-01-01", "2020-01-15"]
+        pressure: ["2021-03-10", "2021-03-12"]
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input DataFrame containing time-indexed data. The index must be a
+        ``pandas.DatetimeIndex``. Columns referenced in the YAML dictionary
+        should exist in ``df``.
+    path : str or pathlib.Path
+        Directory (or base path) where the YAML file is located.
+    file : str
+        YAML filename (or identifier) passed to ``dl.yaml_file(path, file)``.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame where values for each erroneous variable within the specified
+        date range(s) have been set to ``np.nan``. Note that the modification is
+        performed in-place on ``df`` and the same object is returned.
+    """
+    # Load dictionnary of erroneous variables
+    rm_dict = dl.yaml_file(path, file)
+
+    for rm_var in rm_dict:
+        # Create a date range base on date in file
+        err_date_range = pd.date_range(
+            rm_dict[rm_var][0],
+            rm_dict[rm_var][1],
+            freq=pd.infer_freq(df.index)
+            )
+        # Intersection of the DataFrame index and erroneous
+        err_index = df.index.intersection(err_date_range)
+        # Set erroneous data to NaN
+        df.loc[err_index, rm_var] = np.nan
+
+    return df
+
+
 def tipbucket_precipitation(df, air_temp_var='air_temp_HMP45C', precip_var='precip_TB4'):
     """
     Remove potentially contaminated precipitation data. Data is kept only if

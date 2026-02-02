@@ -31,18 +31,6 @@ def handle_exception(stationName, df):
         df['wind_dir_05103'] = 360 - df['wind_dir_05103']
 
 
-        ###############################################################
-        # Handle the faulty HMP45C replaced the 2018-12-19 10:00:00 ###
-        ###############################################################
-
-        date_hmp = '2018-10-19 15:00:00'
-        id_change_HMP = df.index <= pd.to_datetime(date_hmp)
-        df.loc[id_change_HMP,
-               ['air_temp_HMP45C',
-                'air_temp_max_HMP45C',
-                'air_temp_min_HMP45C',
-                'air_relhum_HMP45C']] = np.nan
-
         ######################
         # Correct CO2 fluxes #
         ######################
@@ -87,43 +75,6 @@ def handle_exception(stationName, df):
 
     if stationName in ['Foret_ouest']:
 
-        ###############################################################
-        # Handle the faulty HMP45C replaced the 2019-08-30 15:00:00 ###
-        ###############################################################
-
-        date_hmp = '2019-08-30 15:00:00'
-        id_change_HMP = df.index <= pd.to_datetime(date_hmp)
-        df.loc[id_change_HMP,
-               ['air_temp_HMP45C',
-                'air_temp_max_HMP45C',
-                'air_temp_min_HMP45C',
-                'air_relhum_HMP45C']] = np.nan
-
-
-        ###############################################################
-        # Handle the faulty CS106 between 2020-10-23 and 2021-04-01 ###
-        ###############################################################
-
-        date_CS106_start = '2020-10-23 00:00:00'
-        date_CS106_end   = '2021-04-01 00:00:00'
-        id_CS106 = (
-            ( pd.to_datetime(date_CS106_start) <= df.index ) &
-            ( df.index < pd.to_datetime(date_CS106_end) )
-            )
-        df.loc[id_CS106,'air_press_CS106'] = np.nan
-
-
-        ######################################
-        # Handle erroneous Li7500 pressure ###
-        ######################################
-        date_air_press_IRGA = '2022-06-19 13:00:00'
-        id_air_press_IRGA = df.index <= pd.to_datetime(date_air_press_IRGA)
-        df.loc[id_air_press_IRGA, 'air_press_IRGASON'] = np.nan
-
-        date_air_press = '2021-10-21 17:00:00'
-        id_air_press = df.index <= pd.to_datetime(date_air_press)
-        df.loc[id_air_press, 'air_press'] = np.nan
-
 
         ######################################################################
         # Handle the RMY 05103 counter clockwise wind direction reference    #
@@ -159,32 +110,6 @@ def handle_exception(stationName, df):
             df.loc[id_cnr1,'rad_longwave_up_CNR4'] \
                 + (5.67e-8*T_proxy[id_cnr1]**4)
         df.loc[id_cnr1,'air_temp_CNR4'] = T_proxy[id_cnr1]
-
-
-        #########################################################
-        # Handle the faulty Li7500 that gave nonsensical values #
-        #########################################################
-
-        date_li75_start = '2022-03-26 02:00:00'
-        date_li75_end   = '2022-06-19 14:00:00'
-        id_li75 = (
-            ( pd.to_datetime(date_li75_start) <= df.index ) &
-            ( df.index < pd.to_datetime(date_li75_end) )
-            )
-
-        Li7500_vars = [
-            # Campbell variables
-            'air_density_IRGASON', 'air_temp_IRGASON', 'CO2_conc_mean_IRGASON',
-            'CO2_conc_stdev_IRGASON', 'CO2_flux_H_wpl_IRGASON', 'CO2_flux_IRGASON',
-            'CO2_flux_LE_wpl_IRGASON', 'CO2_flux_wpl_IRGASON', 'error_flag_IRGASON',
-            'H_IRGASON', 'H2O_conc_mean_IRGASON', 'H2O_conc_stdev_IRGASON',
-            'LE_IRGASON','CO2_density_IRGASON',
-            # EddyPro variables
-            'CO2_mixing_ratio', 'CO2_molar_density', 'CO2_mole_fraction',
-            'air_heat_capacity', 'H2O_mixing_ratio', 'H2O_molar_density',
-            'H2O_mole_fraction'
-            ]
-        df.loc[id_li75,Li7500_vars] = np.nan
 
 
         ############################################
@@ -262,12 +187,5 @@ def handle_exception(stationName, df):
         #############################################################################
 
         df['wind_dir_05103'] = 360 - df['wind_dir_05103']
-
-        #####################################
-        ### Handle non connected RMY05103 ###
-        #####################################
-
-        id_rmy = df.index < pd.to_datetime('2022-08-16 13:00:00')
-        df.loc[id_rmy,'wind_speed_05103'] = np.nan
 
     return df

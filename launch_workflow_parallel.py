@@ -13,110 +13,106 @@ gapfilledStation =  ["Bernard_lake","Water_stations","Forest_stations"]
 dates = {'start':'2018-06-25','end':'2022-10-01'}
 
 
-def parallel_function_0(dates, rawFileDir, miscDataDir,
-                        reanalysisDir, reanalysisConfigDir, finalOutDir):
+def parallel_function_0(dates, path):
 
     # Merge Hobo TidBit thermistors
-    df1 = pm.thermistors.list_merge_filter('Romaine-2_reservoir_thermistor_chain-1', dates, rawFileDir)
-    pm.thermistors.save(df1,'Romaine-2_reservoir_thermistor_chain-1', finalOutDir)
-    df2 = pm.thermistors.list_merge_filter('Romaine-2_reservoir_thermistor_chain-2', dates, rawFileDir)
-    pm.thermistors.save(df2,'Romaine-2_reservoir_thermistor_chain-2', finalOutDir)
+    df1 = pm.thermistors.list_merge_filter('Romaine-2_reservoir_thermistor_chain-1', dates, path.rawFileDir)
+    pm.thermistors.save(df1,'Romaine-2_reservoir_thermistor_chain-1', path.finalOutDir)
+    df2 = pm.thermistors.list_merge_filter('Romaine-2_reservoir_thermistor_chain-2', dates, path.rawFileDir)
+    pm.thermistors.save(df2,'Romaine-2_reservoir_thermistor_chain-2', path.finalOutDir)
     df = pm.thermistors.average(df1, df2)
     df = pm.thermistors.gap_fill(df)
-    df = pm.thermistors.add_ice_phenology(df, miscDataDir+'Romaine-2_reservoir_ice_phenology')
+    df = pm.thermistors.add_ice_phenology(df, path.miscDataDir+'Romaine-2_reservoir_ice_phenology')
     df = pm.thermistors.compute_energy_storage(df)
-    pm.thermistors.save(df,'Romaine-2_reservoir_thermistor_chain', finalOutDir)
-    df = pm.thermistors.list_merge_filter('Bernard_lake_thermistor_chain', dates, rawFileDir)
+    pm.thermistors.save(df,'Romaine-2_reservoir_thermistor_chain', path.finalOutDir)
+    df = pm.thermistors.list_merge_filter('Bernard_lake_thermistor_chain', dates, path.rawFileDir)
     df = pm.thermistors.gap_fill(df)
-    df = pm.thermistors.add_ice_phenology(df, miscDataDir+'Bernard_lake_ice_phenology')
+    df = pm.thermistors.add_ice_phenology(df, path.miscDataDir+'Bernard_lake_ice_phenology')
     df = pm.thermistors.compute_energy_storage(df)
-    pm.thermistors.save(df,'Bernard_lake_thermistor_chain', finalOutDir)
+    pm.thermistors.save(df,'Bernard_lake_thermistor_chain', path.finalOutDir)
     # Perform ERA5 extraction and handling
     for iStation in gapfilledStation:
-        reanalysis_config = dl.yaml_file(reanalysisConfigDir, iStation)
-        pm.reanalysis.retrieve( reanalysis_config['era5-land'], dates, reanalysisDir)
-        pm.reanalysis.retrieve( reanalysis_config['era5'], dates, reanalysisDir)
+        reanalysis_config = dl.yaml_file(path.reanalysisConfigDir, iStation)
+        pm.reanalysis.retrieve( reanalysis_config['era5-land'], dates, path.reanalysisDir)
+        pm.reanalysis.retrieve( reanalysis_config['era5'], dates, path.reanalysisDir)
 
 
-def parallel_function_1(iStation, station_name_conversion, rawFileDir,
-                        asciiOutDir, eddyproOutDir, eddyproConfigDir,
-                        intermediateOutDir, finalOutDir, varNameExcelSheet,
-                        gasAnalyzerConfigDir):
+def parallel_function_1(iStation, station_name_conversion, path):
 
     # Binary to ascii
     unconverted_files = pm.csbinary_to_csv.find_unconverted_files(path.station_name_conversion[iStation],iStation,
                                 path.rawFileDir,path.asciiOutDir,deep_search=True)
     pm.csbinary_to_csv.convert(iStation, path.asciiOutDir, unconverted_files)
-    # Correct raw concentrations
-    if iStation in eddyCovStations:
-        pm.correct_raw_concentrations(iStation,asciiOutDir,gasAnalyzerConfigDir,False)
-    # Rotate wind
-    if iStation == 'Reservoir':
-        pm.rotate_wind(iStation,asciiOutDir)
     # List slow files
-    slow_files = dfm.list_files(iStation, '*slow.csv', asciiOutDir)
+    slow_files = dfm.list_files(iStation, '*slow.csv', path.asciiOutDir)
     # Create reference dataframe and merge slow files
     df = dfm.create(dates)
     df = dfm.merge_files(df,slow_files,'TOA5')
     # Rename and trim slow variables
-    db_name_map = pm.names.map_db_names(iStation, varNameExcelSheet, 'cs')
+    db_name_map = pm.names.map_db_names(iStation, path.varNameExcelSheet, 'cs')
     df = pm.names.rename_trim(iStation, df, db_name_map)
+    pm.filters.remove_by_variable_and_date(df, path.filterConfigDir, f"{iStation}_erroneous_variables")
+
+    # Correct raw concentrations
+    if iStation in eddyCovStations:
+        pm.correct_raw_concentrations(iStation,path.asciiOutDir,path.gasAnalyzerConfigDir,False)
+    # Rotate wind
+    if iStation == 'Reservoir':
+        pm.rotate_wind(iStation,path.asciiOutDir)
+
 
     if iStation in eddyCovStations:
 
         # Ascii to eddypro
-        pm.eddypro.run(iStation,asciiOutDir,eddyproConfigDir,
-                       eddyproOutDir,dates)
+        pm.eddypro.run(iStation,path.asciiOutDir,path.eddyproConfigDir,
+                       path.eddyproOutDir,dates)
         # List EddyPro files
-        eddypro_files = dfm.list_files(iStation, '*full_output*.csv', eddyproOutDir)
+        eddypro_files = dfm.list_files(iStation, '*full_output*.csv', path.eddyproOutDir)
         # Create reference dataframe and merge EddyPro files
         eddy_df = dfm.create(dates)
         eddy_df = dfm.merge_files(eddy_df,eddypro_files,'EddyPro')
         # Rename and trim eddy variables
-        db_name_map = pm.names.map_db_names(iStation, varNameExcelSheet, 'eddypro')
+        db_name_map = pm.names.map_db_names(iStation, path.varNameExcelSheet, 'eddypro')
         eddy_df = pm.names.rename_trim(iStation, eddy_df, db_name_map)
         # Merge slow and eddy data
         df = dfm.merge(df,eddy_df)
 
-    dfm.save(df,intermediateOutDir,iStation)
+    dfm.save(df,path.intermediateOutDir,iStation)
 
 
-def parallel_function_2(iStation, intermediateOutDir, filterConfigDir,
-                        finalOutDir, reanalysisDir):
+def parallel_function_2(iStation, path):
 
     # Load csv
-    df = dl.csv(intermediateOutDir+iStation)
+    df = dl.csv(path.intermediateOutDir+iStation)
     # Handle exceptions
     df = pm.handle_exception(iStation,df)
     # Filter data
-    df = pm.filters.apply_all(iStation,df,filterConfigDir,intermediateOutDir)
+    df = pm.filters.apply_all(iStation,df,path.filterConfigDir,path.intermediateOutDir)
     # Save to csv
-    dfm.save(df,finalOutDir,iStation)
+    dfm.save(df,path.finalOutDir,iStation)
     # Format reanalysis data for gapfilling
-    pm.reanalysis.netcdf_to_dataframe(dates,iStation,filterConfigDir,
-                                      reanalysisDir ,intermediateOutDir)
+    pm.reanalysis.netcdf_to_dataframe(dates,iStation,path.filterConfigDir,
+                                      path.reanalysisDir ,path.intermediateOutDir)
 
 
-def parallel_function_3(iStation, finalOutDir, rawFileDir, gapfillConfigDir,
-                        miscDataDir, reanalysisDir, varNameExcelSheet,
-                        filterConfigDir, intermediateOutDir):
+def parallel_function_3(iStation, path):
 
     # Merge the eddy covariance together (water/forest)
-    df = pm.merge_eddycov_stations(iStation,rawFileDir,
-                                   finalOutDir, miscDataDir, varNameExcelSheet)
+    df = pm.merge_eddycov_stations(iStation,path.rawFileDir,
+                                   path.finalOutDir, path.miscDataDir, path.varNameExcelSheet)
 
     # Format reanalysis data for gapfilling
-    pm.reanalysis.netcdf_to_dataframe(dates,iStation,filterConfigDir,
-                                      reanalysisDir ,intermediateOutDir)
+    pm.reanalysis.netcdf_to_dataframe(dates,iStation,path.filterConfigDir,
+                                      path.reanalysisDir ,path.intermediateOutDir)
 
     # Perform gap filling
     df = pm.gap_fill_slow_data.gap_fill_meteo(
-        iStation,df,intermediateOutDir,gapfillConfigDir)
+        iStation,df,path.intermediateOutDir,path.gapfillConfigDir)
     df = pm.gap_fill_slow_data.gap_fill_radiation(
-        iStation,df,intermediateOutDir,gapfillConfigDir)
+        iStation,df,path.intermediateOutDir,path.gapfillConfigDir)
     df = pm.gap_fill_slow_data.custom_operation(
-        iStation,df,gapfillConfigDir)
-    df = pm.gap_fill_flux.gap_fill_flux(iStation,df,gapfillConfigDir)
+        iStation,df,path.gapfillConfigDir)
+    df = pm.gap_fill_flux.gap_fill_flux(iStation,df,path.gapfillConfigDir)
 
     # Compute storage terms
     df = pm.compute_storage_flux(iStation,df)
@@ -128,39 +124,32 @@ def parallel_function_3(iStation, finalOutDir, rawFileDir, gapfillConfigDir,
         df = pm.correct_energy_balance(df, 1.34)
 
     # Filter data
-    df = pm.filters.apply_all(iStation,df,filterConfigDir,finalOutDir)
+    df = pm.filters.apply_all(iStation,df,path.filterConfigDir,path.finalOutDir)
 
     # Perform gap filling
-    df = pm.gap_fill_flux.gap_fill_flux(iStation,df,gapfillConfigDir)
+    df = pm.gap_fill_flux.gap_fill_flux(iStation,df,path.gapfillConfigDir)
 
     # Save to csv
-    dfm.save(df,finalOutDir,iStation)
+    dfm.save(df,path.finalOutDir,iStation)
 
 
-def parallel_function_4(iStation, finalOutDir):
-    df = pd.read_csv(finalOutDir+iStation+'.csv')
+def parallel_function_4(iStation, path):
+    df = pd.read_csv(path.finalOutDir+iStation+'.csv')
     fp = pm.footprint.compute(df)
-    pm.footprint.dump(iStation,fp,finalOutDir)
+    pm.footprint.dump(iStation,fp,path.finalOutDir)
 
 ########### Process stations ############
 
-parallel_function_0(dates, path.rawFileDir, path.miscDataDir,
-                        path.reanalysisDir, path.reanalysisConfigDir, path.finalOutDir)
+parallel_function_0(dates, path)
 
 Parallel(n_jobs=len(CampbellStations))(delayed(parallel_function_1)(
-    iStation, path.station_name_conversion, path.rawFileDir,
-    path.asciiOutDir, path.eddyproOutDir, path.eddyproConfigDir,
-    path.intermediateOutDir, path.finalOutDir, path.varNameExcelSheet,
-    path.gasAnalyzerConfigDir)for iStation in CampbellStations)
+    iStation, path)for iStation in CampbellStations)
 
 Parallel(n_jobs=len(CampbellStations))(delayed(parallel_function_2)(
-        iStation, path.intermediateOutDir, path.filterConfigDir,
-        path.finalOutDir, path.reanalysisDir)for iStation in CampbellStations)
+        iStation, path)for iStation in CampbellStations)
 
 Parallel(n_jobs=len(gapfilledStation))(delayed(parallel_function_3)(
-        iStation, path.finalOutDir, path.rawFileDir, path.gapfillConfigDir,
-        path.miscDataDir, path.reanalysisDir, path.varNameExcelSheet,
-        path.filterConfigDir, path.intermediateOutDir)for iStation in gapfilledStation)
+        iStation, path)for iStation in gapfilledStation)
 
 Parallel(n_jobs=len(eddyCovStations))(delayed(parallel_function_4)(
-        iStation, path.finalOutDir)for iStation in eddyCovStations)
+        iStation, path)for iStation in eddyCovStations)
