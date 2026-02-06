@@ -348,17 +348,14 @@ def resample(df):
     return df_30min
 
 
-def find_unconverted_files(
-        station_name_raw,
-        station_name_ascii,
-        bin_file_dir,
-        csv_file_dir,
-        deep_search=True,
-        log_search=True):
+def find_unconverted_files(station_name_raw, station_name_ascii,
+                           bin_file_dir, csv_file_dir,):
     """
     Find Campbell Scientific binary TOB3 files (*.dat) located in `bin_file_dir`
     and determine which ones still need to be converted to CSV files in
     `csv_file_dir`.
+    Once a TOB3 file is read, it will be stored in cache minimize running
+    time for the next execution.
 
     The source directory containing the .dat files should be organized as
     follows:
@@ -386,10 +383,6 @@ def find_unconverted_files(
         files (.dat).
     csv_file_dir : Path or str
         Path to the directory that contains the converted CSV files.
-    deep_search : bool, optional
-        If True (default), read the header of each binary file, infer the
-        expected CSV filenames after conversion, and compare them to the
-        already-converted files (file‑to‑file comparison).
 
         If False, only the folder date is checked: if the date present in the
         folder name already exists among the converted files, the entire folder
@@ -401,8 +394,24 @@ def find_unconverted_files(
         Paths to binary files that have not yet been converted.
     """
 
+    def load_cache(tob3_cache_file):
+        if tob3_cache_file.exists():
+            df = pd.read_csv(tob3_cache_file, parse_dates=["first_ts", "last_ts"])
+            return dict(zip(df["path"], zip(df["first_ts"], df["last_ts"])))
+        return {}
+
+    def append_to_cache(tob3_cache_file, rows):
+        df = pd.DataFrame(rows, columns=["path", "first_ts", "last_ts"])
+        header = not tob3_cache_file.exists()
+        df.to_csv(tob3_cache_file, mode="a", index=False, header=header)
+
     # Open error log file
     logf = open(Path('.','Logs','csbinary_to_csv.log'), "a")
+
+    # Cache file to store already processed files
+    tob3_cache_file = Path(".", "Logs", f"{station_name_raw}_tob3_timestamps_cache.csv")
+    ts_cache = load_cache(tob3_cache_file)
+    new_cache_rows = []
 
     # Paths
     bin_file_dir = Path(bin_file_dir)
@@ -413,19 +422,25 @@ def find_unconverted_files(
     csv_files_stems = {p.name for p in csv_files}
     unconverted_files = []
 
-    if deep_search:
-        # List all Campbell binary files located in subdirectories and
-        # matching station name
-        csbin_files = list_csbinary_files(bin_file_dir, station_name_raw)
+    # List all Campbell binary files located in subdirectories and
+    # matching station name
+    csbin_files = list_csbinary_files(bin_file_dir, station_name_raw)
 
-        for csbin_file in tqdm(csbin_files, miniters=1, desc=f'{station_name_ascii}: Listing unconverted files'):
+    for csbin_file in tqdm(csbin_files, miniters=1, desc=f'{station_name_ascii}: Listing unconverted files'):
 
-            # Get the type of file (eddy covariance, regular met data, etc)
-            extension, split_interval = type_of_file(csbin_file)
-            if not extension:
-                # Type of file not to be converted
-                continue
+        # Get the type of file (eddy covariance, regular met data, etc)
+        extension, split_interval = type_of_file(csbin_file)
+        if not extension:
+            # Type of file not to be converted
+            continue
 
+        # Check if the file has already been checked for conversion in the cache
+        path = str(csbin_file)
+        cached = ts_cache.get(path)
+
+        if cached:
+            first_ts, last_ts = cached
+        else:
             file_header = dl.tob3_header(csbin_file)
             if not file_header:
                 logf.write(f'{csbin_file}: Cannot read header\n')
@@ -436,46 +451,39 @@ def find_unconverted_files(
                 logf.write(f'{csbin_file}: Cannot read first timestamp\n')
                 continue
 
-            if extension == '_eddy.csv':
-                date_array = pd.DatetimeIndex([first_ts]).append(
-                    pd.date_range(
-                        start=pd.Timestamp(first_ts).ceil(split_interval),
-                        end=last_ts,
-                        inclusive='left',
-                        freq=split_interval)
-                    ).unique()
-            elif extension == '_slow.csv':
-                date_array = pd.DatetimeIndex([first_ts]).append(
-                    pd.date_range(
-                        start=pd.Timestamp(first_ts).ceil(split_interval) + pd.Timedelta(minutes=30),
-                        end=last_ts,
-                        inclusive='left',
-                        freq=split_interval)
-                    ).unique()
+            ts_cache[path] = (first_ts, last_ts)
+            new_cache_rows.append((path, first_ts, last_ts))
 
-            # Check if a expected dates are already in csv files
-            needs_conversion = False
-            for d in date_array:
-                expected = f"{pd.Timestamp(d).strftime('%Y%m%d_%H%M')}{extension}"
-                if expected not in csv_files_stems:
-                    needs_conversion = True
-                    break
+        if extension == '_eddy.csv':
+            date_array = pd.DatetimeIndex([first_ts]).append(
+                pd.date_range(
+                    start=pd.Timestamp(first_ts).ceil(split_interval),
+                    end=last_ts,
+                    inclusive='left',
+                    freq=split_interval)
+                ).unique()
+        elif extension == '_slow.csv':
+            date_array = pd.DatetimeIndex([first_ts]).append(
+                pd.date_range(
+                    start=pd.Timestamp(first_ts).ceil(split_interval) + pd.Timedelta(minutes=30),
+                    end=last_ts,
+                    inclusive='left',
+                    freq=split_interval)
+                ).unique()
 
-            if needs_conversion:
-                unconverted_files.append(str(csbin_file))
+        # Check if a expected dates are already in csv files
+        needs_conversion = False
+        for d in date_array:
+            expected = f"{pd.Timestamp(d).strftime('%Y%m%d_%H%M')}{extension}"
+            if expected not in csv_files_stems:
+                needs_conversion = True
+                break
 
-    elif not deep_search:
-        # List all Campbell directories matching station name
-        csbin_folders = list_csbinary_folders(bin_file_dir, station_name_raw)
+        if needs_conversion:
+            unconverted_files.append(str(csbin_file))
 
-        for csbin_folder in tqdm(csbin_folders, miniters=1, desc=f'{station_name_ascii}: Listing unconverted files'):
-            matches = re.search(r"\d{8}", Path(csbin_folder).stem)
-            date = matches.group()
-
-            folder_converted = any(date in f.name for f in csv_files)
-
-            if not folder_converted:
-                unconverted_files.extend(list(Path(csbin_folder).glob('*.dat')))
+    if new_cache_rows:
+        append_to_cache(tob3_cache_file, new_cache_rows)
 
     # Close error log file
     logf.close()

@@ -8,7 +8,7 @@ CampbellStations =  ["Berge","Berge_precip","Foret_ouest","Foret_est","Foret_sol
 eddyCovStations =   ["Berge","Foret_ouest","Foret_est","Reservoir","Bernard_lake"]
 gapfilledStation =  ["Bernard_lake","Water_stations","Forest_stations"]
 
-dates = {'start':'2018-06-25','end':'2022-10-01'}
+dates = {'start':'2018-06-25','end':'2025-12-15'}
 
 
 # Merge Hobo TidBit thermistors
@@ -37,7 +37,7 @@ for iStation in CampbellStations:
 
     # Binary to ascii
     unconverted_files = pm.csbinary_to_csv.find_unconverted_files(path.station_name_conversion[iStation],iStation,
-                                path.rawFileDir,path.asciiOutDir,deep_search=True)
+                                path.rawFileDir,path.asciiOutDir)
     pm.csbinary_to_csv.convert(iStation, path.asciiOutDir, unconverted_files)
 
     # List slow files
@@ -50,7 +50,7 @@ for iStation in CampbellStations:
     df = pm.names.rename_trim(iStation, df, db_name_map)
 
     # First filter
-    pm.filters.remove_by_variable_and_date(df, path.filterConfigDir, f"{iStation}_erroneous_variables")
+    df = pm.filters.remove_by_variable_and_date(df, path.filterConfigDir, f"{iStation}_erroneous_variables")
 
     # Correct raw concentrations
     if iStation in eddyCovStations:
