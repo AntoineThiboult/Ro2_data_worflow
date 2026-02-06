@@ -1,7 +1,0 @@
-{
- "calibration_periods": [
-  {"start_date": "2022-06-15 18:00:00", "end_date": "2023-06-03 10:00:00", "H2O_slope": "-0.019530875454791867", "H2O_intercept": "0.4397415670397292" , "CO2_slope": "0", "CO2_intercept": "0", "temperature_var_name": ["amb_tmpr"], "H2O_var_name": ["H2O"], "CO2_var_name": ["CO2","CO2_corr"]},
-  {"start_date": "2023-06-03 10:00:00", "end_date": "None", "end_date": "None", "end_date": "None", "H2O_slope": "0", "H2O_intercept": "0", "CO2_slope": "0", "CO2_intercept": "0", "temperature_var_name": ["amb_tmpr"], "H2O_var_name": ["H2O"], "CO2_var_name": ["CO2","CO2_corr"]}
- ],
- "erroneous_periods": []
-}
