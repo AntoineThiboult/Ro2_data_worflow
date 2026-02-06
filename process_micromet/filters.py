@@ -114,8 +114,14 @@ def remove_by_variable_and_date(df, path, file):
     in ``df``) to a two-element sequence defining the start and end of the date
     range to invalidate, e.g.:
 
-        temperature: ["2020-01-01", "2020-01-15"]
-        pressure: ["2021-03-10", "2021-03-12"]
+        wind_speed_05103:
+            - ['2018-01-01 00:00:00', '2022-08-16 13:00:00'] # Somes comments
+        wind_dir_05103:
+            - ['2018-01-01 00:00:00', '2022-08-16 13:00:00'] # Some other comments
+        air_press_61205V:
+            - ['2022-11-10 04:00:00', '2023-01-28 12:30:00']
+            - ['2023-02-16 18:30:00', '2023-03-05 12:00:00']
+
 
     Parameters
     ----------
@@ -138,17 +144,20 @@ def remove_by_variable_and_date(df, path, file):
     # Load dictionnary of erroneous variables
     rm_dict = dl.yaml_file(path, file)
 
-    for rm_var in rm_dict:
-        # Create a date range base on date in file
-        err_date_range = pd.date_range(
-            rm_dict[rm_var][0],
-            rm_dict[rm_var][1],
-            freq=pd.infer_freq(df.index)
-            )
-        # Intersection of the DataFrame index and erroneous
-        err_index = df.index.intersection(err_date_range)
-        # Set erroneous data to NaN
-        df.loc[err_index, rm_var] = np.nan
+    if not rm_dict:
+        # Nothing to remove
+        return df
+
+    freq = pd.infer_freq(df.index)
+
+    for rm_var, periods in rm_dict.items():
+        if rm_var not in df.columns:
+            continue
+
+        for start, end in periods:
+            err_date_range = pd.date_range(start, end, freq=freq)
+            err_index = df.index.intersection(err_date_range)
+            df.loc[err_index, rm_var] = np.nan
 
     return df
 

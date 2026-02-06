@@ -1,36 +1,56 @@
-# Faulty HMP45C replaced the 2019-08-30 15:00:00
-air_temp_HMP45C: ['2018-06-01 00:00:00', '2019-08-30 15:00:00']
-air_relhum_HMP45C: ['2018-06-01 00:00:00', '2019-08-30 15:00:00']
-air_temp_min_HMP45C: ['2018-06-01 00:00:00', '2019-08-30 15:00:00']
-air_temp_max_HMP45C: ['2018-06-01 00:00:00', '2019-08-30 15:00:00']
-
-# Faulty CS106 between 2020-10-23 and 2021-04-01
-air_press_CS106: ['2020-10-23 00:00:00', '2021-04-01 00:00:00']
-
-# Erroneous Li7500 pressure
-air_press_IRGASON: ['2018-06-01 00:00:00', '2022-06-19 13:00:00']
-air_press: ['2018-06-01 00:00:00', '2021-10-21 17:00:00']
-
-# Faulty Li7500 (winter 2022)
-air_density_IRGASON: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-air_temp_IRGASON: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-CO2_conc_mean_IRGASON: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-CO2_conc_stdev_IRGASON: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-CO2_flux_H_wpl_IRGASON: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-CO2_flux_IRGASON: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-CO2_flux_LE_wpl_IRGASON: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-CO2_flux_wpl_IRGASON: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-error_flag_IRGASON: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-H_IRGASON: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-H2O_conc_mean_IRGASON: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-H2O_conc_stdev_IRGASON: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-LE_IRGASON: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-CO2_density_IRGASON: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-# Faulty Li7500 (winter 2022) - EddyPro variables
-CO2_mixing_ratio: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-CO2_molar_density: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-CO2_mole_fraction: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-air_heat_capacity: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-H2O_mixing_ratio: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-H2O_molar_density: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
-H2O_mole_fraction: ['2022-03-26 02:00:00', '2022-06-19 14:00:00']
+air_temp_HMP45C: 
+    - ['2018-06-01 00:00:00', '2019-08-30 15:00:00'] # Faulty HMP45C replaced the 2019-08-30 15:00:00
+air_relhum_HMP45C:  
+    - ['2018-06-01 00:00:00', '2019-08-30 15:00:00'] # Faulty HMP45C replaced the 2019-08-30 15:00:00
+air_temp_min_HMP45C:  
+    - ['2018-06-01 00:00:00', '2019-08-30 15:00:00'] # Faulty HMP45C replaced the 2019-08-30 15:00:00
+air_temp_max_HMP45C:  
+    - ['2018-06-01 00:00:00', '2019-08-30 15:00:00'] # Faulty HMP45C replaced the 2019-08-30 15:00:00
+air_press_CS106:  
+    - ['2020-10-23 00:00:00', '2021-04-01 00:00:00'] # Faulty CS106 between 2020-10-23 and 2021-04-01
+air_press_IRGASON:  
+    - ['2018-06-01 00:00:00', '2022-06-19 13:00:00'] # Erroneous Li7500 pressure
+air_press:  
+    - ['2018-06-01 00:00:00', '2021-10-21 17:00:00'] # Erroneous Li7500 pressure
+air_density_IRGASON:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022)
+air_temp_IRGASON:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022)
+CO2_conc_mean_IRGASON:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022)
+CO2_conc_stdev_IRGASON:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022)
+CO2_flux_H_wpl_IRGASON:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022)
+CO2_flux_IRGASON:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022)
+CO2_flux_LE_wpl_IRGASON:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022)
+CO2_flux_wpl_IRGASON:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022)
+error_flag_IRGASON:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022)
+H_IRGASON:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022)
+H2O_conc_mean_IRGASON:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022)
+H2O_conc_stdev_IRGASON:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022)
+LE_IRGASON:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022)
+CO2_density_IRGASON:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022)
+CO2_mixing_ratio:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022) - EddyPro variables
+CO2_molar_density:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022) - EddyPro variables
+CO2_mole_fraction:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022) - EddyPro variables
+air_heat_capacity:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022) - EddyPro variables
+H2O_mixing_ratio:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022) - EddyPro variables
+H2O_molar_density:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022) - EddyPro variables
+H2O_mole_fraction:  
+    - ['2022-03-26 02:00:00', '2022-06-19 14:00:00'] # Faulty Li7500 (winter 2022) - EddyPro variables
