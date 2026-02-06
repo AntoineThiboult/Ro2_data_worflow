@@ -2,7 +2,6 @@ from joblib import Parallel, delayed
 import process_micromet as pm
 import data_paths as path
 from utils import data_loader as dl, dataframe_manager as dfm
-import pandas as pd
 
 ### Define paths
 
@@ -22,12 +21,12 @@ def parallel_function_0(dates, path):
     pm.thermistors.save(df2,'Romaine-2_reservoir_thermistor_chain-2', path.finalOutDir)
     df = pm.thermistors.average(df1, df2)
     df = pm.thermistors.gap_fill(df)
-    df = pm.thermistors.add_ice_phenology(df, path.miscDataDir+'Romaine-2_reservoir_ice_phenology')
+    df = pm.thermistors.add_ice_phenology(df, path.miscDataDir.joinpath('Romaine-2_reservoir_ice_phenology'))
     df = pm.thermistors.compute_energy_storage(df)
     pm.thermistors.save(df,'Romaine-2_reservoir_thermistor_chain', path.finalOutDir)
     df = pm.thermistors.list_merge_filter('Bernard_lake_thermistor_chain', dates, path.rawFileDir)
     df = pm.thermistors.gap_fill(df)
-    df = pm.thermistors.add_ice_phenology(df, path.miscDataDir+'Bernard_lake_ice_phenology')
+    df = pm.thermistors.add_ice_phenology(df, path.miscDataDir.joinpath('Bernard_lake_ice_phenology'))
     df = pm.thermistors.compute_energy_storage(df)
     pm.thermistors.save(df,'Bernard_lake_thermistor_chain', path.finalOutDir)
     # Perform ERA5 extraction and handling
@@ -37,7 +36,7 @@ def parallel_function_0(dates, path):
         pm.reanalysis.retrieve( reanalysis_config['era5'], dates, path.reanalysisDir)
 
 
-def parallel_function_1(iStation, station_name_conversion, path):
+def parallel_function_1(iStation, path):
 
     # Binary to ascii
     unconverted_files = pm.csbinary_to_csv.find_unconverted_files(path.station_name_conversion[iStation],iStation,
@@ -55,7 +54,9 @@ def parallel_function_1(iStation, station_name_conversion, path):
 
     # Correct raw concentrations
     if iStation in eddyCovStations:
-        pm.correct_raw_concentrations(iStation,path.asciiOutDir,path.gasAnalyzerConfigDir,False)
+        gas_analyzer_info = dl.yaml_file(path.gasAnalyzerConfigDir, f"{iStation}_gas_analyzer")
+        corr_coeff = pm.gas_analyzer.get_correction_coeff(df,gas_analyzer_info,iStation)
+        pm.gas_analyzer.correct_densities(iStation, corr_coeff, path.asciiOutDir, True)
     # Rotate wind
     if iStation == 'Reservoir':
         pm.rotate_wind(iStation,path.asciiOutDir)
@@ -83,7 +84,7 @@ def parallel_function_1(iStation, station_name_conversion, path):
 def parallel_function_2(iStation, path):
 
     # Load csv
-    df = dl.csv(path.intermediateOutDir+iStation)
+    df = dl.csv(path.intermediateOutDir.joinpath(iStation))
     # Handle exceptions
     df = pm.handle_exception(iStation,df)
     # Filter data
@@ -134,7 +135,7 @@ def parallel_function_3(iStation, path):
 
 
 def parallel_function_4(iStation, path):
-    df = pd.read_csv(path.finalOutDir+iStation+'.csv')
+    df = dl.csv(path.finalOutDir.joinpath(iStation))
     fp = pm.footprint.compute(df)
     pm.footprint.dump(iStation,fp,path.finalOutDir)
 

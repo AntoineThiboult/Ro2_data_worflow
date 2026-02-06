@@ -77,6 +77,58 @@ def toa5_file(file, sep=',', skiprows=[0,2,3], index_col='TIMESTAMP',
         df = df[~df.index.duplicated(keep='last')]
     return df
 
+def toa5_header(file, clean=True):
+    """
+    Extract the 4-line header of a TOA5 file.
+
+    Parameters
+    ----------
+    file : String or pathlib.Path
+        Path to a TOB3 file
+    clean : bool, optional (default=True)
+        If True, return a cleaned list of lists:
+        - split by commas
+        - remove surrounding quotes and newline chars
+
+    Returns
+    -------
+    header : list
+        Raw or cleaned header
+
+    """
+    file = Path(file)
+
+    # Check if file is empty
+    try:
+        if file.stat().st_size == 0:
+            return None
+    except FileNotFoundError:
+        raise
+
+    with open(file, "r", encoding="latin1") as f:
+        header = []
+        for _ in range(4):
+            line = f.readline()
+            if not line:
+                # File ends before end of header. The file is either
+                # corrupted or do not match expected format
+                return None
+            header.append(line)
+
+    if not clean:
+        return header
+
+    # Clean each line
+    cleaned_header = []
+    for line in header:
+        # Strip newline, split by commas
+        parts = line.strip().split(",")
+        # Remove surrounding quotes from each element
+        parts = [p.strip().strip('"') for p in parts]
+        cleaned_header.append(parts)
+
+    return cleaned_header
+
 
 def eddypro_fulloutput_file(file, sep=',', skiprows=[0,2], index_col=None, drop_duplicates=True):
     """
