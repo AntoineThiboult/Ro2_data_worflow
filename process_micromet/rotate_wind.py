@@ -75,7 +75,7 @@ def rotate_wind(station_name,asciiOutDir):
     g = 9.80665
 
     #Find files that match the pattern Station_YYYYMMDD_eddy.csv
-    eddyFilesRegex=r'^[0-9]{8}_[0-9]{4}_eddy.csv$'
+    eddyFilesRegex=r'^[0-9]{8}_[0-9]{4}_eddy_corr.csv$'
     eddyFiles = [f for f in os.listdir(
         os.path.join(asciiOutDir,station_name))
                  if re.match(eddyFilesRegex, f)]
