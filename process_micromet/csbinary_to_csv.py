@@ -313,11 +313,6 @@ def resample(df):
        which are aggregated by summation.
     2. **Average columns**: all remaining columns, which are aggregated by mean.
 
-    A column-specific aggregation dictionary is then built and applied during
-    resampling to 30‑minute intervals. The timestamp is restored as the first
-    column, and the resulting DataFrame's columns are reordered to match the
-    original input.
-
     Parameters
     ----------
     df : pandas.DataFrame
@@ -329,23 +324,17 @@ def resample(df):
     pandas.DataFrame
         A DataFrame resampled to 30‑minute intervals. Columns matching
         ``"_Tot"`` or ``"_aggregate"`` are summed, and all other columns are
-        averaged. The index is reset and the original column order is preserved.
+        averaged.
 
     """
     # Identify columns that are summed and columns that are averaged.
-    ind_sum = df.filter(regex=('_Tot|_aggregate')).columns
-    ind_ave = df.columns.difference(ind_sum, sort=False)
-    func_all = {**{ind_sum[i]: lambda x: x.sum() if len(x) >= 1 else None for i in range(len(ind_sum))},
-                **{ind_ave[i]: lambda x: x.mean() if len(x) >= 1 else None for i in range(len(ind_ave))}}
+    col_to_sum = df.filter(regex=('_Tot|_aggregate')).columns
+    col_to_average = df.columns.difference(col_to_sum, sort=False)
+    func_all = {**{col_to_sum[i]: lambda x: x.sum() if len(x) >= 1 else None for i in range(len(col_to_sum))},
+                **{col_to_average[i]: lambda x: x.mean() if len(x) >= 1 else None for i in range(len(col_to_average))}}
 
     # Resample the minute columns into 30-min using function defined for each column
-    df_30min = df.resample('30min').agg(func_all)
-
-    # Bring back the timestamp on first column and reorder columns as original
-    df_30min = df_30min.reset_index()
-    df = df.reset_index()
-    df_30min = df_30min[df.columns]
-    return df_30min
+    return df.resample('30min').agg(func_all)
 
 
 def find_unconverted_files(station_name_raw, station_name_ascii,
