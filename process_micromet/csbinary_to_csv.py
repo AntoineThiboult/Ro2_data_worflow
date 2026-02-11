@@ -8,6 +8,246 @@ from utils import data_loader as dl
 from tqdm import tqdm
 
 
+def find_unconverted_files(station_name_raw, station_name_ascii,
+                           bin_file_dir, csv_file_dir,):
+    """
+    Find Campbell Scientific binary TOB3 files (*.dat) located in `bin_file_dir`
+    and determine which ones still need to be converted to CSV files in
+    `csv_file_dir`.
+    Once a TOB3 file is read, it will be stored in cache minimize running
+    time for the next execution.
+
+    The source directory containing the .dat files should be organized as
+    follows:
+
+        bin_file_dir/
+        ├── YYYYMMDD/
+        │   └── station_name_raw_YYYYMMDD/
+        │       ├── foo.dat
+        │       └── bar.dat
+        ├── YYYYMMDD/
+        │   └── station_name_raw_YYYYMMDD/
+        │       ├── foo.dat
+        │       └── bar.dat
+
+    Issues are logged in the `convert_CSbinary_to_csv.log` file.
+
+    Parameters
+    ----------
+    station_name_raw :Path or str
+        Name of the station as stored in the raw data.
+    station_name_ascii : Path or str
+        Name of the station as stored in the ASCII (converted) data.
+    bin_file_dir : Path or str
+        Path to the directory that contains the Campbell Scientific binary
+        files (.dat).
+    csv_file_dir : Path or str
+        Path to the directory that contains the converted CSV files.
+
+        If False, only the folder date is checked: if the date present in the
+        folder name already exists among the converted files, the entire folder
+        is skipped without checking individual .dat files.
+
+    Returns
+    -------
+    unconverted_files : list of pathlib.Path
+        Paths to binary files that have not yet been converted.
+    """
+
+    # Open error log file
+    logf = open(Path('.','Logs','csbinary_to_csv.log'), "a")
+
+    # Cache file to store already processed files
+    tob3_cache_file = Path(".", "Logs", f"{station_name_raw}_tob3_timestamps_cache.csv")
+    ts_cache = load_cache(tob3_cache_file)
+    new_cache_rows = []
+
+    # Paths
+    bin_file_dir = Path(bin_file_dir)
+    csv_file_dir = Path(csv_file_dir).joinpath(station_name_ascii)
+
+    # List files that are already converted
+    csv_files = list_csv_files(csv_file_dir)
+    csv_files_stems = {p.name for p in csv_files}
+    unconverted_files = []
+
+    # List all Campbell binary files located in subdirectories and
+    # matching station name
+    csbin_files = list_csbinary_files(bin_file_dir, station_name_raw)
+
+    for csbin_file in tqdm(csbin_files, miniters=1, desc=f'{station_name_ascii}: Listing unconverted files'):
+
+        # Get the type of file (eddy covariance, regular met data, etc)
+        extension, split_interval = type_of_file(csbin_file)
+        if not extension:
+            # Type of file not to be converted
+            continue
+
+        # Check if the file has already been checked for conversion in the cache
+        path = str(csbin_file)
+        cached = ts_cache.get(path)
+
+        if cached:
+            first_ts, last_ts = cached
+        else:
+            file_header = dl.tob3_header(csbin_file)
+            if not file_header:
+                logf.write(f'{csbin_file}: Cannot read header\n')
+                continue
+
+            first_ts, last_ts = dl.tob3_first_last_timestamp(csbin_file)
+            if not (first_ts and last_ts):
+                logf.write(f'{csbin_file}: Cannot read first timestamp\n')
+                continue
+
+        if extension == '_eddy.csv':
+            start_ts = pd.Timestamp(first_ts).ceil(split_interval)
+            date_array = pd.DatetimeIndex([first_ts]).append(
+                pd.date_range(
+                    start=start_ts,
+                    end=last_ts,
+                    inclusive='left',
+                    freq=split_interval)
+                ).unique()
+        elif extension == '_slow.csv':
+            start_ts = pd.Timestamp(first_ts).ceil(split_interval) + pd.Timedelta(minutes=30)
+            date_array = pd.DatetimeIndex([first_ts]).append(
+                pd.date_range(
+                    start=start_ts,
+                    end=last_ts,
+                    inclusive='left',
+                    freq=split_interval)
+                ).unique()
+
+        if not cached:
+            ts_cache[path] = (start_ts, last_ts)
+            new_cache_rows.append((path, start_ts, last_ts))
+
+        # Check if a expected dates are already in csv files
+        needs_conversion = False
+        for d in date_array:
+            expected = f"{pd.Timestamp(d).strftime('%Y%m%d_%H%M')}{extension}"
+            if expected not in csv_files_stems:
+                needs_conversion = True
+                break
+
+        if needs_conversion:
+            unconverted_files.append(str(csbin_file))
+
+    if new_cache_rows:
+        append_to_cache(tob3_cache_file, new_cache_rows)
+
+    # Close error log file
+    logf.close()
+
+    return unconverted_files
+
+
+def convert(station_name,
+            csv_file_dir,
+            unconverted_files):
+    """
+    Convert Campbell Scientific binary TOB3 files to TOA5 CSV blocks and write
+    them to disk per station.
+
+    For each binary file in ``unconverted_files``, this function:
+    1. Invokes the external converter ``csidft_convert.exe`` to produce a
+       temporary TOA5 CSV file.
+    2. Determines the file type (eddy-covariance vs. slow/regular met) and the
+       splitting interval via :func:`type_of_file`.
+    3. Loads the converted CSV using ``dl.toa5_file``.
+    4. Optionally resamples to 30‑minute intervals when needed (for 1‑minute
+       slow data) via :func:`resample`.
+    5. Splits the data into 30‑minute or daily blocks and writes each block to a
+       CSV file with a preserved 4-line TOA5 header.
+
+    Files are written under ``csv_file_dir / station_name`` with names of the
+    form ``YYYYMMDD_HHMM_<suffix>.csv``, where ``<suffix>`` is determined by
+    :func:`type_of_file` (e.g., ``_eddy.csv`` or ``_slow.csv``).
+
+    Parameters
+    ----------
+    station_name : str
+        Station identifier used to build the output directory and filenames.
+    csv_file_dir : str or pathlib.Path
+        Base directory where converted CSV files will be written. Files are
+        placed under ``csv_file_dir / station_name``.
+    unconverted_files : iterable of (str or pathlib.Path)
+        Campbell Scientific binary files (e.g., ``.dat``) to convert.
+
+    Returns
+    -------
+    None
+        This function performs file I/O and does not return a value.
+
+    Side Effects
+    ------------
+    - Creates or overwrites a log file at ``./Logs/csbinary_to_csv.log``.
+    - Creates a temporary file ``tmp.csv`` under ``csv_file_dir / station_name``.
+      The temporary file is deleted after each iteration.
+    - Writes one or more CSV files per input binary file, each with a 4-line
+      TOA5 header preserved from the converter output.
+    """
+
+    # Paths
+    log_file = Path('.','Logs','csbinary_to_csv.log')
+    csv_file_dir = Path(csv_file_dir)
+    csidft_exe = Path("./Bin/raw2ascii/csidft_convert.exe")
+
+    # Open error log file
+    logf = open(log_file, "a")
+
+    for csbin_file in tqdm(unconverted_files, miniters=1, desc=f'{station_name}: Converting CS binaries to csv'):
+
+        try:
+            # Conversion from the Campbell binary file to csv format
+            tmp_file = csv_file_dir.joinpath(station_name, 'tmp.csv')
+            subprocess.call(
+                [csidft_exe, csbin_file, tmp_file , 'ToA5'],
+                stdout=subprocess.DEVNULL)
+
+            # Get the type of file (eddy covariance, regular met data, etc)
+            extension, split_interval = type_of_file(csbin_file)
+
+            # Save the header to respect TOA5 format
+            with open(tmp_file) as f:
+                header = [next(f) for x in range(4)]
+
+            # Load file
+            df = dl.toa5_file(tmp_file)
+
+            if extension == "_eddy.csv":
+                # Slice df into 30min blocks
+                blocks = slice_30min_blocks(df)
+
+            elif extension == "_slow.csv":
+                # Get time step duration (1min files need to be resampled at 30min)
+                tob3_file_header = dl.tob3_header(csbin_file)
+                if tob3_file_header[1][1] == '1 MIN':
+                    df = resample(df)
+                # Slice df into daily blocks
+                blocks = slice_day_blocks(df)
+
+            # Write splitted files
+            for block in blocks:
+                file_name = csv_file_dir.joinpath(station_name,
+                    block.index[0].strftime('%Y%m%d_%H%M') + extension)
+
+                # Write header
+                with open(file_name,'w') as f:
+                    for h in header:
+                        f.write(h)
+                block.to_csv(file_name, mode='a', header=False, index=True)
+
+            os.remove(tmp_file)
+
+        except:
+            logf.write(f'{csbin_file}: Cannot convert\n')
+            continue
+
+    logf.close()
+
+
 def list_csbinary_files(root_dir,station):
     """
     Recursively list Campbell Scientific binary files (.dat) under ``root_dir``
@@ -64,55 +304,6 @@ def list_csbinary_files(root_dir,station):
                 if file.endswith(".dat"):
                     csbin_files.append(os.path.join(root, file))
     return csbin_files
-
-
-def list_csbinary_folders(root_dir, station):
-    """
-    Recursively list directories under ``root_dir`` that correspond to a given
-    station and acquisition date.
-
-    A directory qualifies if its full path contains a segment matching the
-    pattern ``{station}_YYYYMMDD`` where ``YYYYMMDD`` is an 8-digit date.
-    This is intended for Campbell Scientific repositories organized by date and
-    station.
-
-    Parameters
-    ----------
-    root_dir : str
-        Path to the root directory to search recursively.
-    station : str
-        Station name prefix used in directory names. A directory is considered
-        a match if its path contains ``f"{station}_\\d{{8}}"`` (e.g.,
-        ``Romaine-2_reservoir_shore_20180710``).
-
-    Returns
-    -------
-    list of str
-        Absolute or relative directory paths (depending on ``root_dir`` input)
-        whose names match the pattern ``{station}_YYYYMMDD``.
-
-    Notes
-    -----
-    The expected directory structure is:
-
-        bin_file_dir/
-        ├── YYYYMMDD/
-        │   └── station_name_raw_YYYYMMDD/
-        │       ├── foo.dat
-        │       └── bar.dat
-        ├── YYYYMMDD/
-        │   └── station_name_raw_YYYYMMDD/
-        │       ├── foo.dat
-        │       └── bar.dat
-    """
-    pattern = re.compile(re.escape(station) + r"_\d{8}")
-    csbin_folders = []
-
-    for root, dirs, files in os.walk(root_dir):
-        # Check if the directory matches the pattern
-        if pattern.search(root):
-            csbin_folders.append(root)
-    return csbin_folders
 
 
 def list_csv_files(csv_dir):
@@ -337,249 +528,14 @@ def resample(df):
     return df.resample('30min').agg(func_all)
 
 
-def find_unconverted_files(station_name_raw, station_name_ascii,
-                           bin_file_dir, csv_file_dir,):
-    """
-    Find Campbell Scientific binary TOB3 files (*.dat) located in `bin_file_dir`
-    and determine which ones still need to be converted to CSV files in
-    `csv_file_dir`.
-    Once a TOB3 file is read, it will be stored in cache minimize running
-    time for the next execution.
-
-    The source directory containing the .dat files should be organized as
-    follows:
-
-        bin_file_dir/
-        ├── YYYYMMDD/
-        │   └── station_name_raw_YYYYMMDD/
-        │       ├── foo.dat
-        │       └── bar.dat
-        ├── YYYYMMDD/
-        │   └── station_name_raw_YYYYMMDD/
-        │       ├── foo.dat
-        │       └── bar.dat
-
-    Issues are logged in the `convert_CSbinary_to_csv.log` file.
-
-    Parameters
-    ----------
-    station_name_raw :Path or str
-        Name of the station as stored in the raw data.
-    station_name_ascii : Path or str
-        Name of the station as stored in the ASCII (converted) data.
-    bin_file_dir : Path or str
-        Path to the directory that contains the Campbell Scientific binary
-        files (.dat).
-    csv_file_dir : Path or str
-        Path to the directory that contains the converted CSV files.
-
-        If False, only the folder date is checked: if the date present in the
-        folder name already exists among the converted files, the entire folder
-        is skipped without checking individual .dat files.
-
-    Returns
-    -------
-    unconverted_files : list of pathlib.Path
-        Paths to binary files that have not yet been converted.
-    """
-
-    def load_cache(tob3_cache_file):
-        if tob3_cache_file.exists():
-            df = pd.read_csv(tob3_cache_file, parse_dates=["first_ts", "last_ts"])
-            return dict(zip(df["path"], zip(df["first_ts"], df["last_ts"])))
-        return {}
-
-    def append_to_cache(tob3_cache_file, rows):
-        df = pd.DataFrame(rows, columns=["path", "first_ts", "last_ts"])
-        header = not tob3_cache_file.exists()
-        df.to_csv(tob3_cache_file, mode="a", index=False, header=header)
-
-    # Open error log file
-    logf = open(Path('.','Logs','csbinary_to_csv.log'), "a")
-
-    # Cache file to store already processed files
-    tob3_cache_file = Path(".", "Logs", f"{station_name_raw}_tob3_timestamps_cache.csv")
-    ts_cache = load_cache(tob3_cache_file)
-    new_cache_rows = []
-
-    # Paths
-    bin_file_dir = Path(bin_file_dir)
-    csv_file_dir = Path(csv_file_dir).joinpath(station_name_ascii)
-
-    # List files that are already converted
-    csv_files = list_csv_files(csv_file_dir)
-    csv_files_stems = {p.name for p in csv_files}
-    unconverted_files = []
-
-    # List all Campbell binary files located in subdirectories and
-    # matching station name
-    csbin_files = list_csbinary_files(bin_file_dir, station_name_raw)
-
-    for csbin_file in tqdm(csbin_files, miniters=1, desc=f'{station_name_ascii}: Listing unconverted files'):
-
-        # Get the type of file (eddy covariance, regular met data, etc)
-        extension, split_interval = type_of_file(csbin_file)
-        if not extension:
-            # Type of file not to be converted
-            continue
-
-        # Check if the file has already been checked for conversion in the cache
-        path = str(csbin_file)
-        cached = ts_cache.get(path)
-
-        if cached:
-            first_ts, last_ts = cached
-        else:
-            file_header = dl.tob3_header(csbin_file)
-            if not file_header:
-                logf.write(f'{csbin_file}: Cannot read header\n')
-                continue
-
-            first_ts, last_ts = dl.tob3_first_last_timestamp(csbin_file)
-            if not (first_ts and last_ts):
-                logf.write(f'{csbin_file}: Cannot read first timestamp\n')
-                continue
-
-            ts_cache[path] = (first_ts, last_ts)
-            new_cache_rows.append((path, first_ts, last_ts))
-
-        if extension == '_eddy.csv':
-            date_array = pd.DatetimeIndex([first_ts]).append(
-                pd.date_range(
-                    start=pd.Timestamp(first_ts).ceil(split_interval),
-                    end=last_ts,
-                    inclusive='left',
-                    freq=split_interval)
-                ).unique()
-        elif extension == '_slow.csv':
-            date_array = pd.DatetimeIndex([first_ts]).append(
-                pd.date_range(
-                    start=pd.Timestamp(first_ts).ceil(split_interval) + pd.Timedelta(minutes=30),
-                    end=last_ts,
-                    inclusive='left',
-                    freq=split_interval)
-                ).unique()
-
-        # Check if a expected dates are already in csv files
-        needs_conversion = False
-        for d in date_array:
-            expected = f"{pd.Timestamp(d).strftime('%Y%m%d_%H%M')}{extension}"
-            if expected not in csv_files_stems:
-                needs_conversion = True
-                break
-
-        if needs_conversion:
-            unconverted_files.append(str(csbin_file))
-
-    if new_cache_rows:
-        append_to_cache(tob3_cache_file, new_cache_rows)
-
-    # Close error log file
-    logf.close()
-
-    return unconverted_files
+def load_cache(tob3_cache_file):
+    if tob3_cache_file.exists():
+        df = pd.read_csv(tob3_cache_file, parse_dates=["first_ts", "last_ts"])
+        return dict(zip(df["path"], zip(df["first_ts"], df["last_ts"])))
+    return {}
 
 
-def convert(station_name,
-            csv_file_dir,
-            unconverted_files):
-    """
-    Convert Campbell Scientific binary TOB3 files to TOA5 CSV blocks and write
-    them to disk per station.
-
-    For each binary file in ``unconverted_files``, this function:
-    1. Invokes the external converter ``csidft_convert.exe`` to produce a
-       temporary TOA5 CSV file.
-    2. Determines the file type (eddy-covariance vs. slow/regular met) and the
-       splitting interval via :func:`type_of_file`.
-    3. Loads the converted CSV using ``dl.toa5_file``.
-    4. Optionally resamples to 30‑minute intervals when needed (for 1‑minute
-       slow data) via :func:`resample`.
-    5. Splits the data into 30‑minute or daily blocks and writes each block to a
-       CSV file with a preserved 4-line TOA5 header.
-
-    Files are written under ``csv_file_dir / station_name`` with names of the
-    form ``YYYYMMDD_HHMM_<suffix>.csv``, where ``<suffix>`` is determined by
-    :func:`type_of_file` (e.g., ``_eddy.csv`` or ``_slow.csv``).
-
-    Parameters
-    ----------
-    station_name : str
-        Station identifier used to build the output directory and filenames.
-    csv_file_dir : str or pathlib.Path
-        Base directory where converted CSV files will be written. Files are
-        placed under ``csv_file_dir / station_name``.
-    unconverted_files : iterable of (str or pathlib.Path)
-        Campbell Scientific binary files (e.g., ``.dat``) to convert.
-
-    Returns
-    -------
-    None
-        This function performs file I/O and does not return a value.
-
-    Side Effects
-    ------------
-    - Creates or overwrites a log file at ``./Logs/csbinary_to_csv.log``.
-    - Creates a temporary file ``tmp.csv`` under ``csv_file_dir / station_name``.
-      The temporary file is deleted after each iteration.
-    - Writes one or more CSV files per input binary file, each with a 4-line
-      TOA5 header preserved from the converter output.
-    """
-
-    # Open error log file
-    logf = open(Path('.','Logs','csbinary_to_csv.log'), "a")
-
-    # Paths
-    csv_file_dir = Path(csv_file_dir)
-
-    csidft_exe = Path("./Bin/raw2ascii/csidft_convert.exe")
-
-    for csbin_file in tqdm(unconverted_files, miniters=1, desc=f'{station_name}: Converting CS binaries to csv'):
-
-        try:
-            # Conversion from the Campbell binary file to csv format
-            tmp_file = csv_file_dir.joinpath(station_name, 'tmp.csv')
-            subprocess.call(
-                [csidft_exe, csbin_file, tmp_file , 'ToA5'],
-                stdout=subprocess.DEVNULL)
-
-            # Get the type of file (eddy covariance, regular met data, etc)
-            extension, split_interval = type_of_file(csbin_file)
-
-            # Save the header to respect TOA5 format
-            with open(tmp_file) as f:
-                header = [next(f) for x in range(4)]
-
-            # Load file
-            df = dl.toa5_file(tmp_file)
-
-            if extension == "_eddy.csv":
-                # Slice df into 30min blocks
-                blocks = slice_30min_blocks(df)
-
-            elif extension == "_slow.csv":
-                # Get time step duration (1min files need to be resampled at 30min)
-                tob3_file_header = dl.tob3_header(csbin_file)
-                if tob3_file_header[1][1] == '1 MIN':
-                    df = resample(df)
-                # Slice df into daily blocks
-                blocks = slice_day_blocks(df)
-
-            # Write splitted files
-            for block in blocks:
-                file_name = csv_file_dir.joinpath(station_name,
-                    block.index[0].strftime('%Y%m%d_%H%M') + extension)
-
-                # Write header
-                with open(file_name,'w') as f:
-                    for h in header:
-                        f.write(h)
-                block.to_csv(file_name, mode='a', header=False, index=True)
-
-            os.remove(tmp_file)
-
-        except:
-            logf.write(f'{csbin_file}: Cannot convert\n')
-            continue
-
-    logf.close()
+def append_to_cache(tob3_cache_file, rows):
+    df = pd.DataFrame(rows, columns=["path", "first_ts", "last_ts"])
+    header = not tob3_cache_file.exists()
+    df.to_csv(tob3_cache_file, mode="a", index=False, header=header)
