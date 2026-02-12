@@ -16,4 +16,4 @@ from . import names #noqa
 from .merge_eddycov_stations import merge_eddycov_stations #noqa
 from . import reanalysis #noqa
 from . import precipitation_gauge #noqa
-from .rotate_wind import rotate_wind #noqa
+from . import sonic #noqa
