@@ -1,10 +1,134 @@
 import os
-import re
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
 import statsmodels.api as sm
 from utils import data_loader as dl
+
+
+def find_uncorrected_files(folder, overwrite=False):
+    """
+    Find _eddy.csv files without a corresponding _eddy_corr.csv file.
+    Returns a list of_eddy.csv files without its corresponding _eddy_corr.csv.
+    """
+    eddy_files = set()
+    eddy_corr_files = set()
+
+    for p in folder.iterdir():
+        name = p.name
+
+        # Extract timestamp of _eddy and _eddy_corr
+        if name.endswith("_eddy.csv") and not name.endswith("_eddy_corr.csv"):
+            timestamp = name.replace("_eddy.csv", "")
+            eddy_files.add(timestamp)
+
+        elif name.endswith("_eddy_corr.csv"):
+            timestamp = name.replace("_eddy_corr.csv", "")
+            eddy_corr_files.add(timestamp)
+
+    # timestamps where eddy exists but eddy_corr is missing
+    missing_corr_timestamp = eddy_files - eddy_corr_files
+
+    # corresponding eddy filenames
+    missing_corr_eddy_files = [
+        folder.joinpath(f"{ts}_eddy.csv")
+        for ts in sorted(missing_corr_timestamp)
+    ]
+
+    return missing_corr_eddy_files
+
+
+def correct_densities(station, corr_factors, uncorrected_files):
+    """
+    Correct water and CO2 concentrations. Correction factors must be provided
+    in csv files that contain 'H2O_slope', 'H2O_intercept', and 'CO2_intercept'
+    along with a timestamp column.
+
+    Parameters
+    ----------
+    station : string
+        Name of the station
+    asciiOutDir : string
+        Path to the directory that contains raw (10 Hz) .csv files
+    config_dir : string
+        Path to the directory that contains the .csv file with correction
+        coefficients
+    overwrite : Boolean, optional
+        Overwrite or not the previously corrected concentations. The default is False.
+
+    Returns
+    -------
+    None. Write a file file_corr.csv with corrected concentrations
+
+    """
+
+    print(f'Start raw gas concentration correction for the {station} station')
+
+    def resolve_column(df, candidates):
+        """
+        Return the first candidate column that exists in df.columns.
+        If required=True and none exist, raise a KeyError with a helpful message.
+        """
+        for c in candidates:
+            if c in df.columns:
+                return c
+
+    # TODO Write option to overwrite last calibration if still open
+
+    # Open log file
+    logf = open( os.path.join(
+        '.','Logs',f'correct_raw_concentrations_{station}.log'), "w")
+
+    for eddy_file in tqdm(uncorrected_files, desc=f'{station}: Correcting densities'):
+
+        eddy_corr_file = eddy_file.with_name(
+            eddy_file.name.replace("_eddy.csv", "_eddy_corr.csv"))
+        timestamp = eddy_file.name.replace("_eddy.csv", "")
+
+        try:
+            # Load file and header
+            df = dl.toa5_file(eddy_file)
+            header = dl.toa5_header(eddy_file,False)
+
+            # Write header to destination file
+            with open(eddy_corr_file, 'w') as fp:
+                for i_line in header:
+                    fp.write(i_line)
+
+            # Check closest timestamp in the corr_factors index
+            # Log an error if no timestamp is found within a day
+            target = pd.to_datetime(timestamp, format="%Y%m%d_%H%M")
+            nearest = corr_factors.index.get_indexer([target], method="nearest", tolerance='1d')
+            if nearest[0] != -1:
+                nearest_date = corr_factors.index[nearest[0]]
+            else:
+                logf.write(f'Failed to find correction factors for {timestamp}: '
+                           +f'{eddy_file}\n')
+                continue
+
+            # Handle the change of column names according to instrument and
+            # code version
+            H2O = resolve_column(df, ['H2O', 'H2O_li', 'H2O_density'])
+            t_sonic = resolve_column(df, ['Ts','T_SONIC'])
+            # CO2 = resolve_column(df, ['CO2_corr', 'CO2', 'CO2_li', 'CO2_density'])
+
+            # Correction of the H2O densities with identified coeficients
+            a, b = corr_factors.loc[nearest_date,['a', 'b']]
+            df[H2O] = df[H2O] + (a*df[t_sonic].mean() + b) * linear_func(df[t_sonic].mean())
+
+            # Save
+            df.to_csv(eddy_corr_file, header=False,
+                      mode='a', quoting=0)
+
+        except Exception as e:
+            print(str(e))
+            logf.write('Failed to correct concentration for file '+
+                       f'{eddy_file}: {str(e)}\n')
+
+    # Close error log file
+    logf.close()
+    print('Done!')
+
 
 def absolute_humidity(T, RH):
     """
@@ -198,126 +322,3 @@ def get_correction_coeff(df, gas_analyzer_info, iStation, temperature_bounds=(-3
     return corr_factors
 
 
-def correct_densities(station, corr_factors, csv_dir, overwrite=False):
-    """
-    Correct water and CO2 concentrations. Correction factors must be provided
-    in csv files that contain 'H2O_slope', 'H2O_intercept', and 'CO2_intercept'
-    along with a timestamp column.
-
-    Parameters
-    ----------
-    station : string
-        Name of the station
-    asciiOutDir : string
-        Path to the directory that contains raw (10 Hz) .csv files
-    config_dir : string
-        Path to the directory that contains the .csv file with correction
-        coefficients
-    overwrite : Boolean, optional
-        Overwrite or not the previously corrected concentations. The default is False.
-
-    Returns
-    -------
-    None. Write a file file_corr.csv with corrected concentrations
-
-    """
-
-    print(f'Start raw gas concentration correction for the {station} station')
-
-
-    def find_missing_eddy_corr(folder, overwrite):
-        """
-        Find _eddy.csv files without a corresponding _eddy_corr.csv file.
-
-        Returns a list of tuples:
-        (eddy_file, expected_eddy_corr_file, timestamp)
-        """
-        missing_files = []
-
-        # Regex to extract timestamp
-        pattern = re.compile(r"(\d{8}_\d{4})_eddy\.csv$")
-
-        for eddy_file in folder.glob("*_eddy.csv"):
-            match = pattern.match(eddy_file.name)
-            if not match:
-                continue  # skip slow files
-
-            timestamp = match.group(1)
-            eddy_corr_file = folder.joinpath(f"{timestamp}_eddy_corr.csv")
-
-            if overwrite:
-                missing_files.append(
-                    (eddy_file, eddy_corr_file, timestamp)
-                )
-            else:
-                if not eddy_corr_file.exists():
-                    missing_files.append(
-                        (eddy_file, eddy_corr_file, timestamp)
-                    )
-        return missing_files
-
-
-    def resolve_column(df, candidates):
-        """
-        Return the first candidate column that exists in df.columns.
-        If required=True and none exist, raise a KeyError with a helpful message.
-        """
-        for c in candidates:
-            if c in df.columns:
-                return c
-
-    # TODO Write option to overwrite last calibration if still open
-
-    # Find eddy csv files and figure out if they have been already corrected.
-    missing_files = find_missing_eddy_corr(csv_dir.joinpath(station), overwrite)
-
-    # Open log file
-    logf = open( os.path.join(
-        '.','Logs',f'correct_raw_concentrations_{station}.log'), "w")
-
-    for eddy_file, eddy_corr_file, timestamp in tqdm(missing_files,
-                                                 desc=f'{station}: Correcting densities'):
-
-        try:
-            # Load file and header
-            df = dl.toa5_file(eddy_file)
-            header = dl.toa5_header(eddy_file,False)
-
-            # Write header to destination file
-            with open(eddy_corr_file, 'w') as fp:
-                for i_line in header:
-                    fp.write(i_line)
-
-            # Check closest timestamp in the corr_factors index
-            # Log an error if no timestamp is found within a day
-            target = pd.to_datetime(timestamp, format="%Y%m%d_%H%M")
-            nearest = corr_factors.index.get_indexer([target], method="nearest", tolerance='1d')
-            if nearest[0] != -1:
-                nearest_date = corr_factors.index[nearest[0]]
-            else:
-                logf.write(f'Failed to find correction factors for {timestamp}: '
-                           +f'{eddy_file}')
-                continue
-
-            # Handle the change of column names according to instrument and
-            # code version
-            H2O = resolve_column(df, ['H2O', 'H2O_li', 'H2O_density'])
-            t_sonic = resolve_column(df, ['Ts','T_SONIC'])
-            # CO2 = resolve_column(df, ['CO2_corr', 'CO2', 'CO2_li', 'CO2_density'])
-
-            # Correction of the H2O densities with identified coeficients
-            a, b = corr_factors.loc[nearest_date,['a', 'b']]
-            df[H2O] = df[H2O] + (a*df[t_sonic].mean() + b) * linear_func(df[t_sonic].mean())
-
-            # Save
-            df.to_csv(eddy_corr_file, header=False,
-                      mode='a', quoting=0)
-
-        except Exception as e:
-            print(str(e))
-            logf.write('Failed to correct concentration for file '+
-                       f'{eddy_file}: {str(e)} \n')
-
-    # Close error log file
-    logf.close()
-    print('Done!')

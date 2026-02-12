@@ -56,10 +56,13 @@ def parallel_function_1(iStation, path):
     if iStation in eddyCovStations:
         gas_analyzer_info = dl.yaml_file(path.gasAnalyzerConfigDir, f"{iStation}_gas_analyzer")
         corr_coeff = pm.gas_analyzer.get_correction_coeff(df,gas_analyzer_info,iStation)
-        pm.gas_analyzer.correct_densities(iStation, corr_coeff, path.asciiOutDir, True)
+        uncorrected_files = pm.gas_analyzer.find_uncorrected_files(path.asciiOutDir.joinpath(iStation))
+        pm.gas_analyzer.correct_densities(iStation, corr_coeff, uncorrected_files)
     # Rotate wind
     if iStation == 'Reservoir':
-        pm.rotate_wind(iStation,path.asciiOutDir)
+        unrotated_files = pm.sonic.find_unrotated_files(path.asciiOutDir.joinpath(iStation))
+        pm.sonic.rotate(iStation,unrotated_files)
+
 
 
     if iStation in eddyCovStations:
