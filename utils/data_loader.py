@@ -368,22 +368,48 @@ def _iter_minor_segments(major_frame: bytes):
         yield seg, foot
 
 
-def tob3_first_last_timestamp(file: str,
-                              future_guard_days: int = 1,
-                              add_window_days: int = 1):
+def tob3_first_last_timestamp(
+    file: str,
+    future_guard_days: int = 1,
+    add_window_days: int = 1,
+):
     """
-    Returns (first_ts, last_ts) from TOB3 file frames:
-      - Reads 6 ASCII header lines
-      - Uses Data Frame Size (line 2) to step through major frames
-      - Uses footer validation stamp and empty-bit to decide if a frame contains a record
-      - Reads TOB3 12-byte frame header: seconds, sub-seconds, record_number (all little-endian)
+    Returns (first_ts, last_ts) from TOB3 file frames.
+
+    Two-pass strategy:
+      1) Find a robust *anchor* (first_dt) using the earliest plausible frame
+         timestamp close to the table's header start datetime.
+         - Option A: The anchor is restricted to a window centered on the
+           header start time: [header_start - add_window_days, header_start + add_window_days].
+           This avoids picking stray, older frames that may appear at the
+           beginning of the binary region (e.g., recorder wrap leftovers).
+         - Option B: If no frame falls in that window, use the global minimum
+           plausible frame timestamp.
+      2) Compute a plausible window for the last timestamp using
+         intended * interval (+/- add_window_days) and ignore timestamps
+         outside that range or “far future” frames.
+
+    Parameters
+    ----------
+    file : str or pathlib.Path
+        Path to a TOB3 file.
+    future_guard_days : int, optional (default=1)
+        Reject frames with timestamps beyond now() + this many days.
+    add_window_days : int, optional (default=1)
+        Slack used both when anchoring to the header start time and when
+        defining the plausible window for last timestamp.
+
+    Returns
+    -------
+    (first_dt, last_dt) : tuple[datetime.datetime | None, datetime.datetime | None]
+        first_dt : first (anchor) data timestamp, or None if not found
+        last_dt  : last record timestamp, or None if none found within bounds
     """
 
-    # Campbell Scientific reference time
+    # Campbell Scientific epoch
     epoch = dt.datetime(1990, 1, 1)
 
     file = Path(file)
-
     # Check if file is empty
     try:
         if file.stat().st_size == 0:
@@ -391,34 +417,47 @@ def tob3_first_last_timestamp(file: str,
     except FileNotFoundError:
         raise
 
+    # Read the 6 ASCII header lines
     with open(file, "rb") as f:
         header_lines = []
-        # Try reading ASCII header lines
         for _ in range(6):
             line = f.readline().decode("ascii", errors="replace").strip()
             if not line:
-                # File ends before end of header. The file is either
-                # corrupted or do not match expected format
+                # Truncated header or unexpected format
                 return None
             header_lines.append(line)
-        # Save position of end of header
+        # Mark the start of the binary region
         binary_start = f.tell()
 
-    # Line 2: "Table","Interval","FrameSize","Intended","Validation","Resolution",...
-    line2 = next(csv_lib.reader([header_lines[1]]))
-    interval = _parse_interval(line2[1])
-    frame_size = int(line2[2])
-    intended = int(line2[3])
-    validation = int(line2[4])
-    res_unit, res_factor = _parse_resolution(line2[5])
+    # Parse line 1 to get the table start datetime (last CSV field)
+    line1_fields = next(csv_lib.reader([header_lines[0]]))
+    # Expecting something like "YYYY-mm-dd HH:MM:SS"
+    header_start = dt.datetime.fromisoformat(line1_fields[-1])
 
+    # Parse line 2 to get Interval, FrameSize, Intended, Validation, Resolution
+    line2 = next(csv_lib.reader([header_lines[1]]))
+    interval = _parse_interval(line2[1])                 # "100 MSEC" -> timedelta
+    frame_size = int(line2[2])                           # major frame size in bytes
+    intended = int(line2[3])                             # intended records count (nominal)
+    validation = int(line2[4])                           # validation stamp
+    res_unit, res_factor = _parse_resolution(line2[5])   # e.g., "Sec100Usec"
+
+    # Parse line 6 to compute one-record payload size
     dtypes = next(csv_lib.reader([header_lines[5]]))
-    record_size = sum(_dtype_size(dt) for dt in dtypes)
+    record_size = sum(_dtype_size(dt_str) for dt_str in dtypes)
 
     now_utc = dt.datetime.now()
 
-    # --- PASS 1: find first record timestamp (anchor) ---
-    first_dt = None
+    # Define the anchoring window around the header start time
+    # (reuses add_window_days to keep the signature unchanged)
+    anchor_min = header_start - dt.timedelta(days=add_window_days)
+    anchor_max = header_start + dt.timedelta(days=add_window_days)
+
+    # ------------------------------------------------------------------------------------
+    # PASS 1: Find FIRST RECORD TIMESTAMP (robust anchor)
+    # ------------------------------------------------------------------------------------
+    first_dt = None                 # anchor restricted to header window
+    first_dt_any = None             # fallback: global minimum plausible dt
 
     with open(file, "rb") as f:
         f.seek(binary_start)
@@ -427,43 +466,62 @@ def tob3_first_last_timestamp(file: str,
             if len(major) < frame_size:
                 break
 
+            # Validate major frame via footer stamp
             major_footer = struct.unpack("<I", major[-4:])[0]
             vstamp = (major_footer >> 16) & 0xFFFF
             if vstamp not in (validation, validation ^ 0xFFFF):
                 continue
 
+            # Walk (possibly multiple) minor segments within this major frame
             for seg, foot in _iter_minor_segments(major):
                 empty_flag = (foot >> 14) & 1
                 if empty_flag or len(seg) < 16:
                     continue
 
+                # Frame header: sec (4), sub (4), recno (4)
                 sec, sub, _recno0 = struct.unpack("<III", seg[:12])
                 dt0 = epoch + dt.timedelta(seconds=sec) + _ticks_to_timedelta(sub, res_unit, res_factor)
 
-                # basic sanity: ignore frames “from the far future”
+                # Guard against far-future frames
                 if dt0 > now_utc + dt.timedelta(days=future_guard_days):
                     continue
 
-                if first_dt is None or dt0 < first_dt:
-                    first_dt = dt0
+                # Track the global minimum (previous behavior) for fallback
+                if first_dt_any is None or dt0 < first_dt_any:
+                    first_dt_any = dt0
 
+                # NEW: restrict the *anchor* to the header-based time window
+                if anchor_min <= dt0 <= anchor_max:
+                    if first_dt is None or dt0 < first_dt:
+                        first_dt = dt0
+
+    # Fallback if no anchor was found within the header window
+    if first_dt is None:
+        first_dt = first_dt_any
+
+    # If we still don't have an anchor, we can't proceed
     if first_dt is None:
         return None, None
 
-    # --- plausible window for last timestamp ---
-    # Use intended*interval for interval-driven tables; otherwise keep a loose bound.
+    # ------------------------------------------------------------------------------------
+    # Define plausible LAST timestamp window around the anchor
+    # ------------------------------------------------------------------------------------
     if interval.total_seconds() > 0 and intended > 0:
         max_span = interval * intended
     else:
+        # Free-running / event tables: keep a generous bound
         max_span = dt.timedelta(days=365)
 
     earliest_allowed = first_dt - dt.timedelta(days=add_window_days)
-    latest_allowed = min(first_dt + max_span + dt.timedelta(days=add_window_days),
-                         now_utc + dt.timedelta(days=future_guard_days))
+    latest_allowed = min(
+        first_dt + max_span + dt.timedelta(days=add_window_days),
+        now_utc + dt.timedelta(days=future_guard_days),
+    )
 
-    # --- PASS 2: find the last *record* timestamp ---
+    # ------------------------------------------------------------------------------------
+    # PASS 2: Find LAST RECORD TIMESTAMP within plausible window
+    # ------------------------------------------------------------------------------------
     last_dt = None
-
     with open(file, "rb") as f:
         f.seek(binary_start)
         while True:
@@ -471,6 +529,7 @@ def tob3_first_last_timestamp(file: str,
             if len(major) < frame_size:
                 break
 
+            # Validate major frame via footer stamp
             major_footer = struct.unpack("<I", major[-4:])[0]
             vstamp = (major_footer >> 16) & 0xFFFF
             if vstamp not in (validation, validation ^ 0xFFFF):
@@ -484,15 +543,16 @@ def tob3_first_last_timestamp(file: str,
                 sec, sub, _recno0 = struct.unpack("<III", seg[:12])
                 dt0 = epoch + dt.timedelta(seconds=sec) + _ticks_to_timedelta(sub, res_unit, res_factor)
 
-                data_len = len(seg) - 12 - 4
+                # Compute number of full records in this segment
+                data_len = len(seg) - 12 - 4  # header (12) + footer (4)
                 nrec = data_len // record_size if record_size > 0 else 0
                 if nrec <= 0:
                     continue
 
-                # IMPORTANT FIX: last record time in this segment/frame
+                # Last record time in this segment:
                 dt_last = dt0 if interval.total_seconds() == 0 else dt0 + (nrec - 1) * interval
 
-                # reject spurious timestamps
+                # Keep only plausible last times
                 if not (earliest_allowed <= dt_last <= latest_allowed):
                     continue
 
