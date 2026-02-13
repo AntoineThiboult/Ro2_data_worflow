@@ -1,21 +1,22 @@
 # -*- coding: utf-8 -*-
-# TODO manage error code with subprocess.call and add exception
 
+import sys
 import os
-import re
-from glob import glob
+import numpy as np
 import fileinput
 import subprocess
 import pandas as pd
+from utils import data_loader as dl
+from datetime import datetime
 
-def run(station_name,ascii_dir,eddypro_config_dir,eddypro_out_dir,dates):
+def run(station_name,csv_folder,eddypro_config_dir,eddypro_out_dir,dates):
     """Calls EddyPro software in command lines with arguments specified in the
     config file
 
     Parameters
     ----------
     station_name: name of the station
-    ascii_dir: path to the directory that contains the .csv files used as
+    csv_folder: path to the directory that contains the .csv files used as
         input for EddyPro
     eddypro_config_dir: path to the directory that contains the EddyPro .config
         and .metadata files
@@ -28,196 +29,118 @@ def run(station_name,ascii_dir,eddypro_config_dir,eddypro_out_dir,dates):
     -------
     """
 
-    print('Start Eddy Pro processing for station:', station_name, '...', end='\r')
+    print(f'Start Eddy Pro processing for station: {station_name}\n')
 
-    eddypro_dates = dates.copy()
-
-    # Check if there are existing EddyPro files and load the newest
-    # Overwrite the starting date to run only the necessary
-    output_list = glob(eddypro_out_dir+'/'+station_name+'/*full_output*.csv')
-    output_list = [sub.replace('\\', '/') for sub in output_list]
-
-    if output_list:
-        last_timestamp = [0]*len(output_list)
-        for ind, i_file in enumerate(output_list):
-            df = pd.read_csv(i_file,skiprows=[0,2], usecols=['date', 'time'])
-            last_timestamp[ind] =  df.loc[df.index[-1],'date'] + " " + df.loc[df.index[-1],'time']
-        last_timestamp = max(last_timestamp)
-        if  eddypro_dates['start'] < last_timestamp:
-            eddypro_dates['start'] = last_timestamp
-
-
-    # Check if there are multiple EddyPro configuration
-    config_list = glob(eddypro_config_dir+'/'+'*'+station_name+'*.eddypro')
-    config_list = [sub.replace('\\', '/') for sub in config_list]
-    config_list = [sub.replace('.eddypro', '') for sub in config_list]
-    eddypro_configs = pd.DataFrame(
-        {'start': pd.Series(dtype='datetime64[ns]'),
-         'end': pd.Series(dtype='datetime64[ns]'),
-         'path': pd.Series(dtype='string')},
-        index=range(len(config_list))
-        )
-
-    # Fill a EddyPro config dataframe
-    for count, i_config in enumerate(config_list):
-        matching_str = re.findall(r'\d{8}_\d{4}', i_config)
-        if matching_str:
-            eddypro_configs.loc[count, 'end'] = pd.to_datetime(
-               matching_str[0],format='%Y%m%d_%H%M')
-            eddypro_configs.loc[count,'path'] = i_config
+    station_eddypro_out_dir = eddypro_out_dir.joinpath(station_name)
+    station_csv_folder = csv_folder.joinpath(station_name)
+    
+    # Construct a datime index with previous EddyPro full_output files.
+    output_list = list(station_eddypro_out_dir.glob('*full_output*.csv'))
+        
+    index_list = []
+    for i_file in output_list:
+        df = dl.eddypro_fulloutput_file(i_file)
+        if not df.index.empty:
+            index_list.append(df.index)
+    
+    if index_list:
+        timestamps = pd.DatetimeIndex(np.concatenate(index_list))
+        timestamps = timestamps.sort_values().unique()
+    else:
+        timestamps = pd.DatetimeIndex([], dtype="datetime64[ns]")
+        
+    # Identify the timestamps in the date range that are not in the EddyPro 
+    # output files
+    missing_timestamps = pd.DatetimeIndex(
+        set(pd.date_range(dates['start'], dates['end'], freq='30min'))
+        - set(timestamps)
+        ).sort_values()
+    
+    # Exit if everything has been ran
+    if len(missing_timestamps)==0:
+        return
+            
+    # Check the EddyPro configuration folder, list the EddyPro configuration 
+    # files for the station, store their path, their validity period
+    config_files = list(eddypro_config_dir.glob(f'*{station_name}*.eddypro'))
+    eddypro_configs = []
+    for path in config_files:
+        name = path.stem
+        config_dates = name.replace(f'{station_name}_','')
+        start_str, end_str = config_dates.split("-")
+        start = datetime.strptime(start_str, "%Y%m%d_%H%M")
+        if end_str == "current":
+            end = datetime(2100, 1, 1)
         else:
-            eddypro_configs.loc[count,'end'] = pd.Timestamp.today()
-            eddypro_configs.loc[count,'path'] = i_config
-    eddypro_configs = eddypro_configs.sort_values(by='end', ignore_index=True)
+            end = datetime.strptime(end_str, "%Y%m%d_%H%M")
+    
+        eddypro_configs.append({
+            "path": path,
+            "start": start,
+            "end": end,
+        })
 
-    for index in eddypro_configs.index:
-        if index > 0:
-            eddypro_configs.loc[index,'start'] = \
-                eddypro_configs.loc[index-1,'end']
-        else:
-            eddypro_configs.loc[index,'start'] = \
-                pd.to_datetime(0)
-
-    # Find the configuration that matches the EddyPro dates
-    id_start = eddypro_configs[
-        pd.to_datetime(eddypro_dates['start']) <= eddypro_configs['end']
-        ].first_valid_index()
-    id_end = eddypro_configs[
-        pd.to_datetime(eddypro_dates['end']) <= eddypro_configs['end']
-        ].first_valid_index()
-    eddypro_configs = eddypro_configs[id_start:id_end+1]
-
-    eddypro_configs.loc[eddypro_configs.index[0],'start'] = eddypro_dates['start']
-    eddypro_configs.loc[eddypro_configs.index[-1],'end'] = eddypro_dates['end']
-
-
-    for i_config in eddypro_configs.index:
-
-        station_out_dir     = eddypro_out_dir + station_name
-        station_config      = eddypro_configs.loc[i_config,'path'] + '.eddypro'
-        station_metadata    = eddypro_configs.loc[i_config,'path'] + '.metadata'
-        station_ascii_dir   = ascii_dir + station_name
-
+    for config in eddypro_configs:
+        
+        # Identify the if there are any missing timestamp for a given config
+        missing_timestamps_config = missing_timestamps.intersection(
+            pd.date_range(config['start'],config['end'],freq='30min')
+            )
+        
+        if len(missing_timestamps_config)==0: # all dates already processed
+            continue
+        
+        first_timestamp = missing_timestamps_config[0]
+        last_timestamp = missing_timestamps_config[-1]
+            
         # Read in the Eddy Pro config file and replace target strings
-        with fileinput.FileInput(station_config, inplace=True) as file:
+        with fileinput.FileInput(config['path'], inplace=True) as file:
             for line in file:
-
+    
                 # Working environment
-                if re.match(r'file_name',line):
-                    line = re.sub(r'^file_name=.*$',
-                                  "file_name=" + station_config,
-                                  line.rstrip())
-                    print(line,end='\n')
-                elif re.match(r'proj_file',line):
-                    line = re.sub(r'^proj_file=.*$',
-                                  "proj_file=" + station_metadata,
-                                  line.rstrip())
-                    print(line,end='\n')
-                elif re.match(r'out_path',line):
-                    line = re.sub(r'^out_path=.*$',
-                                  "out_path=" + station_out_dir,
-                                  line.rstrip())
-                    print(line,end='\n')
-                elif re.match(r'data_path',line):
-                    line = re.sub(r'^data_path=.*$',
-                                  "data_path=" + station_ascii_dir,
-                                  line.rstrip())
-                    print(line,end='\n')
-
+                if line.startswith('file_name'):
+                    line = f"file_name={str(config['path'])}\n"
+                elif line.startswith('proj_file'):
+                    line = f"proj_file={str(config['path'].with_suffix('.metadata'))}\n"
+                elif line.startswith('out_path'):
+                    line = f"out_path={station_eddypro_out_dir}\n"
+                elif line.startswith('data_path'):
+                    line = f"data_path={station_csv_folder}\n"
+    
                 # Project
-                elif re.match(r'pr_start_date',line):
-                    line = re.sub(r'^pr_start_date=.*$',
-                                  "pr_start_date=" +
-                                  eddypro_configs.loc[
-                                      i_config,'start'].strftime('%Y-%m-%d'),
-                                          line.rstrip())
-                    print(line,end='\n')
-                elif re.match(r'pr_start_time',line):
-                    line = re.sub(r'^pr_start_time=.*$',
-                                  "pr_start_time=" +
-                                  eddypro_configs.loc[
-                                      i_config,'start'].strftime('%H:%M'),
-                                          line.rstrip())
-                    print(line,end='\n')
-                elif re.match(r'pr_end_date',line):
-                    line = re.sub(r'^pr_end_date=.*$',
-                                  "pr_end_date=" +
-                                  eddypro_configs.loc[
-                                      i_config,'end'].strftime('%Y-%m-%d'),
-                                          line.rstrip())
-                    print(line,end='\n')
-                elif re.match(r'pr_end_time',line):
-                    line = re.sub(r'^pr_end_time=.*$',
-                                  "pr_end_time=" +
-                                  eddypro_configs.loc[
-                                      i_config,'end'].strftime('%H:%M'),
-                                          line.rstrip())
-                    print(line,end='\n')
-
+                elif line.startswith('pr_start_date'):
+                    line = f"pr_start_date={first_timestamp.strftime('%Y-%m-%d')}\n"
+                elif line.startswith('pr_start_time'):
+                    line = f"pr_start_time={first_timestamp.strftime('%H:%M')}\n"
+                elif line.startswith('pr_end_date'):
+                    line = f"pr_end_date={last_timestamp.strftime('%Y-%m-%d')}\n"
+                elif line.startswith('pr_end_time'):
+                    line = f"pr_end_time={last_timestamp.strftime('%H:%M')}\n"
+    
                 # Statistical analysis
-                elif re.match(r'sa_start_date',line):
-                    line = re.sub(r'^sa_start_date=.*$',
-                                  "sa_start_date=" +
-                                   eddypro_configs.loc[
-                                       i_config,'start'].strftime('%Y-%m-%d'),
-                                           line.rstrip())
-                    print(line,end='\n')
-                elif re.match(r'sa_start_time',line):
-                    line = re.sub(r'^sa_start_time=.*$',
-                                  "sa_start_time=" +
-                                  eddypro_configs.loc[
-                                      i_config,'start'].strftime('%H:%M'),
-                                          line.rstrip())
-                    print(line,end='\n')
-                elif re.match(r'sa_end_date',line):
-                    line = re.sub(r'^sa_end_date=.*$',
-                                  "sa_end_date=" +
-                                  eddypro_configs.loc[
-                                      i_config,'end'].strftime('%Y-%m-%d'),
-                                          line.rstrip())
-                    print(line,end='\n')
-                elif re.match(r'sa_end_time',line):
-                    line = re.sub(r'^sa_end_time=.*$',
-                                  "sa_end_time=" +
-                                  eddypro_configs.loc[
-                                      i_config,'end'].strftime('%H:%M'),
-                                          line.rstrip())
-                    print(line,end='\n')
-
+                elif line.startswith('sa_start_date'):
+                    line = f"sa_start_date={first_timestamp.strftime('%Y-%m-%d')}\n"
+                elif line.startswith('sa_start_time'):
+                    line = f"sa_start_time={first_timestamp.strftime('%H:%M')}\n"
+                elif line.startswith('sa_end_date'):
+                    line = f"sa_end_date={last_timestamp.strftime('%Y-%m-%d')}\n"
+                elif line.startswith('sa_end_time'):
+                    line = f"sa_end_time={last_timestamp.strftime('%H:%M')}\n"
+    
                 # Planar fit
-                elif re.match(r'pf_start_date',line):
-                    line = re.sub(r'^pf_start_date=.*$',
-                                  "pf_start_date=" +
-                                   eddypro_configs.loc[
-                                       i_config,'start'].strftime('%Y-%m-%d'),
-                                           line.rstrip())
-                    print(line,end='\n')
-                elif re.match(r'pf_start_time',line):
-                    line = re.sub(r'^pf_start_time=.*$',
-                                  "pf_start_time=" +
-                                  eddypro_configs.loc[
-                                      i_config,'start'].strftime('%H:%M'),
-                                          line.rstrip())
-                    print(line,end='\n')
-                elif re.match(r'pf_end_date',line):
-                    line = re.sub(r'^pf_end_date=.*$',
-                                  "pf_end_date=" +
-                                  eddypro_configs.loc[
-                                      i_config,'end'].strftime('%Y-%m-%d'),
-                                          line.rstrip())
-                    print(line,end='\n')
-                elif re.match(r'pf_end_time',line):
-                    line = re.sub(r'^pf_end_time=.*$',
-                                  "pf_end_time=" +
-                                  eddypro_configs.loc[
-                                      i_config,'end'].strftime('%H:%M'),
-                                          line.rstrip())
-                    print(line,end='\n')
-                else:
-                    print(line,end='')
+                elif line.startswith('pf_start_date'):
+                    line = f"pf_start_date={config['start'].strftime('%Y-%m-%d')}\n"
+                elif line.startswith('pf_start_time'):
+                    line = f"pf_start_time={config['start'].strftime('%H:%M')}\n"
+                elif line.startswith('pf_end_date'):
+                    line = f"pf_end_date={config['end'].strftime('%Y-%m-%d')}\n"
+                elif line.startswith('pf_end_time'):
+                    line = f"pf_end_time={config['end'].strftime('%H:%M')}\n"
+                    
+                sys.stdout.write(line)
 
         process=os.path.join("./Bin","EddyPro","bin","eddypro_rp.exe")
-        subprocess.call([process, station_config])
+        subprocess.call([process, config['path']])
 
     print('Done!')
 
