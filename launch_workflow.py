@@ -85,6 +85,8 @@ for iStation in CampbellStations:
 for iStation in CampbellStations:
     # Load csv
     df = dl.csv(path.intermediateOutDir.joinpath(iStation))
+    # Filter
+    df = pm.filters.remove_by_variable_and_date(df, path.filterConfigDir, f"{iStation}_erroneous_variables")
     # Handle exceptions
     df = pm.handle_exception(iStation,df)
     # Filter data
