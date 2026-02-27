@@ -74,6 +74,7 @@ def correct_densities(station, corr_factors, uncorrected_files):
                 return c
 
     # TODO Write option to overwrite last calibration if still open
+    # TODO Write a correction for CO2
 
     # Open log file
     logf = open( os.path.join(
@@ -188,6 +189,10 @@ def linear_func(T):
     This function generates a value to weight the correction according to
     temperature. If T=-20°C, w= 1, if T=+20°C, w=0
     """
+    if T<-20:
+        return 1
+    if T>20:
+        return 0
     return -0.5/20 * T + 0.5
 
 
