@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-import pandas as pd
 import numpy as np
-import warnings
 from utils import data_loader as dl, dataframe_manager as dfm
 
 def compute_water_albedo(solar_angle):
@@ -63,16 +61,16 @@ def merge_eddycov_stations(stationName, rawFileDir,
     if stationName == 'Water_stations':
 
         # Import station data
-        df = dl.csv(finalOutDir+'Berge')
+        df = dl.csv(finalOutDir.joinpath('Berge'))
 
         # Import and merge thermistors and precipitation
-        df_therm = dl.csv(finalOutDir+'Romaine-2_reservoir_thermistor_chain')
+        df_therm = dl.csv(finalOutDir.joinpath('Romaine-2_reservoir_thermistor_chain'))
         df = dfm.merge(df,df_therm)
-        df_precip = dl.csv(finalOutDir+'Berge_precip')
+        df_precip = dl.csv(finalOutDir.joinpath('Berge_precip'))
         df = dfm.merge(df,df_precip)
 
         # Import reservoir station
-        df_res = dl.csv(finalOutDir+'Reservoir')
+        df_res = dl.csv(finalOutDir.joinpath('Reservoir'))
 
 
         ###############################################################
@@ -193,16 +191,16 @@ def merge_eddycov_stations(stationName, rawFileDir,
     elif stationName == 'Forest_stations':
 
         # Import station data
-        df = dl.csv(finalOutDir+'Foret_ouest')
+        df = dl.csv(finalOutDir.joinpath('Foret_ouest'))
 
         # Import and merge foret sol and foret precip
-        df_foret_sol = dl.csv(finalOutDir+'Foret_sol')
+        df_foret_sol = dl.csv(finalOutDir.joinpath('Foret_sol'))
         df = dfm.merge(df,df_foret_sol)
-        df_precip = dl.csv(finalOutDir+'Foret_precip')
+        df_precip = dl.csv(finalOutDir.joinpath('Foret_precip'))
         df = dfm.merge(df,df_precip)
 
         # Import and merge foret est
-        df_foret_est = dl.csv(finalOutDir+'Foret_est')
+        df_foret_est = dl.csv(finalOutDir.joinpath('Foret_est'))
 
         ###############################################################
         # Merge fluxes
@@ -242,12 +240,12 @@ def merge_eddycov_stations(stationName, rawFileDir,
         ###############################################################
 
         # Import Bernard data
-        df = dl.csv(finalOutDir+'Bernard_lake')
+        df = dl.csv(finalOutDir.joinpath('Bernard_lake'))
 
         # Import and merge thermistors and precipitation
-        df_therm = dl.csv(finalOutDir+'Bernard_lake_thermistor_chain')
+        df_therm = dl.csv(finalOutDir.joinpath('Bernard_lake_thermistor_chain'))
         df = dfm.merge(df,df_therm)
-        df_precip = dl.csv(finalOutDir+'Foret_precip')
+        df_precip = dl.csv(finalOutDir.joinpath('Foret_precip'))
         df = dfm.merge(df,df_precip)
 
     return df
