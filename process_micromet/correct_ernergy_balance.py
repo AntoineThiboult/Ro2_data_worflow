@@ -5,6 +5,7 @@ Created on Fri Apr  8 12:00:48 2022
 @author: ANTHI182
 """
 import numpy as np
+import pandas as pd
 
 def correct_energy_balance(df, corr_factor = None):
     """ Correct latent and sensible heat flux according to Mauder 2017
@@ -52,18 +53,27 @@ def correct_energy_balance(df, corr_factor = None):
         df['H_corr']  = df['H_corr'] * corr_factor
 
     else: # Mauder correction
-        id_start = (df.hour == 0).first_valid_index()
-        id_end = (df.hour == 0).last_valid_index()
-        for i in range(id_start,id_end,48):
-            idx_bol = df.loc[i:i+47,'rad_shortwave_down_CNR4'] > 20
-            if any(idx_bol):
-                idx = idx_bol[idx_bol].index
-                C = (df.loc[idx,'H_gf_mds'].sum() + df.loc[idx,'LE_gf_mds'].sum()) / \
-                    (-df.loc[idx,'rad_net_CNR4'].sum() + df.loc[idx,'G'].sum()
-                     + df.loc[idx,'LE_strg'].sum() + df.loc[idx,'H_strg'].sum())
+        for day, group in df.groupby(pd.Grouper(freq="D")):
+    
+            idx_bol = group["rad_shortwave_down_CNR4"] > 20
+        
+            if idx_bol.any():
+                idx = group.index[idx_bol]
+        
+                C = (
+                    group.loc[idx, "H_gf_mds"].sum()
+                    + group.loc[idx, "LE_gf_mds"].sum()
+                ) / (
+                    -group.loc[idx, "rad_net_CNR4"].sum()
+                    + group.loc[idx, "G"].sum()
+                    + group.loc[idx, "LE_strg"].sum()
+                    + group.loc[idx, "H_strg"].sum()
+                )
+        
                 if abs(C) < 0.2:
                     C = np.nan
-                df.loc[idx,'LE_corr'] = df.loc[idx,'LE_corr'] * -1/C
-                df.loc[idx,'H_corr']  = df.loc[idx,'H_corr'] * -1/C
 
+                df.loc[idx, "LE_corr"] *= -1 / C
+                df.loc[idx, "H_corr"]  *= -1 / C
+        
     return df

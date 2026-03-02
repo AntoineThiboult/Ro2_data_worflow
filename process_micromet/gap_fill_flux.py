@@ -3,6 +3,9 @@ import numpy as np
 import yaml
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
+import datetime
+import pandas as pd
+
 
 def gap_fill_flux(station_name,df,gf_config_dir):
 
@@ -249,17 +252,16 @@ def gap_fill_mds(df,var_to_fill,df_config):
         if any(current_met.isna()):
             return None
 
-        t_loc = df.index.get_loc(t)
-        t_start = np.max([df.index[0], t_loc-int(search_window*48)])
-        t_end = np.min([df.index[-1], t_loc+int(search_window*48)+1])
-        time_window = list( range(t_start ,t_end) )
-        time_window_met = df.loc[df.index[time_window],proxy_vars]
+        t_start = np.max([df.index[0], t-search_window])
+        t_end = np.min([df.index[-1], t+search_window+datetime.timedelta(minutes=30)])
+        time_window = pd.date_range(t_start,t_end,freq='30min')
+        time_window_met = df.loc[time_window,proxy_vars]
 
         # Check if proxy met matches gap filling conditions and that
         # the corresponding var_to_fill is not NaN
         index_proxy_met_bool = \
             abs(time_window_met - current_met).lt(proxy_vars_range).all(axis=1) \
-                & ~df.loc[df.index[time_window],var_to_fill].isna()
+                & ~df.loc[time_window,var_to_fill].isna()
 
         index_proxy_met = index_proxy_met_bool.index[index_proxy_met_bool]
 
@@ -270,15 +272,14 @@ def gap_fill_mds(df,var_to_fill,df_config):
 
     # Submodule to find a NEE within one day at the same hour of day
     def find_nee_proxy_index(df, t, search_window, exact_time=False):
-        t_loc = df.index.get_loc(t)
-        t_start = np.max([df.index[0], t_loc-int(search_window*48)])
-        t_end = np.min([df.index[-1], t_loc+int(search_window*48)+1])
+        t_start = np.max([df.index[0], t-search_window])
+        t_end = np.min([df.index[-1], t+search_window+datetime.timedelta(minutes=30)])
         if exact_time:
             time_window = list([t_start ,t_end])
         else:
-            time_window = list( range(t_start ,t_end) )
+            time_window = pd.date_range(t_start,t_end,freq='30min')
 
-        index_proxy_met_bool = ~df.loc[df.index[time_window],var_to_fill].isna()
+        index_proxy_met_bool = ~df.loc[time_window,var_to_fill].isna()
         index_proxy_met = index_proxy_met_bool.index[index_proxy_met_bool]
 
         if index_proxy_met.size != 0:
@@ -309,7 +310,7 @@ def gap_fill_mds(df,var_to_fill,df_config):
     for counter, t in enumerate(df.index[id_missing_flux]):
 
         if not counter%100:
-            print("\rGap filling {:s}, progress {:2.1%} ".format(var_to_fill, t/len(df.index)), end='\r')
+            print("\rGap filling {:s}, progress {:2.1%} ".format(var_to_fill, counter/len(df.index)), end='\r')
 
         # Calculates the number of time steps between t and the next non NaN-value
         non_nan_indices = df.index[~df[var_to_fill].isna()]
@@ -320,8 +321,8 @@ def gap_fill_mds(df,var_to_fill,df_config):
         index_proxy_met = None
 
         # Case 1
-        search_window = 7
-        if dist_next_valid < search_window*48:
+        search_window = datetime.timedelta(days=7)
+        if dist_next_valid < search_window:
             index_proxy_met = find_meteo_proxy_index(
                 df, t, search_window, proxy_vars, proxy_vars_range)
             if index_proxy_met is not None:
@@ -330,8 +331,8 @@ def gap_fill_mds(df,var_to_fill,df_config):
                 continue
 
         # Case 2
-        search_window = 14
-        if dist_next_valid < search_window*48:
+        search_window = datetime.timedelta(days=14)
+        if dist_next_valid < search_window:
             index_proxy_met = find_meteo_proxy_index(
                 df, t, search_window, proxy_vars, proxy_vars_range)
             if index_proxy_met is not None:
@@ -340,8 +341,8 @@ def gap_fill_mds(df,var_to_fill,df_config):
                 continue
 
         # Case 3
-        search_window = 7
-        if dist_next_valid < search_window*48:
+        search_window = datetime.timedelta(days=7)
+        if dist_next_valid < search_window:
             index_proxy_met = find_meteo_proxy_index(
                 df, t, search_window, proxy_vars_subset, proxy_vars_subset_range)
             if index_proxy_met is not None:
@@ -350,8 +351,8 @@ def gap_fill_mds(df,var_to_fill,df_config):
                 continue
 
         # Case 4
-        search_window = 1/24
-        if dist_next_valid < search_window*48:
+        search_window = datetime.timedelta(hours=1)
+        if dist_next_valid < search_window:
             index_proxy_met = find_nee_proxy_index(df, t, search_window)
             if index_proxy_met is not None:
                 df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
@@ -359,8 +360,8 @@ def gap_fill_mds(df,var_to_fill,df_config):
                 continue
 
         # Case 5
-        search_window = 1
-        if dist_next_valid < search_window*48:
+        search_window = datetime.timedelta(days=1)
+        if dist_next_valid < search_window:
             index_proxy_met = find_nee_proxy_index(df, t, search_window, True)
             if index_proxy_met is not None:
                 df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
@@ -368,16 +369,16 @@ def gap_fill_mds(df,var_to_fill,df_config):
                 continue
 
         # Case 6
-        search_window = 14
-        search_window_max = 140
-        if dist_next_valid < search_window_max*48:
+        search_window = datetime.timedelta(days=14)
+        search_window_max = datetime.timedelta(days=140)
+        if dist_next_valid < search_window_max:
             while (index_proxy_met is None) & (search_window <= search_window_max):
-                search_window += 7
+                search_window += datetime.timedelta(days=7)
                 index_proxy_met = find_meteo_proxy_index(
                     df, t, search_window, proxy_vars, proxy_vars_range)
                 if index_proxy_met is not None:
                     df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
-                    if search_window <= 28:
+                    if search_window <= datetime.timedelta(days=28):
                         df.loc[t,gap_fil_quality_col_name] = "B2"
                     else:
                         df.loc[t,gap_fil_quality_col_name] = "C1"
@@ -386,16 +387,16 @@ def gap_fill_mds(df,var_to_fill,df_config):
             continue
 
         # Case 7
-        search_window = 7
-        search_window_max = 140
-        if dist_next_valid < search_window_max*48:
+        search_window = datetime.timedelta(days=7)
+        search_window_max = datetime.timedelta(days=140)
+        if dist_next_valid < search_window_max:
             while (index_proxy_met is None) & (search_window <= search_window_max):
-                search_window += 7
+                search_window += datetime.timedelta(days=7)
                 index_proxy_met = find_meteo_proxy_index(
                     df, t, search_window, proxy_vars_subset, proxy_vars_subset_range)
                 if index_proxy_met is not None:
                     df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
-                    if search_window <= 14:
+                    if search_window <= datetime.timedelta(days=14):
                         df.loc[t,gap_fil_quality_col_name] = "B3"
                     else:
                         df.loc[t,gap_fil_quality_col_name] = "C2"
@@ -404,9 +405,9 @@ def gap_fill_mds(df,var_to_fill,df_config):
             continue
 
         # Case 8
-        search_window = dist_next_valid//48
+        search_window = dist_next_valid
         while True:
-            search_window += 7
+            search_window += datetime.timedelta(days=7)
             index_proxy_met = find_nee_proxy_index(df, t, search_window)
             if index_proxy_met is not None:
                 df.loc[t,gap_fil_col_name] = df.loc[index_proxy_met, var_to_fill].mean()
