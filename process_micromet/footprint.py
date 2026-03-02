@@ -52,7 +52,7 @@ def compute(df):
 
 
 def dump(station_name, footprint_dict, dest_dir):
-    with open(dest_dir+f'{station_name}_footprint.pkl', 'wb') as f:
+    with open(dest_dir.joinpath(f'{station_name}_footprint.pkl'), 'wb') as f:
         pickle.dump(footprint_dict, f)
 
 
