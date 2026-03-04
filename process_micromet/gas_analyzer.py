@@ -26,8 +26,12 @@ def find_uncorrected_files(folder, overwrite=False):
             timestamp = name.replace("_eddy_corr.csv", "")
             eddy_corr_files.add(timestamp)
 
-    # timestamps where eddy exists but eddy_corr is missing
-    missing_corr_timestamp = eddy_files - eddy_corr_files
+    if not overwrite:
+        # timestamps where eddy exists but eddy_corr is missing
+        missing_corr_timestamp = eddy_files - eddy_corr_files
+    else:
+        # return all eddy, regardless if eddy_corr exists
+        missing_corr_timestamp = eddy_files
 
     # corresponding eddy filenames
     missing_corr_eddy_files = [
