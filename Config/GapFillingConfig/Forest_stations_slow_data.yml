@@ -6,6 +6,8 @@ vars_to_fill_meteo:
     'air_vpd': 6
     'wind_speed_05103': 6
     'wind_dir_05103': 6
+    'wind_speed_05103_5m_05103': 6
+    'wind_dir_05103_5m_05103': 6
     'air_press_CS106': 24
     'soil_temp_CS650_1': 48
     'soil_temp_CS650_2': 48
