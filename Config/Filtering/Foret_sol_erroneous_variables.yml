@@ -1,0 +1,6 @@
+wind_speed_5m_05103:
+    - ['2024-11-27 11:00:00', '2024-12-13 09:00:00'] # Low battery issue that corrupted readings
+wind_dir_5m_05103:
+    - ['2024-11-27 11:00:00', '2024-12-13 09:00:00'] # Low battery issue that corrupted readings
+wind_dir_std_5m_05103:
+    - ['2024-11-27 11:00:00', '2024-12-13 09:00:00'] # Low battery issue that corrupted readings
