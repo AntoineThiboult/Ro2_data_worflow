@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 
 def find_unconverted_files(station_name_raw, station_name_ascii,
-                           bin_file_dir, csv_file_dir,):
+                           bin_file_dir, csv_file_dir):
     """
     Find Campbell Scientific binary TOB3 files (*.dat) located in `bin_file_dir`
     and determine which ones still need to be converted to CSV files in
@@ -143,9 +143,8 @@ def find_unconverted_files(station_name_raw, station_name_ascii,
     return unconverted_files
 
 
-def convert(station_name,
-            csv_file_dir,
-            unconverted_files):
+def convert(station_name, csv_file_dir, unconverted_files,
+            enforce_eddypro_half_hour_start = True):
     """
     Convert Campbell Scientific binary TOB3 files to TOA5 CSV blocks and write
     them to disk per station.
@@ -174,6 +173,9 @@ def convert(station_name,
         placed under ``csv_file_dir / station_name``.
     unconverted_files : iterable of (str or pathlib.Path)
         Campbell Scientific binary files (e.g., ``.dat``) to convert.
+    enforce_eddypro_half_hour_start : bool
+        Floor the minute in the name to 00 or 30 to make sure that EddyPro
+        runs smoothly
 
     Returns
     -------
@@ -230,8 +232,18 @@ def convert(station_name,
 
             # Write splitted files
             for block in blocks:
-                file_name = csv_file_dir.joinpath(station_name,
-                    block.index[0].strftime('%Y%m%d_%H%M') + extension)
+
+                ts = block.index[0]
+
+                if enforce_eddypro_half_hour_start and extension == "_eddy.csv":
+                    if ts.minute not in (0, 30):
+                            minute_floor = 30 if ts.minute >= 30 else 0
+                            ts = ts.replace(minute=minute_floor, second=0, microsecond=0)
+
+                file_name = csv_file_dir.joinpath(
+                    station_name,
+                    ts.strftime('%Y%m%d_%H%M') + extension
+                )
 
                 # Write header
                 with open(file_name,'w') as f:
