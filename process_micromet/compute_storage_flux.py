@@ -10,10 +10,6 @@ import pandas as pd
 
 def compute_storage_flux(stationName,df):
 
-    #############################
-    ### Begin handling fluxes ###
-    #############################
-
     if stationName == 'Forest_stations':
         # Ground storage
         df['G'] = compute_ground_heat_flux(df)
@@ -28,6 +24,7 @@ def compute_storage_flux(stationName,df):
         df['G'] = compute_water_column_heat_flux(df)
 
     return df
+
 
 def compute_ground_heat_flux(df):
     """
@@ -76,7 +73,6 @@ def compute_ground_heat_flux(df):
     G = G_strg.sum(axis=1) + df['soil_heatflux_HFP01SC_1']
 
     return G
-
 
 
 def compute_storage_below_instrument(df):
@@ -192,19 +188,23 @@ def compute_storage_below_instrument(df):
 
     return LE_strg, H_strg
 
+
 def compute_water_column_heat_flux(df):
     """
-    Script to compute reservoir storage and heat flux.
+    Script to compute water column heat flux.
     Adapted from a Matlab script written by P.E. Isabelle
 
     Parameters
     ----------
     df : Pandas dataframe
-        Frame that contains a .
+        Frame that contains a column named Hw that indicates the energy
+        of the water column in J/m2.
 
     Returns
     -------
-    None.
+    G : Pandas series
+        Sensible heat flux related to the change of water
+        temperature in the water column (W/m2)
 
     References
     ----------
@@ -212,37 +212,15 @@ def compute_water_column_heat_flux(df):
 
     """
 
-    therm_depths = np.array(
-        [0, 0.2, 0.4, 0.6, 0.8, 1, 1.4, 1.8, 2.2,
-        2.6, 3, 4, 5, 6, 7, 8, 9, 10, 12.5, 15])
-
     # Duration of timestep
     dt = 30*60
-
-    # Water specific heat capacity [J m-3 K-1]
-    Cp_water = 4.184e6
 
     # Rolling window for noise reduction
     roll_window = 48*15
 
-    # Names of temperature variables
-    therm_depths_names = ['water_temp_{:d}m{:d}'.format(
-        int(f), int(np.round((f-np.fix(f))*10))) for f in therm_depths ]
+    Hw_smooth = df['Hw'].rolling(
+        window=roll_window,center=True,min_periods=1).mean()
 
-    # Rolling mean
-    df[therm_depths_names] = \
-        df[therm_depths_names].rolling(
-            window=roll_window,center=True,min_periods=1).mean()
-
-    # Thickness of layers [m]
-    dz = np.diff(
-        np.concatenate(
-            ([0],
-             therm_depths[:-1] + np.diff(therm_depths)/2,
-             [therm_depths[-1]])
-        ))
-
-    G = np.nansum( Cp_water * df[therm_depths_names].diff()
-                   * dz / dt, axis=1)
+    G = Hw_smooth.diff()/dt
 
     return G
