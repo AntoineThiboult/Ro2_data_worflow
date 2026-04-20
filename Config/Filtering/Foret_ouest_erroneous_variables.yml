@@ -10,6 +10,8 @@ air_press_CS106:
     - ['2020-10-23 00:00:00', '2021-04-01 00:00:00'] # Faulty CS106 between 2020-10-23 and 2021-04-01
 air_press_IRGASON:  
     - ['2018-06-01 00:00:00', '2022-06-19 13:00:00'] # Erroneous Li7500 pressure
+    - ['2024-11-30 10:30:00', '2024-11-30 10:30:00'] # Transient IRGASON erroneous pressure because of low voltage
+    - ['2024-12-01 10:00:00', '2024-12-01 10:00:00'] # Transient IRGASON erroneous pressure because of low voltage
 air_press:  
     - ['2018-06-01 00:00:00', '2021-10-21 17:00:00'] # Erroneous Li7500 pressure
 air_density_IRGASON:  
