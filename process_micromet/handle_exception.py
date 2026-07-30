@@ -122,18 +122,16 @@ def handle_exception(stationName, df):
         # measurements of CO2 flux from open-path gas analyzers. Burba et al. 2008
 
         date_li75 = '2022-10-22 12:00:00'
-        id_li75 = df.index < pd.to_datetime(date_li75)
 
         correc_coeff = {
-            'Ta_cutoff_ouest': 21.117778284570775,
-            'Ta_slope_ouest': 0.11644845032658153,
-            'Ta_intercept_ouest': -0.8221929625175574
+            'Ta_upper_cutoff': 20.054968903603243,
+            'Ta_lower_cutoff': -5.050615311211216,
+            'Ta_slope': 0.121968772196912,
+            'Ta_intercept': -0.8977319471273436,
+            'Ta_lower_offset': -1.4845969917234267
             }
 
-        # Air temperature based correction
-        id_corr_temperature = id_li75 & ( df['air_temp'] <= 273.15 + correc_coeff['Ta_cutoff_ouest'] )
-        df.loc[id_corr_temperature,'CO2_flux'] = df.loc[id_corr_temperature,'CO2_flux'] \
-            - (correc_coeff['Ta_slope_ouest'] * (df.loc[id_corr_temperature,'air_temp']-273.15) + correc_coeff['Ta_intercept_ouest'])
+        df = corr_li75_CO2_flux(df, date_li75, correc_coeff)
 
 
     if stationName in ['Foret_est']:
@@ -148,18 +146,16 @@ def handle_exception(stationName, df):
         # measurements of CO2 flux from open-path gas analyzers. Burba et al. 2008
 
         date_li75 = '2022-10-22 12:00:00'
-        id_li75 = df.index < pd.to_datetime(date_li75)
 
         correc_coeff = {
-            'Ta_cutoff_est': 18.802976760121066,
-            'Ta_slope_est': 0.1607430897209991,
-            'Ta_intercept_est': -1.5983324462698427
+            'Ta_upper_cutoff': 16.53933549581815,
+            'Ta_lower_cutoff': -9.574078122709755,
+            'Ta_slope': 0.20974821352186432,
+            'Ta_intercept': -1.6433674657493926,
+            'Ta_lower_offset': -3.6211127934187175,
             }
 
-        # Air temperature based correction
-        id_corr_temperature = id_li75 & (df['air_temp'] <= 273.15 + correc_coeff['Ta_cutoff_est'])
-        df.loc[id_corr_temperature,'CO2_flux'] = df.loc[id_corr_temperature,'CO2_flux'] \
-            - (correc_coeff['Ta_slope_est'] * (df.loc[id_corr_temperature,'air_temp']-273.15) + correc_coeff['Ta_intercept_est'])
+        df = corr_li75_CO2_flux(df, date_li75, correc_coeff)
 
 
     if stationName in ['Reservoir']:
@@ -187,5 +183,32 @@ def handle_exception(stationName, df):
         #############################################################################
 
         df['wind_dir_05103'] = 360 - df['wind_dir_05103']
+
+    return df
+
+
+def corr_li75_CO2_flux(df, date_li75, correc_coeff):
+    # Date for which the li75 was isntalled
+    id_li75 = df.index < pd.to_datetime(date_li75)
+
+    # Apply constant correction below lower air temperature cutoff
+    id_corr_low_temperature = (
+        id_li75
+        & (df['air_temp'] <= 273.15 + correc_coeff['Ta_lower_cutoff'])
+        )
+    df.loc[id_corr_low_temperature,'CO2_flux'] = (
+        df.loc[id_corr_low_temperature,'CO2_flux'] - correc_coeff['Ta_lower_offset']
+        )
+
+    # Apply linear relationship between lower and upper air temperature cutoff
+    id_corr_between_cutoff_temperature = (
+        id_li75
+        & (df['air_temp'] > 273.15 + correc_coeff['Ta_lower_cutoff'])
+        & (df['air_temp'] < 273.15 + correc_coeff['Ta_upper_cutoff'])
+        )
+    df.loc[id_corr_between_cutoff_temperature,'CO2_flux'] = (
+        df.loc[id_corr_low_temperature,'CO2_flux']
+        - ((df['air_temp'] - 273.15) * correc_coeff['Ta_slope'] + correc_coeff['Ta_intercept'])
+        )
 
     return df
