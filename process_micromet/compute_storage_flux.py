@@ -10,7 +10,7 @@ import pandas as pd
 
 def compute_storage_flux(stationName,df):
 
-    if stationName == 'Forest_stations':
+    if stationName == 'Bernard_spruce_moss':
         # Ground storage
         df['G'] = compute_ground_heat_flux(df)
 
@@ -19,7 +19,7 @@ def compute_storage_flux(stationName,df):
         df.loc[~np.isnan(LE_strg), 'LE_strg'] = LE_strg[~np.isnan(LE_strg)]
         df.loc[~np.isnan(H_strg), 'H_strg'] = H_strg[~np.isnan(H_strg)]
 
-    if stationName == 'Water_stations':
+    if stationName == 'Romaine-2_reservoir':
         # Water column storage
         df['G'] = compute_water_column_heat_flux(df)
 

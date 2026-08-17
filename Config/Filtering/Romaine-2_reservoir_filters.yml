@@ -1,0 +1,15 @@
+lon: -63.2494011
+lat: 50.6889992
+proxy_stations: [Romaine-2_reservoir_raft,Bernard_lake_outcrop,Bernard_spruce_moss_west,Bernard_spruce_moss_east]
+station_type: water
+anemometer: propeller
+radiation: False
+precipitation: tipping_bucket
+energy_balance: False
+friction_vel: 
+    vars: []
+    temperature_var: 
+flux_vars: [LE_corr,H_corr]
+strg_vars: []
+grnd_vars: []
+carbon_vars: []

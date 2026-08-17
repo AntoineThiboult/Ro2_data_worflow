@@ -2,14 +2,35 @@ import process_micromet as pm
 import data_paths as path
 from utils import data_loader as dl, dataframe_manager as dfm
 
-### Define paths
+# Station names
+CampbellStations =  [
+    'Romaine-2_reservoir_shore',
+    'Romaine-2_reservoir_raft',
+    'Romaine-2_reservoir_precip',
+    'Bernard_spruce_moss_west',
+    'Bernard_spruce_moss_east',
+    'Bernard_spruce_moss_ground',
+    'Bernard_spruce_moss_precip',
+    'Bernard_spruce_moss_snow',
+    'Bernard_lake_outcrop',
+    'Bernard_river',
+    ]
 
-CampbellStations =  ["Berge","Berge_precip","Foret_ouest","Foret_est","Foret_sol","Foret_precip","Reservoir","Bernard_lake"]
-eddyCovStations =   ["Berge","Foret_ouest","Foret_est","Reservoir","Bernard_lake"]
-gapfilledStation =  ["Bernard_lake","Water_stations","Forest_stations"]
+eddyCovStations =   [
+    'Romaine-2_reservoir_shore',
+    'Romaine-2_reservoir_raft',
+    'Bernard_spruce_moss_west',
+    'Bernard_spruce_moss_east',
+    'Bernard_lake_outcrop',
+    ]
 
-dates = {'start':'2018-06-25','end':'2025-12-15'}
+gapfilledStation =  [
+    'Romaine-2_reservoir',
+    'Bernard_spruce_moss',
+    'Bernard_lake'
+    ]
 
+dates = {'start':'2018-06-25','end':'2026-06-01'}
 
 # Merge Hobo TidBit thermistors
 df1 = pm.thermistors.list_merge_filter('Romaine-2_reservoir_thermistor_chain-1', dates, path.rawFileDir)
@@ -36,7 +57,7 @@ for iStation in gapfilledStation:
 for iStation in CampbellStations:
 
     # Binary to ascii
-    unconverted_files = pm.csbinary_to_csv.find_unconverted_files(path.station_name_conversion[iStation],iStation,
+    unconverted_files = pm.csbinary_to_csv.find_unconverted_files(iStation,
                                 path.rawFileDir,path.asciiOutDir)
     pm.csbinary_to_csv.convert(iStation, path.asciiOutDir, unconverted_files)
 
@@ -59,7 +80,7 @@ for iStation in CampbellStations:
         uncorrected_files = pm.gas_analyzer.find_uncorrected_files(path.asciiOutDir.joinpath(iStation))
         pm.gas_analyzer.correct_densities(iStation, corr_coeff, uncorrected_files)
     # Rotate wind
-    if iStation == 'Reservoir':
+    if iStation == 'Romaine-2_reservoir_raft':
         unrotated_files = pm.sonic.find_unrotated_files(path.asciiOutDir.joinpath(iStation))
         pm.sonic.rotate(iStation,unrotated_files)
 
@@ -74,7 +95,7 @@ for iStation in CampbellStations:
         eddy_df = dfm.create(dates)
         eddy_df = dfm.merge_files(eddy_df,eddypro_files,'EddyPro')
         # Rename and trim eddy variables
-        db_name_map = pm.names.map_db_names(iStation, path.varNameExcelSheet, 'eddypro')
+        db_name_map = pm.names.map_db_names(iStation, path.varNameExcelSheet, 'ep')
         eddy_df = pm.names.rename_trim(iStation, eddy_df, db_name_map)
         # Merge slow and eddy data
         df = dfm.merge(df,eddy_df)
@@ -120,7 +141,7 @@ for iStation in gapfilledStation:
     df = pm.compute_storage_flux(iStation,df)
 
     # Correct for energy balance
-    if iStation == 'Forest_stations': # Land type station
+    if iStation == 'Bernard_spruce_moss': # Land type station
         df = pm.correct_energy_balance(df)
     else: # Water body type station
         df = pm.correct_energy_balance(df, 1.34)

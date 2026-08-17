@@ -1,0 +1,15 @@
+lon: -63.405656
+lat: 50.904151
+proxy_stations: [Bernard_spruce_moss_west,Bernard_spruce_moss_east,Bernard_lake_outcrop,Romaine-2_reservoir_shore]
+station_type: land
+anemometer: False
+radiation: False
+precipitation: all_weather
+energy_balance: False
+friction_vel: 
+    vars: []
+    temperature_var: 
+flux_vars: []
+strg_vars: []
+grnd_vars: []
+carbon_vars: []

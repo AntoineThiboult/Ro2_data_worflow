@@ -1,0 +1,15 @@
+lon: -63.2494011
+lat: 50.6889992
+proxy_stations: [Romaine-2_reservoir_shore,Bernard_lake_outcrop,Bernard_spruce_moss_west,Bernard_spruce_moss_east]
+station_type: water
+anemometer: False
+radiation: True
+precipitation: False
+energy_balance: False
+friction_vel: 
+    vars: [CO2_flux]
+    temperature_var: air_temp_IRGASON107probe
+flux_vars: [LE,H,CO2_flux]
+strg_vars: [LE_strg,H_strg,CO2_strg]
+grnd_vars: []
+carbon_vars: [CO2_flux,CO2_strg]

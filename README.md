@@ -1,6 +1,13 @@
 # Ro2_data_worflow
 Processing of the data collected on the Romaine watershed.
 
+# stations
+==========
+There are three main stations which are composed of "sub-stations"
+    - Romaine-2_reservoir composed by [Romaine-2_reservoir_shore, Romaine-2_reservoir_raft, Romaine-2_reservoir_precip, Romaine-2_reservoir_thermistor_chain_1, Romaine-2_reservoir_thermistor_chain_2] sub-stations
+    - Bernard_spruce_moss composed by [Bernard_spruce_moss_west, Bernard_spruce_moss_east, Bernard_spruce_moss_ground, Bernard_spruce_moss_snow, Bernard_spruce_moss_precipitation] sub-stations
+    - Bernard_lake composed by [Bernard_lake_outcrop, Bernard_lake_thermistor_chain, Bernard_spruce_moss_precip, Bernard_river] sub-stations
+
 
 # Naming conventions
 ====================
@@ -30,8 +37,10 @@ These suffixes can be combined. For example, the variable LE_gf_mds_qf refers to
 
 # Gap filling
 -------------
-Gap filling is performed only for the stations 'Water stations', 'Forest stations', and 'Bernard Lake'. Gaps in the variables 'rad_longwave_down_CNR4', 'rad_shortwave_down_CNR4', 'rad_longwave_up_CNR4', 'rad_shortwave_up_CNR4' are filled by using ERA5 Land reanalysis that are corrected with in situ measurements and a random forest regressor. Albedo and net radiation are subsequently recomputed with continuous series. Albedo is computed only if 'rad_shortwave_down_CNR4' is greater than 25W/m2
+Gap filling is performed only for the stations 'Romaine-2_reservoir', 'Bernard_spruce_moss', and 'Bernard_lake'. Gaps in the variables 'rad_longwave_down_CNR4', 'rad_shortwave_down_CNR4', 'rad_longwave_up_CNR4', 'rad_shortwave_up_CNR4' are filled by using ERA5 Land reanalysis that are corrected with in situ measurements and a random forest regressor. Albedo and net radiation are subsequently recomputed with continuous series. Albedo is computed only if 'rad_shortwave_down_CNR4' is greater than 25W/m2
 
+# Special consideration for Romaine-2_reservoir
+Radiations are handled in a specific way. To obtain a continuous annual time series of net radiation over the water surface, we combined the following data sets: net radiation measured from the Romaine-2_reservoir_raft from June to October, net radiation measured from the Romaine-2_reservoir_shore during periods of reservoir freeze-up, assuming equivalent winter conditions on the shore and on the reservoir (similar snow cover). During the transition periods (late April-early June and late October-December), incoming radiation fluxes were taken from the shore site, the reflected shortwave radiation from the reservoir was based on the albedo calculated from Patel and Rix (2019), and the emitted longwave radiation was estimated from Stefan-Boltzmann’s law considering a surface water temperature estimated from the 0.2-m deep sensor. A water emissivity of 0.99 was used because it provided the best comparison between the raft net radiometer measurements and the empirical Stefan-Boltzmann’s law using the water surface temperature in open water.
 
 # Fluxes
 ========
@@ -73,14 +82,15 @@ Filtering of the 30-minute energy/gas flux data.
 7. Friction velocity threshold for land site (Papale et al 2006), and aquatic sites (Lükő et al. 2020)
 
 # Additional corrections
-1. Berge site CO2 fluxes before 2022-06-13. In the old EC150 firmware, CO2 absorption was measured at a high frequency, but air temperature at a lower frequency. Therefore, CO2 densities were calculated with a mix of fast CO2 concentrations and slow air temperature. This created a systematic bias. This artifact has been corrected using the procedure described in Russell et al., Adjustment of CO2 flux measurements due to the bias in the EC150 infrared gas analyzer, Agricultural and Forest Meteorology, Volumes 276–277, 2019
-2. Forest site (east and west) before 2022-10-22. The problem was described by Burba et al, Addressing the influence of instrument surface heat exchange on the measurements of CO2 flux from open-path gas analyzers, Global Change Biology Global Change Biology, 2018. In short, during winter time, the Li7500 is heated by its electronics and the sun. This creates an artificial sensible heat flux within the path of the instrument. To correct this, an artificial neural network (ANN) is trained on the Irgason data, then applied this ANN on the period the Li7500 was in use. The residual between the ANN and the Li7500 fluxes were modelled with a simple linear model that is a function of air temperature and an exponential function for the wind. They are applied sequentially (first linear air temperature, then exponential wind speed). Air temperature correction is applied only for temperature below 10°C.
+1. Romaine-2_reservoir site CO2 fluxes before 2022-06-13. In the old EC150 firmware, CO2 absorption was measured at a high frequency, but air temperature at a lower frequency. Therefore, CO2 densities were calculated with a mix of fast CO2 concentrations and slow air temperature. This created a systematic bias. This artifact has been corrected using the procedure described in Russell et al., Adjustment of CO2 flux measurements due to the bias in the EC150 infrared gas analyzer, Agricultural and Forest Meteorology, Volumes 276–277, 2019
+2. Bernard_spruce_moss_east and Bernard_spruce_moss_west before 2022-10-22. The problem was described by Burba et al, Addressing the influence of instrument surface heat exchange on the measurements of CO2 flux from open-path gas analyzers, Global Change Biology Global Change Biology, 2018. In short, during winter time, the Li7500 is heated by its electronics and the sun. This creates an artificial sensible heat flux within the path of the instrument. To correct this, an artificial neural network (ANN) is trained on the Li7500 data, then applied this ANN on the period the Irgason is in use. The residual between the ANN and the Irgason fluxes were modelled with a  simple piecewise function that is a linear function of air temperature between a lower and upper Ta cutoff. Below the lower cutoff a simple offset is applied, above the higher cutoff, no correction is performed.
 
-# Merging of the station data
-This concerns the 'Forest stations' and 'Water stations'.
-1. Forest stations merges measurements from Foret_ouest ('Bernard spruce moss west'), Foret_est ('Bernard spruce moss east'), Foret_sol ('Bernard spruce moss ground').
-2. Water stations merges measurements from Berge ('Romaine-2 reservoir shore') and Reservoir ('Romaine-2 reservoir raft'). 
-The rule of merging for the fluxes is simple: if a flux from a particular station is best according to Mauder criteron, this flux is kept. In the case both fluxes have the same quality, they are averaged. 
+# Merging of the fluxes station data
+This concerns the Bernard_spruce_moss and Romaine-2_reservoir stations fluxes.
+1. Bernard_spruce_moss merges measurements from Bernard_spruce_moss_west and Bernard_spruce_moss_east.
+2. Romaine-2_reservoir merges measurements from Romaine-2_reservoir_shore Romaine-2 reservoir raft.
+The rule of merging for the fluxes is simple: if a flux from a particular station is best according to Mauder criteron, this flux is kept. In the case both fluxes have the same quality, they are averaged.
+Note that merging fluxes from Romaine-2_reservoir_shore and Romaine-2_reservoir_raftdoesn't allow to track the storage of LE, H, CO2, and CH4 below the instrument.
 
 # Gap filling
 Two gap filling algorithms are used: a random forest regressor and the marginal distribution sampling (MDS, see Reichstein et al., On the separation of net ecosystem exchange into assimilation and ecosystem respiration: review and improved algorithm, 2005). The gapfilled series are denoted by the suffix _gf, and with _mds for marginal distribution sampling or _rf for the random forest regressor. There is not obvious best technique, they both have their strength and weaknesses. The quality flag system for the MDS works as follows:
@@ -98,7 +108,7 @@ NEE available within |dt|<= 7, 21, 28,...days                 --> Yes     --> Fi
 The flux footprint is estimated based on the simple parameterisation FFP. See Kljun, N., P. Calanca, M.W. Rotach, H.P. Schmid, 2015: The simple two-dimensional parameterisation for Flux Footprint Predictions FFP. Geosci. Model Dev. 8, 3695-3713, doi:10.5194/gmd-8-3695-2015, for details. See the header of the function FFP_climatology in ./process_micromet/footprint.py for the detailed meaning of the output.
 
 # Energy balance correction
-Latent and sensible heat flux as well as their storage terms are corrected according to Mauder, M, Genzel, S, Fu, J, et al. Evaluation of energy balance closure adjustment methods by independent evapotranspiration estimates from lysimeters and hydrological simulations. Hydrological Processes. 2018; 32: 39– 50. https://doi.org/10.1002/hyp.11397. All the variables that are corrected for the energy balance closure are indicated by the suffix _corr. Note that only the 'Forest station' has this correction implemented, as this technique cannot be applied for aquatic eddy covariance stations. 
+Latent and sensible heat flux as well as their storage terms are corrected according to Mauder, M, Genzel, S, Fu, J, et al. Evaluation of energy balance closure adjustment methods by independent evapotranspiration estimates from lysimeters and hydrological simulations. Hydrological Processes. 2018; 32: 39– 50. https://doi.org/10.1002/hyp.11397. All the variables that are corrected for the energy balance closure are indicated by the suffix _corr. Note that only the Bernard_spruce_moss station has this correction implemented, as this technique cannot be applied for aquatic eddy covariance stations. 
 
 
 # Water temperature (thermistors)
@@ -116,11 +126,11 @@ Gaps are filled with several technic applied in the following order
 3. Remaining missing data are filled with yearly averaged temperature to which a linear detrending is applied to ensure reconnection with measurements at both ends of the gap.
 4. Remaining missing data are filled with linear interpolation
 
-# Romaine-2 reservoir chain
-There are two chains, one installed next to the raft (Romaine-2_reservoir_thermistor_chain-1, L=15), the other in the deepest section of the reservoir (Romaine-2_reservoir_thermistor_chain-2, L=70m). Romaine-2_reservoir_thermistor_chain is the average of both chains and is the only gap filled chain on Romaine-2 reservoir. 
+# Romaine-2_reservoir
+There are two chains on the Romaine-2 reservoir, one installed next to the raft (Romaine-2_reservoir_thermistor_chain_1, L=15), the other in the deepest section of the reservoir (Romaine-2_reservoir_thermistor_chain_2, L=70m). The temperature in the Romaine-2_reservoir file is the average of both chains and has been gap filled. The two other files (Romaine-2_reservoir_thermistor_chain_1 and Romaine-2_reservoir_thermistor_chain_2) contain data not gapfilled. 
 
 # Bernard lake chain
-There is no gap filled version of it yet.
+There is one chain, located 150m south of Bernard_lake_outcrop. The gap filled version is in Bernard_lake. The data not gapfilled can be found in Bernard_lake_thermistor_chain
 
 # Ice phenology
 Freeze-up and melt of the lakes is monitored with time lapse cameras. It is considered frozen when more 50% of the surface is covered by continuous ice (not fragmented). In the case where no direct view of the ice cover is available, MODIS imagery is used instead.
@@ -140,35 +150,3 @@ Certain variables needed to drive land surface models are also gap filled. The s
 Gap filling is performed in two steps:
 1. Linear interpolation: Gaps are first filled by linear interpolation, up to a maximum window length defined per variable. For example, "air_temp_HC2S3": 6 means gaps of up to 6 time steps (3 hours) are interpolated.
 2. Reanalysis-based filling: Remaining gaps are filled with ERA5-Land or ERA5 reanalysis data. These values are bias-corrected using a random forest regressor trained on station observations.
-
-
-# Merging of data from different stations
-=========================================
-
-'Water stations', 'Forest stations', and 'Bernard Lake' are in fact a collection of several "sub-stations".
-
-# Water stations
-It is composed of:
-    - Berge
-    - Reservoir
-    - Berge_precip
-    - Romaine-2_reservoir_thermistor_chain-1
-    - Romaine-2_reservoir_thermistor_chain-2
-    
-Radiations are handled in a specific way. To obtain a continuous annual time series of net radiation over the water surface, we combined the following data sets: net radiation measured from the raft from June to October, net radiation measured from the shore during periods of reservoir freeze-up, assuming equivalent winter conditions on the shore and on the reservoir (similar snow cover). During the transition periods (late April-early June and late October-December), incoming radiation fluxes were taken from the shore site, the reflected shortwave radiation from the reservoir was based on the albedo calculated from Patel and Rix (2019), and the emitted longwave radiation was estimated from Stefan-Boltzmann’s law considering a surface water temperature estimated from the 0.2-m deep sensor. A water emissivity of 0.99 was used because it provided the best comparison between the raft net radiometer measurements and the empirical Stefan-Boltzmann’s law using the water surface temperature in open water.
-
-Merging fluxes from Berge and Reservoir doesn't allow to track the storage of LE, H, CO2, and CH4 below the instrument. 
-
-# Forest stations
-It is composed of:
-    - Foret ouest
-    - Foret est
-    - Foret sol
-    - Foret precip
-    - Foret neige
-
-# Bernard lake
-It is composed of:
-    - Bernard lake
-    - Bernard_lake_thermistor_chain
-    - Foret precip

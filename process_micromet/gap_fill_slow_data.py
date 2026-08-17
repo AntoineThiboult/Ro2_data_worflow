@@ -183,7 +183,7 @@ def gap_fill_meteo(station_name, df, dataFileDir, gf_config_dir):
         else:
             print(f'{i_var} not available in the ERA5 database')
 
-    if station_name == 'Forest_stations':
+    if station_name == 'Bernard_spruce_moss':
         # TODO find better way to hand missing soil_heatflux_HFP01SC_1
         id_na = df['soil_heatflux_HFP01SC_1'].isna()
         df.loc[id_na,'soil_heatflux_HFP01SC_1'] = 0
@@ -248,14 +248,14 @@ def gap_fill_radiation(station_name, df, dataFileDir, gf_config_dir):
                     input_ml_vars = np.column_stack(
                         (df[['doy_t','hour_t',air_temp]].values,
                          df['rad_longwave_down_CNR4'].values))
-                    if station_name == 'Water_stations':
+                    if station_name == 'Romaine-2_reservoir':
                         input_ml_vars = np.column_stack(
                             (input_ml_vars,df['water_frozen_sfc'].values))
                 elif i_var == 'rad_shortwave_up_CNR4':
                     input_ml_vars = np.column_stack(
                         (df[['doy_t','hour_t']].values,
                          df['rad_shortwave_down_CNR4'].values))
-                    if station_name == 'Water_stations':
+                    if station_name == 'Romaine-2_reservoir':
                         input_ml_vars = np.column_stack(
                             (input_ml_vars,df['water_frozen_sfc'].values))
 

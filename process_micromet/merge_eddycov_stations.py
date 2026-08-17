@@ -32,19 +32,15 @@ def compute_water_albedo(solar_angle):
 def merge_eddycov_stations(stationName, rawFileDir,
                            finalOutDir, miscDir, varNameExcelTab):
     """Merge :
-        - the Berge and Reservoir stations together. The station reservoir has
-          "priority", meaning that if some data is available on both stations,
-          the data from reservoir is kept, while the one from Berge is discarded.
-          However, the following variables from Berge have priority:
-              - rad_longwave_down_CNR4
-              - rad_longwave_up_CNR4
-              - rad_net_CNR4
-              - rad_shortwave_down_CNR4
-              - rad_shortwave_up_CNR4'
-        - the Foret_ouest and Foret_est stations together. Data from both stations
-          are mutually exclusive in approx 99.85% of the cases. In the case data
-          is available from both stations, the average of the value is kept,
-          except for the following variables where foret_ouest data is kept:
+        - the Romaine-2_reservoir_shore and Romaine-2_reservoir_raft stations
+        together. The station raft has "priority", meaning that if some data
+        is available on both stations, the data from raft is kept, while the
+        one from shore is discarded.
+        - the Bernard_spruce_moss_west and Bernard_spruce_moss_east stations
+        together. Data from both stations are mutually exclusive in approx
+        99.85% of the cases. In the case data is available from both stations,
+        the average of the value is kept, except for the following variables
+        where west is kept:
               - wind_dir_sonic
 
     Parameters
@@ -58,19 +54,19 @@ def merge_eddycov_stations(stationName, rawFileDir,
     -------
     df: pandas DataFrame"""
 
-    if stationName == 'Water_stations':
+    if stationName == 'Romaine-2_reservoir':
 
         # Import station data
-        df = dl.csv(finalOutDir.joinpath('Berge'))
+        df = dl.csv(finalOutDir.joinpath('Romaine-2_reservoir_shore'))
 
         # Import and merge thermistors and precipitation
         df_therm = dl.csv(finalOutDir.joinpath('Romaine-2_reservoir_thermistor_chain'))
         df = dfm.merge(df,df_therm)
-        df_precip = dl.csv(finalOutDir.joinpath('Berge_precip'))
+        df_precip = dl.csv(finalOutDir.joinpath('Romaine-2_reservoir_precip'))
         df = dfm.merge(df,df_precip)
 
-        # Import reservoir station
-        df_res = dl.csv(finalOutDir.joinpath('Reservoir'))
+        # Import raft station
+        df_res = dl.csv(finalOutDir.joinpath('Romaine-2_reservoir_raft'))
 
 
         ###############################################################
@@ -84,10 +80,10 @@ def merge_eddycov_stations(stationName, rawFileDir,
         for iVar in rad_vars:
 
             if iVar == 'rad_shortwave_up_CNR4':
-                # Substitutes Berge values with reservoir when available or
-                # with radiation computed from Berge incoming rad and
-                # reservoir computed albedo when not frozen. When frozen, take
-                # radiation as Berge.
+                # Substitutes shore values with raft when available or
+                # with radiation computed from shore incoming rad and
+                # raft computed albedo when not frozen. When frozen, take
+                # radiation as shore.
                 id_res_avail = ~df_res[iVar].isna()
                 id_frozen_res = df['water_frozen_sfc'] == 1
                 id_snow_gnd = df['albedo_CNR4'].rolling(
@@ -99,14 +95,14 @@ def merge_eddycov_stations(stationName, rawFileDir,
                 # Replace with raft data
                 df.loc[id_res_avail,iVar] = df_res.loc[id_res_avail,iVar]
 
-                # Replace with computed shortwave up from water albedo and Berge shortwave down
-                # when raft no available, and reservoir not frozen
+                # Replace with computed shortwave up from water albedo and shore shortwave down
+                # when raft no available, and raft not frozen
                 id_replace = ~id_res_avail & ~id_frozen_res
                 df.loc[id_replace,iVar] = df.loc[id_replace,'rad_shortwave_down_CNR4'] * \
                     albedo_computed[id_replace]
 
                 # Replace with computed shortwave up from default melting snow albedo and
-                # Berge shortwave down when raft no available, frozen reservoir but no snow on Berge
+                # shore shortwave down when raft no available, frozen reservoir but no snow on shore
                 id_replace = ~id_res_avail & id_frozen_res & ~id_snow_gnd
                 df.loc[id_replace,iVar] = df.loc[id_replace,'rad_shortwave_down_CNR4'] * 0.4
 
@@ -116,7 +112,7 @@ def merge_eddycov_stations(stationName, rawFileDir,
                     albedo_computed[id_replace]
 
             elif iVar == 'rad_longwave_up_CNR4':
-                # Substitutes Berge values with reservoir when available or
+                # Substitutes shore values with raft when available or
                 # with theoretical black body radiation calculated with water
                 # surface temperature when reservoir not frozen
                 id_res_avail = ~df_res[iVar].isna()
@@ -128,16 +124,16 @@ def merge_eddycov_stations(stationName, rawFileDir,
                 rad_longwave_up_BB = 0.995*5.67e-8* \
                     (df['water_temp_0m0']+273.15)**4
 
-                # Replace berge data with blackbody rad when reservoir not frozen
+                # Replace shore data with blackbody rad when reservoir not frozen
                 df.loc[~id_frozen_res,iVar] = \
                     rad_longwave_up_BB[~id_frozen_res]
 
-                # Filter abnormal values related to Berge partial melt in spring
+                # Filter abnormal values related to shore partial melt in spring
                 df.loc[id_frozen_res,iVar] = np.min([
                     rad_longwave_up_BB[id_frozen_res],
                     df.loc[id_frozen_res,iVar]], axis=0)
 
-                # Replace blackbody/Berge radiation with reservoir CNR4 when available
+                # Replace blackbody/shore radiation with raft CNR4 when available
                 df.loc[id_res_avail,iVar] = df_res.loc[
                     id_res_avail,iVar]
 
@@ -164,7 +160,7 @@ def merge_eddycov_stations(stationName, rawFileDir,
         flux_vars = ['LE','H','CO2_flux']
 
         for iVar in flux_vars:
-            # Replace fluxes when reservoir quality is better
+            # Replace fluxes when raft quality is better
             id_sub = df_res[iVar+'_qf'] < df[iVar+'_qf']
             df.loc[id_sub,iVar] = df_res.loc[id_sub,iVar]
             df.loc[id_sub,iVar+'_qf'] = df_res.loc[id_sub,iVar+'_qf']
@@ -182,25 +178,25 @@ def merge_eddycov_stations(stationName, rawFileDir,
         # Other variables
         ###############################################################
 
-        # Merge Berge and Reservoir DataFrames for remaining variables giving
-        # prioriy to Reservoir data, but exclude flux and radiation variables
+        # Merge shore and raft DataFrames for remaining variables giving
+        # prioriy to raft data, but exclude flux and radiation variables
         excluded_vars = rad_vars + flux_vars
         df = dfm.merge(df_res.drop(excluded_vars, axis=1), df)
 
 
-    elif stationName == 'Forest_stations':
+    elif stationName == 'Bernard_spruce_moss':
 
         # Import station data
-        df = dl.csv(finalOutDir.joinpath('Foret_ouest'))
+        df = dl.csv(finalOutDir.joinpath('Bernard_spruce_moss_west'))
 
-        # Import and merge foret sol and foret precip
-        df_foret_sol = dl.csv(finalOutDir.joinpath('Foret_sol'))
-        df = dfm.merge(df,df_foret_sol)
-        df_precip = dl.csv(finalOutDir.joinpath('Foret_precip'))
+        # Import and merge Bernard spruce moss ground and precip
+        df_bsm_ground = dl.csv(finalOutDir.joinpath('Bernard_spruce_moss_ground'))
+        df = dfm.merge(df,df_bsm_ground)
+        df_precip = dl.csv(finalOutDir.joinpath('Bernard_spruce_moss_precip'))
         df = dfm.merge(df,df_precip)
 
-        # Import and merge foret est
-        df_foret_est = dl.csv(finalOutDir.joinpath('Foret_est'))
+        # Import and merge Bernard spruce moss east
+        df_bsm_east = dl.csv(finalOutDir.joinpath('Bernard_spruce_moss_east'))
 
         ###############################################################
         # Merge fluxes
@@ -210,27 +206,27 @@ def merge_eddycov_stations(stationName, rawFileDir,
         strg_vars = {'LE':'LE_strg', 'H':'H_strg', 'CO2_flux':'CO2_strg', 'CH4_flux':'CH4_strg'}
 
         for iVar in flux_vars:
-            # Index for substitution when quality flag of foret est is better
-            id_sub = df_foret_est[iVar+'_qf'] < df[iVar+'_qf']
-            # Index for averaging when quality flat of est and ouest are the same
-            id_avg = df_foret_est[iVar+'_qf'] == df[iVar+'_qf']
+            # Index for substitution when quality flag of east is better
+            id_sub = df_bsm_east[iVar+'_qf'] < df[iVar+'_qf']
+            # Index for averaging when quality flag of east and west are the same
+            id_avg = df_bsm_east[iVar+'_qf'] == df[iVar+'_qf']
 
-            # Replace fluxes and storage when foret est quality is better
-            df.loc[id_sub,iVar] = df_foret_est.loc[id_sub,iVar]
-            df.loc[id_sub,strg_vars[iVar]] = df_foret_est.loc[id_sub,strg_vars[iVar]]
-            df.loc[id_sub,iVar+'_qf'] = df_foret_est.loc[id_sub,iVar+'_qf']
+            # Replace fluxes and storage when east quality is better
+            df.loc[id_sub,iVar] = df_bsm_east.loc[id_sub,iVar]
+            df.loc[id_sub,strg_vars[iVar]] = df_bsm_east.loc[id_sub,strg_vars[iVar]]
+            df.loc[id_sub,iVar+'_qf'] = df_bsm_east.loc[id_sub,iVar+'_qf']
 
             # Average flux and storage when similar quality
             df.loc[id_avg,iVar] = np.mean(
-                [df_foret_est.loc[id_avg,iVar], df.loc[id_avg,iVar]], axis=0)
+                [df_bsm_east.loc[id_avg,iVar], df.loc[id_avg,iVar]], axis=0)
 
         ###############################################################
         # Other variables
         ###############################################################
 
-        # Merge Foret ouest and Foret est DataFrames for remaining variables
-        # giving prioriy to foret ouest data, but exclude flux variables
-        df = dfm.merge(df,df_foret_est.drop(flux_vars,axis=1))
+        # Merge Bernard spruce moss west and east DataFrames for remaining variables
+        # giving prioriy to west data, but exclude flux variables
+        df = dfm.merge(df,df_bsm_east.drop(flux_vars,axis=1))
 
 
     elif stationName == 'Bernard_lake':
@@ -239,13 +235,13 @@ def merge_eddycov_stations(stationName, rawFileDir,
         # Other variables
         ###############################################################
 
-        # Import Bernard data
-        df = dl.csv(finalOutDir.joinpath('Bernard_lake'))
+        # Import Bernard lake outcrop data
+        df = dl.csv(finalOutDir.joinpath('Bernard_lake_outcrop'))
 
         # Import and merge thermistors and precipitation
         df_therm = dl.csv(finalOutDir.joinpath('Bernard_lake_thermistor_chain'))
         df = dfm.merge(df,df_therm)
-        df_precip = dl.csv(finalOutDir.joinpath('Foret_precip'))
+        df_precip = dl.csv(finalOutDir.joinpath('Bernard_spruce_moss_precip'))
         df = dfm.merge(df,df_precip)
 
     return df

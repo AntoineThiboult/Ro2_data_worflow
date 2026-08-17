@@ -75,7 +75,7 @@ def map_db_names(stationName,excelFile,tab):
     if tab == 'cs':
         col_names = ['db_name', 'original_name', 'var_description','units',
                      'instrument','instrument_descrip','remarks']
-    elif tab == 'eddypro':
+    elif tab == 'ep':
         col_names = ['db_name', 'original_name', 'var_description','units',
                      'remarks']
 

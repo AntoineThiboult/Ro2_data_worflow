@@ -22,7 +22,7 @@ def handle_exception(stationName, df):
     # Ignore warnings caused by averaging nan
     warnings.filterwarnings("ignore")
 
-    if stationName in ['Berge']:
+    if stationName in ['Romaine-2_reservoir_shore']:
 
         #############################################################################
         ### Handle the RMY 05103 counter clockwise wind direction reference frame ###
@@ -73,7 +73,7 @@ def handle_exception(stationName, df):
             - (-13.74654197 * wT[id_irga_2] + -0.0004747748983443545)
 
 
-    if stationName in ['Foret_ouest']:
+    if stationName in ['Bernard_spruce_moss_west']:
 
 
         ######################################################################
@@ -134,7 +134,7 @@ def handle_exception(stationName, df):
         df = corr_li75_CO2_flux(df, date_li75, correc_coeff)
 
 
-    if stationName in ['Foret_est']:
+    if stationName in ['Bernard_spruce_moss_east']:
 
         ############################################
         # Handle the CO2 flux artifact related to  #
@@ -158,7 +158,7 @@ def handle_exception(stationName, df):
         df = corr_li75_CO2_flux(df, date_li75, correc_coeff)
 
 
-    if stationName in ['Reservoir']:
+    if stationName in ['Romaine-2_reservoir_raft']:
 
         ######################################################
         # Remove first and last days of each yearly campaign #
@@ -176,7 +176,7 @@ def handle_exception(stationName, df):
                     df.loc[id_start:id_start+pd.Timedelta(days=1),:] = np.nan
                 df.loc[id_end-+pd.Timedelta(days=1):id_end,:] = np.nan
 
-    if stationName in ['Bernard_lake']:
+    if stationName in ['Bernard_lake_outcrop']:
 
         #############################################################################
         ### Handle the RMY 05103 counter clockwise wind direction reference frame ###

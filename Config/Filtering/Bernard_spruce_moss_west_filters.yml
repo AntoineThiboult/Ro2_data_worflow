@@ -1,14 +1,14 @@
-lon: -63.3898409
-lat: 50.8614547
-proxy_stations: [Bernard_spruce_moss_west,Bernard_spruce_moss_east,Romaine-2_reservoir_raft,Romaine-2_reservoir_shore]
-station_type: water
+lon: -63.4051018
+lat: 50.9020996
+proxy_stations: [Bernard_spruce_moss_east,Bernard_lake_outcrop,Romaine-2_reservoir_shore,Romaine-2_reservoir_raft]
+station_type: land
 anemometer: propeller
 radiation: True
 precipitation: tipping_bucket
 energy_balance: True
 friction_vel: 
     vars: [CO2_flux,CH4_flux]
-    temperature_var: air_temp_IRGASON107probe
+    temperature_var: air_temp_CR3000
 flux_vars: [LE,H,CO2_flux,CH4_flux]
 strg_vars: [LE_strg,H_strg,CO2_strg,CH4_strg]
 grnd_vars: []

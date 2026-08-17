@@ -8,8 +8,7 @@ from utils import data_loader as dl
 from tqdm import tqdm
 
 
-def find_unconverted_files(station_name_raw, station_name_ascii,
-                           bin_file_dir, csv_file_dir):
+def find_unconverted_files(station_name, bin_file_dir, csv_file_dir):
     """
     Find Campbell Scientific binary TOB3 files (*.dat) located in `bin_file_dir`
     and determine which ones still need to be converted to CSV files in
@@ -34,10 +33,8 @@ def find_unconverted_files(station_name_raw, station_name_ascii,
 
     Parameters
     ----------
-    station_name_raw :Path or str
-        Name of the station as stored in the raw data.
-    station_name_ascii : Path or str
-        Name of the station as stored in the ASCII (converted) data.
+    station_name :Path or str
+        Name of the station
     bin_file_dir : Path or str
         Path to the directory that contains the Campbell Scientific binary
         files (.dat).
@@ -58,13 +55,13 @@ def find_unconverted_files(station_name_raw, station_name_ascii,
     logf = open(Path('.','Logs','csbinary_to_csv.log'), "a")
 
     # Cache file to store already processed files
-    tob3_cache_file = Path(".", "Logs", f"{station_name_raw}_tob3_timestamps_cache.csv")
+    tob3_cache_file = Path(".", "Logs", f"{station_name}_tob3_timestamps_cache.csv")
     ts_cache = load_cache(tob3_cache_file)
     new_cache_rows = []
 
     # Paths
     bin_file_dir = Path(bin_file_dir)
-    csv_file_dir = Path(csv_file_dir).joinpath(station_name_ascii)
+    csv_file_dir = Path(csv_file_dir).joinpath(station_name)
 
     # List files that are already converted
     csv_files = list_csv_files(csv_file_dir)
@@ -73,9 +70,9 @@ def find_unconverted_files(station_name_raw, station_name_ascii,
 
     # List all Campbell binary files located in subdirectories and
     # matching station name
-    csbin_files = list_csbinary_files(bin_file_dir, station_name_raw)
+    csbin_files = list_csbinary_files(bin_file_dir, station_name)
 
-    for csbin_file in tqdm(csbin_files, miniters=1, desc=f'{station_name_ascii}: Listing unconverted files'):
+    for csbin_file in tqdm(csbin_files, miniters=1, desc=f'{station_name}: Listing unconverted files'):
 
         # Get the type of file (eddy covariance, regular met data, etc)
         extension, split_interval = type_of_file(csbin_file)
