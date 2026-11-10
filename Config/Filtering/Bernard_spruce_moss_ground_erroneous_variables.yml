@@ -4,3 +4,5 @@ wind_dir_5m_05103:
     - ['2024-11-27 11:00:00', '2024-12-13 09:00:00'] # Low battery issue that corrupted readings
 wind_dir_std_5m_05103:
     - ['2024-11-27 11:00:00', '2024-12-13 09:00:00'] # Low battery issue that corrupted readings
+soil_heatflux_HFP01SC_2:
+    - ['2026-07-29 20:00:00', '2026-10-23 10:30:00'] # Cable disconnected from datalogger
